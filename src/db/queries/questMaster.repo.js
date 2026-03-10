@@ -1,67 +1,67 @@
 const { getPool } = require('../pool');
 
-async function findCurrentMainQuestByProfession(professionCode) {
-  const query = `
-    SELECT
-      qm.id,
-      qm.quest_code,
-      qm.quest_name,
-      qm.quest_name_th,
-      qm.quest_description,
-      qm.quest_description_th,
-      qm.quest_category,
-      qm.profession_code,
-      qm.level_no,
-      qm.display_order,
-      qm.fame_required_display,
-      qm.fame_note,
-      qm.is_active,
-      qm.is_step_quest,
-      qm.requires_ticket,
-      qm.requires_admin_approval,
-      qm.created_at
-    FROM public.tb_quest_master qm
-    WHERE qm.quest_category = 'MAIN'
-      AND qm.profession_code = $1
-      AND qm.is_active = TRUE
-    ORDER BY qm.level_no ASC, qm.display_order ASC, qm.created_at ASC
-    LIMIT 1
-  `;
+async function findQuestById(questId) {
+  const pool = getPool();
 
-  const result = await getPool().query(query, [professionCode]);
+  const result = await pool.query(
+    `
+    SELECT q.*, c.category_code, p.profession_code
+    FROM tb_quest_master q
+    LEFT JOIN tb_quest_master_category c ON q.category_id = c.category_id
+    LEFT JOIN tb_quest_master_profession p ON q.profession_id = p.profession_id
+    WHERE q.quest_id = $1
+    LIMIT 1
+    `,
+    [questId]
+  );
+
   return result.rows[0] || null;
 }
 
-async function findRepeatableQuestsByProfession(professionCode) {
-  const query = `
-    SELECT
-      qm.id,
-      qm.quest_code,
-      qm.quest_name,
-      qm.quest_name_th,
-      qm.quest_description,
-      qm.quest_description_th,
-      qm.quest_category,
-      qm.profession_code,
-      qm.level_no,
-      qm.display_order,
-      qm.repeat_cooldown_days,
-      qm.fame_required_display,
-      qm.fame_note,
-      qm.is_active,
-      qm.created_at
-    FROM public.tb_quest_master qm
-    WHERE qm.quest_category = 'REPEATABLE'
-      AND qm.profession_code = $1
-      AND qm.is_active = TRUE
-    ORDER BY qm.level_no ASC, qm.display_order ASC, qm.created_at ASC
-  `;
+async function findMainQuestByProfession(professionCode) {
+  const pool = getPool();
 
-  const result = await getPool().query(query, [professionCode]);
+  const result = await pool.query(
+    `
+    SELECT q.*
+    FROM tb_quest_master q
+    JOIN tb_quest_master_profession p
+      ON q.profession_id = p.profession_id
+    JOIN tb_quest_master_category c
+      ON q.category_id = c.category_id
+    WHERE p.profession_code = $1
+      AND c.category_code = 'MAIN'
+      AND q.is_active = true
+    ORDER BY q.quest_level ASC, q.display_order ASC
+    `,
+    [professionCode]
+  );
+
+  return result.rows;
+}
+
+async function findRepeatableQuestByProfession(professionCode) {
+  const pool = getPool();
+
+  const result = await pool.query(
+    `
+    SELECT q.*
+    FROM tb_quest_master q
+    JOIN tb_quest_master_profession p
+      ON q.profession_id = p.profession_id
+    WHERE p.profession_code = $1
+      AND q.is_repeatable = true
+      AND q.is_active = true
+    ORDER BY q.display_order
+    `,
+    [professionCode]
+  );
+
   return result.rows;
 }
 
 module.exports = {
-  findCurrentMainQuestByProfession,
-  findRepeatableQuestsByProfession
+  findQuestById,
+  findMainQuestByProfession,
+  findRepeatableQuestByProfession
 };
