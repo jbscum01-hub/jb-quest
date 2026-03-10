@@ -1,4 +1,66 @@
 const { SUBMISSION_STATES } = require('../constants/questStates');
+const {
+  findSubmissionById,
+  updateSubmissionState,
+  insertSubmissionReviewLog
+} = require('../db/queries/review.repo');
+const {
+  findMainProgressByPlayerProfileId,
+  updateMainProgressAfterApprove,
+  updateMainProgressToRevision,
+  updateMainProgressToRejected
+} = require('../db/queries/mainProgress.repo');
+
+function mapReviewActionToSubmissionState(action) {
+  if (action === 'approve') {
+    return SUBMISSION_STATES.APPROVED;
+  }
+
+  if (action === 'revision') {
+    return SUBMISSION_STATES.REVISION_REQUIRED;
+  }
+
+  if (action === 'reject') {
+    return SUBMISSION_STATES.REJECTED;
+  }
+
+  return null;
+}
+
+async function updateProgressForReviewedSubmission({
+  action,
+  submission
+}) {
+  if (!submission || submission.quest_category !== 'MAIN') {
+    return null;
+  }
+
+  const progress = await findMainProgressByPlayerProfileId(
+    submission.player_profile_id,
+    submission.profession_code
+  );
+
+  if (!progress) {
+    return null;
+  }
+
+  if (action === 'approve') {
+    return updateMainProgressAfterApprove({
+      playerProfileId: submission.player_profile_id,
+      professionCode: submission.profession_code,
+      currentQuestId: submission.quest_id,
+      submissionId: submission.id
+    });
+  }
+
+  if (action === 'revision') {
+    return updateMainProgressToRevision({
+      playerProfileId: submission.player_profile_id,
+      professionCode: submission.profession_code,
+      currentQuestId: submission.quest_id,
+      submissionId: submission.id
+    });
+  }
 
   if (action === 'reject') {
     return updateMainProgressToRejected({
@@ -25,7 +87,10 @@ async function reviewSubmission({
     throw new Error('ไม่พบ submission ที่ต้องการตรวจ');
   }
 
-  if (submission.submission_state === SUBMISSION_STATES.APPROVED && action === 'approve') {
+  if (
+    submission.submission_state === SUBMISSION_STATES.APPROVED &&
+    action === 'approve'
+  ) {
     throw new Error('submission นี้ถูกอนุมัติแล้ว');
   }
 
