@@ -7,12 +7,7 @@ function loadEnv() {
 
   dotenv.config();
 
-  const requiredVars = [
-    'BOT_TOKEN',
-    'DATABASE_URL',
-    'GUILD_ID'
-  ];
-
+  const requiredVars = ['BOT_TOKEN', 'DATABASE_URL', 'GUILD_ID'];
   const missingVars = requiredVars.filter((key) => !process.env[key]);
 
   if (missingVars.length > 0) {
