@@ -1,20 +1,15 @@
 {
   "name": "scum-quest-bot",
   "version": "1.0.0",
-  "description": "SCUM Quest Bot for Discord",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "deploy:panels": "node src/scripts/deployPanels.js"
+    "dev": "nodemon src/index.js"
   },
   "dependencies": {
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
     "pg": "^8.13.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.7"
   }
 }
