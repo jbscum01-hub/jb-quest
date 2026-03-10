@@ -1,50 +1,45 @@
-const {
-  findSubmissionById,
-  updateSubmissionStatus
-} = require('../db/queries/submission.repo');
+const { getPool } = require('../db/pool');
 
-const {
-  insertReviewLog
-} = require('../db/queries/review.repo');
+async function approveSubmission(submissionId, reviewer) {
 
-async function approveSubmission(submissionId, reviewerId) {
-  const submission = await findSubmissionById(submissionId);
+  const pool = getPool();
 
-  if (!submission) {
-    throw new Error('Submission not found');
-  }
+  await pool.query(`
+    UPDATE tb_quest_submission
+    SET submission_status = 'APPROVED',
+        reviewed_by = $2,
+        reviewed_at = NOW()
+    WHERE submission_id = $1
+  `,[submissionId, reviewer]);
 
-  await updateSubmissionStatus(submissionId, 'APPROVED');
-
-  await insertReviewLog({
-    submissionId,
-    actionType: 'APPROVE',
-    actionBy: reviewerId
-  });
-
-  return submission;
 }
 
-async function rejectSubmission(submissionId, reviewerId, remark) {
-  await updateSubmissionStatus(submissionId, 'REJECTED');
+async function rejectSubmission(submissionId, reviewer) {
 
-  await insertReviewLog({
-    submissionId,
-    actionType: 'REJECT',
-    actionBy: reviewerId,
-    remark
-  });
+  const pool = getPool();
+
+  await pool.query(`
+    UPDATE tb_quest_submission
+    SET submission_status = 'REJECTED',
+        reviewed_by = $2,
+        reviewed_at = NOW()
+    WHERE submission_id = $1
+  `,[submissionId, reviewer]);
+
 }
 
-async function requestRevision(submissionId, reviewerId, remark) {
-  await updateSubmissionStatus(submissionId, 'REVISION_REQUIRED');
+async function requestRevision(submissionId, reviewer) {
 
-  await insertReviewLog({
-    submissionId,
-    actionType: 'REQUEST_REVISION',
-    actionBy: reviewerId,
-    remark
-  });
+  const pool = getPool();
+
+  await pool.query(`
+    UPDATE tb_quest_submission
+    SET submission_status = 'REVISION_REQUIRED',
+        reviewed_by = $2,
+        reviewed_at = NOW()
+    WHERE submission_id = $1
+  `,[submissionId, reviewer]);
+
 }
 
 module.exports = {
