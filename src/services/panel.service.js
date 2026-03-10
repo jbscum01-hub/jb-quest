@@ -1,7 +1,6 @@
 const { getPool } = require('../db/pool');
 
 async function getCurrentQuestSummary(professionCode) {
-
   const pool = getPool();
 
   const result = await pool.query(`
@@ -9,7 +8,9 @@ async function getCurrentQuestSummary(professionCode) {
       q.quest_id,
       q.quest_name,
       q.quest_description,
-      q.quest_level
+      q.quest_level,
+      q.fame_required_display,
+      q.fame_note
     FROM tb_quest_master q
     JOIN tb_quest_master_profession p
       ON q.profession_id = p.profession_id
@@ -22,36 +23,31 @@ async function getCurrentQuestSummary(professionCode) {
     LIMIT 1
   `,[professionCode]);
 
-  if (!result.rows.length) {
-    return null;
-  }
+  if (!result.rows.length) return null;
 
-  return result.rows[0];
-}
+  const quest = result.rows[0];
 
-async function getRepeatableQuests(professionCode) {
+  const req = await pool.query(`
+    SELECT requirement_type, item_name, required_quantity, display_text
+    FROM tb_quest_master_requirement
+    WHERE quest_id = $1
+    ORDER BY sort_order
+  `,[quest.quest_id]);
 
-  const pool = getPool();
+  const reward = await pool.query(`
+    SELECT reward_type, reward_item_name, reward_quantity, reward_value_number
+    FROM tb_quest_master_reward
+    WHERE quest_id = $1
+    ORDER BY sort_order
+  `,[quest.quest_id]);
 
-  const result = await pool.query(`
-    SELECT
-      q.quest_id,
-      q.quest_name,
-      q.quest_description
-    FROM tb_quest_master q
-    JOIN tb_quest_master_profession p
-      ON q.profession_id = p.profession_id
-    WHERE p.profession_code = $1
-      AND q.is_repeatable = true
-      AND q.is_active = true
-    ORDER BY q.display_order
-  `,[professionCode]);
-
-  return result.rows;
-
+  return {
+    quest,
+    requirements: req.rows,
+    rewards: reward.rows
+  };
 }
 
 module.exports = {
-  getCurrentQuestSummary,
-  getRepeatableQuests
+  getCurrentQuestSummary
 };
