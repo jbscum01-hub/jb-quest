@@ -17,3 +17,10 @@
     "nodemon": "^3.1.7"
   }
 }
+{
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "deploy:panels": "node src/scripts/deployPanels.js"
+  }
+}
