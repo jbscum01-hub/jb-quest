@@ -1,131 +1,54 @@
-const { SUBMISSION_STATES } = require('../constants/questStates');
 const {
   findSubmissionById,
-  updateSubmissionState,
-  insertSubmissionReviewLog
-} = require('../db/queries/review.repo');
+  updateSubmissionStatus
+} = require('../db/queries/submission.repo');
+
 const {
-  findMainProgressByPlayerProfileId,
-  updateMainProgressAfterApprove,
-  updateMainProgressToRevision,
-  updateMainProgressToRejected
-} = require('../db/queries/mainProgress.repo');
+  insertReviewLog
+} = require('../db/queries/review.repo');
 
-function mapReviewActionToSubmissionState(action) {
-  if (action === 'approve') {
-    return SUBMISSION_STATES.APPROVED;
-  }
-
-  if (action === 'revision') {
-    return SUBMISSION_STATES.REVISION_REQUIRED;
-  }
-
-  if (action === 'reject') {
-    return SUBMISSION_STATES.REJECTED;
-  }
-
-  return null;
-}
-
-async function updateProgressForReviewedSubmission({
-  action,
-  submission
-}) {
-  if (!submission || submission.quest_category !== 'MAIN') {
-    return null;
-  }
-
-  const progress = await findMainProgressByPlayerProfileId(
-    submission.player_profile_id,
-    submission.profession_code
-  );
-
-  if (!progress) {
-    return null;
-  }
-
-  if (action === 'approve') {
-    return updateMainProgressAfterApprove({
-      playerProfileId: submission.player_profile_id,
-      professionCode: submission.profession_code,
-      currentQuestId: submission.quest_id,
-      submissionId: submission.id
-    });
-  }
-
-  if (action === 'revision') {
-    return updateMainProgressToRevision({
-      playerProfileId: submission.player_profile_id,
-      professionCode: submission.profession_code,
-      currentQuestId: submission.quest_id,
-      submissionId: submission.id
-    });
-  }
-
-  if (action === 'reject') {
-    return updateMainProgressToRejected({
-      playerProfileId: submission.player_profile_id,
-      professionCode: submission.profession_code,
-      currentQuestId: submission.quest_id,
-      submissionId: submission.id
-    });
-  }
-
-  return null;
-}
-
-async function reviewSubmission({
-  submissionId,
-  action,
-  reviewerDiscordId,
-  reviewerDiscordTag,
-  reviewNote = null
-}) {
+async function approveSubmission(submissionId, reviewerId) {
   const submission = await findSubmissionById(submissionId);
 
   if (!submission) {
-    throw new Error('ไม่พบ submission ที่ต้องการตรวจ');
+    throw new Error('Submission not found');
   }
 
-  if (
-    submission.submission_state === SUBMISSION_STATES.APPROVED &&
-    action === 'approve'
-  ) {
-    throw new Error('submission นี้ถูกอนุมัติแล้ว');
-  }
+  await updateSubmissionStatus(submissionId, 'APPROVED');
 
-  const nextSubmissionState = mapReviewActionToSubmissionState(action);
-
-  if (!nextSubmissionState) {
-    throw new Error('action review ไม่ถูกต้อง');
-  }
-
-  const updatedSubmission = await updateSubmissionState({
+  await insertReviewLog({
     submissionId,
-    submissionState: nextSubmissionState
+    actionType: 'APPROVE',
+    actionBy: reviewerId
   });
 
-  const reviewLog = await insertSubmissionReviewLog({
+  return submission;
+}
+
+async function rejectSubmission(submissionId, reviewerId, remark) {
+  await updateSubmissionStatus(submissionId, 'REJECTED');
+
+  await insertReviewLog({
     submissionId,
-    actionType: action.toUpperCase(),
-    reviewerDiscordId,
-    reviewerDiscordTag,
-    reviewNote
+    actionType: 'REJECT',
+    actionBy: reviewerId,
+    remark
   });
+}
 
-  const progress = await updateProgressForReviewedSubmission({
-    action,
-    submission
+async function requestRevision(submissionId, reviewerId, remark) {
+  await updateSubmissionStatus(submissionId, 'REVISION_REQUIRED');
+
+  await insertReviewLog({
+    submissionId,
+    actionType: 'REQUEST_REVISION',
+    actionBy: reviewerId,
+    remark
   });
-
-  return {
-    submission,
-    updatedSubmission,
-    reviewLog,
-    progress
-  };
 }
 
 module.exports = {
-  reviewSubmission
+  approveSubmission,
+  rejectSubmission,
+  requestRevision
 };
