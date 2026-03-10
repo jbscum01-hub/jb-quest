@@ -1,0 +1,10 @@
+const QUEST_CATEGORIES = {
+  MAIN: 'MAIN',
+  REPEATABLE: 'REPEATABLE',
+  TIMED: 'TIMED',
+  LEGENDARY: 'LEGENDARY'
+};
+
+module.exports = {
+  QUEST_CATEGORIES
+};
