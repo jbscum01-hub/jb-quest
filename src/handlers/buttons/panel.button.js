@@ -1,4 +1,5 @@
 const { getCurrentQuestSummary } = require('../../services/panel.service');
+const { buildQuestSubmissionModal } = require('../../builders/modals/questSubmission.modal');
 
 async function handlePanelButton(interaction, parsedCustomId) {
   const { action, extra } = parsedCustomId;
@@ -15,18 +16,22 @@ async function handlePanelButton(interaction, parsedCustomId) {
   }
 
   if (action === 'submit_main') {
-    await interaction.reply({
-      content: `กำลังเปิดระบบส่งเควสหลักของสาย ${professionCode} (stub)`,
-      ephemeral: true
+    const modal = buildQuestSubmissionModal({
+      submissionMode: 'MAIN',
+      professionCode
     });
+
+    await interaction.showModal(modal);
     return;
   }
 
   if (action === 'submit_repeatable') {
-    await interaction.reply({
-      content: `กำลังเปิดระบบส่งเควสซ้ำของสาย ${professionCode} (stub)`,
-      ephemeral: true
+    const modal = buildQuestSubmissionModal({
+      submissionMode: 'REPEATABLE',
+      professionCode
     });
+
+    await interaction.showModal(modal);
     return;
   }
 
