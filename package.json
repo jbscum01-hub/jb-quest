@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "deploy:panels": "node src/scripts/deployPanels.js"
+    "deploy:panels": "node src/scripts/deployPanels.js",
     "create:admin-panel": "node src/scripts/createAdminPanel.js"
   },
   "dependencies": {
@@ -17,5 +17,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
