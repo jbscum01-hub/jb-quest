@@ -1,6 +1,7 @@
 const { parseCustomId } = require('../utils/customId');
 const { logger } = require('../config/logger');
 const { handlePanelButton } = require('./buttons/panel.button');
+const { handleReviewButton } = require('./buttons/review.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 
 function registerInteractionHandler(client) {
@@ -15,6 +16,11 @@ function registerInteractionHandler(client) {
 
         if (parsed.scope === 'panel') {
           await handlePanelButton(interaction, parsed);
+          return;
+        }
+
+        if (parsed.scope === 'review') {
+          await handleReviewButton(interaction, parsed);
           return;
         }
 
