@@ -8,6 +8,7 @@ const {
 const { loadEnv } = require('./config/env');
 const { logger } = require('./config/logger');
 const { registerInteractionHandler } = require('./handlers/interactionCreate');
+const { autoDeployPanels } = require('./services/panelAutoDeploy.service');
 
 async function createBot() {
   loadEnv();
@@ -25,6 +26,9 @@ async function createBot() {
 
   client.once('ready', async () => {
     logger.info(`Logged in as ${client.user.tag}`);
+    
+    await autoDeployPanels(client);
+    
   });
 
   registerInteractionHandler(client);
