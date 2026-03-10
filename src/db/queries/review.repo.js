@@ -1,4 +1,22 @@
 const { getPool } = require('../pool');
+
+async function findSubmissionById(submissionId) {
+  const query = `
+    SELECT
+      qs.id,
+      qs.player_profile_id,
+      qs.quest_id,
+      qs.submission_type,
+      qs.submission_state,
+      qs.profession_code,
+      qs.title,
+      qs.description,
+      qs.proof_text,
+      qs.submitted_by_discord_id,
+      qs.submitted_by_discord_tag,
+      qs.created_at,
+      qs.updated_at,
+      qp.discord_user_id,
       qp.discord_username,
       qp.ingame_name,
       qm.quest_code,
@@ -23,19 +41,37 @@ const { getPool } = require('../pool');
   return result.rows[0] || null;
 }
 
-async function updateSubmissionState({ submissionId, submissionState }) {
+async function updateSubmissionState({
+  submissionId,
+  submissionState
+}) {
   const query = `
     UPDATE public.tb_quest_submission
-    SET submission_state = $2,
-        updated_at = NOW()
+    SET
+      submission_state = $2,
+      updated_at = NOW()
     WHERE id = $1
-    RETURNING id, player_profile_id, quest_id, submission_type, submission_state,
-              profession_code, title, description, proof_text,
-              submitted_by_discord_id, submitted_by_discord_tag,
-              created_at, updated_at
+    RETURNING
+      id,
+      player_profile_id,
+      quest_id,
+      submission_type,
+      submission_state,
+      profession_code,
+      title,
+      description,
+      proof_text,
+      submitted_by_discord_id,
+      submitted_by_discord_tag,
+      created_at,
+      updated_at
   `;
 
-  const result = await getPool().query(query, [submissionId, submissionState]);
+  const result = await getPool().query(query, [
+    submissionId,
+    submissionState
+  ]);
+
   return result.rows[0] || null;
 }
 
@@ -60,8 +96,14 @@ async function insertSubmissionReviewLog({
     (
       $1, $2, $3, $4, $5, NOW()
     )
-    RETURNING id, submission_id, action_type, reviewer_discord_id,
-              reviewer_discord_tag, review_note, created_at
+    RETURNING
+      id,
+      submission_id,
+      action_type,
+      reviewer_discord_id,
+      reviewer_discord_tag,
+      review_note,
+      created_at
   `;
 
   const result = await getPool().query(query, [
