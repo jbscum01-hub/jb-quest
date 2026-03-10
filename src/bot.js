@@ -18,10 +18,7 @@ async function createBot() {
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent
     ],
-    partials: [
-      Partials.Channel,
-      Partials.Message
-    ]
+    partials: [Partials.Channel, Partials.Message]
   });
 
   client.commands = new Collection();
