@@ -1,10 +1,14 @@
+const { getCurrentQuestSummary } = require('../../services/panel.service');
+
 async function handlePanelButton(interaction, parsedCustomId) {
   const { action, extra } = parsedCustomId;
   const professionCode = extra;
 
   if (action === 'view_current') {
+    const summary = await getCurrentQuestSummary(professionCode);
+
     await interaction.reply({
-      content: `กำลังแสดงเควสปัจจุบันของสาย ${professionCode} (stub)`,
+      content: summary.text,
       ephemeral: true
     });
     return;
