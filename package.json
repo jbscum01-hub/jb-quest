@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
     "deploy:panels": "node src/scripts/deployPanels.js"
   },
   "dependencies": {
