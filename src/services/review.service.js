@@ -77,7 +77,11 @@ async function reviewSubmission({
           remark: reviewNote
         }, client);
 
-        const nextQuest = await findNextMainQuestByProfession(submission.profession_code, submission.quest_level, client);
+        const nextQuest = await findNextMainQuestByProfession(
+          submission.profession_code,
+          submission.quest_level,
+          client
+        );
 
         if (nextQuest) {
           await setCurrentMainQuest(
@@ -95,7 +99,11 @@ async function reviewSubmission({
             progressStatus: 'AVAILABLE'
           }, client);
         } else {
-          await markProfessionCompleted(submission.player_id, submission.profession_id, client);
+          await markProfessionCompleted(
+            submission.player_id,
+            submission.profession_id,
+            client
+          );
         }
       }
 
@@ -120,7 +128,12 @@ async function reviewSubmission({
             AND profession_id = $2
             AND quest_id = $3
           `,
-          [submission.player_id, submission.profession_id, submission.quest_id, submission.repeat_cooldown_days || 1]
+          [
+            submission.player_id,
+            submission.profession_id,
+            submission.quest_id,
+            submission.repeat_cooldown_days || 1
+          ]
         );
 
         await insertCompletionLog({
