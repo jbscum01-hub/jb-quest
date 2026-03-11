@@ -1,50 +1,59 @@
 const { EmbedBuilder } = require('discord.js');
 
-function buildCurrentQuestEmbed(data) {
+function formatRequirement(row) {
+  if (row.display_text) return `• ${row.display_text}`;
+  if (row.item_name && row.required_quantity) return `• ${row.item_name} x${row.required_quantity}`;
+  if (row.item_name) return `• ${row.item_name}`;
+  if (row.requirement_type === 'IMAGE') return '• ส่งภาพหลักฐาน';
+  if (row.requirement_type === 'INGAME_NAME') return '• ระบุชื่อตัวละคร';
+  return `• ${row.requirement_type}`;
+}
 
-  if (!data) {
+function formatReward(row) {
+  if (row.reward_display_text) return `• ${row.reward_display_text}`;
+  if (row.reward_item_name && row.reward_quantity) return `• ${row.reward_item_name} x${row.reward_quantity}`;
+  if (row.reward_item_name) return `• ${row.reward_item_name}`;
+  if (row.reward_type === 'SCUM_MONEY' && row.reward_value_number) return `• เงิน ${row.reward_value_number}`;
+  if (row.reward_type === 'FAME_POINT' && row.reward_value_number) return `• Fame ${row.reward_value_number}`;
+  if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_name) return `• ยศ ${row.discord_role_name}`;
+  return `• ${row.reward_type}`;
+}
+
+function buildCurrentQuestEmbed({ professionCode, quest, requirements, rewards, isRepeatable = false }) {
+  if (!quest) {
     return new EmbedBuilder()
       .setColor(0xff0000)
-      .setTitle('ไม่มีเควสในระบบ');
+      .setTitle(`ไม่พบเควสของสาย ${professionCode}`)
+      .setDescription('กรุณาตรวจสอบข้อมูล quest ในฐานข้อมูล');
   }
 
-  const { quest, requirements, rewards } = data;
-
-  const reqText = requirements.map(r => {
-
-    if (r.item_name) {
-      return `• ${r.item_name} x${r.required_quantity}`;
-    }
-
-    return `• ${r.display_text}`;
-
-  }).join('\n');
-
-  const rewardText = rewards.map(r => {
-
-    if (r.reward_item_name) {
-      return `• ${r.reward_item_name} x${r.reward_quantity}`;
-    }
-
-    if (r.reward_value_number) {
-      return `• ${r.reward_value_number}`;
-    }
-
-    return `• ${r.reward_type}`;
-
-  }).join('\n');
-
   return new EmbedBuilder()
-    .setColor(0x2b2d31)
-    .setTitle(`📜 ${quest.quest_name}`)
+    .setColor(isRepeatable ? 0x57f287 : 0x5865f2)
+    .setTitle(`${isRepeatable ? '♻️' : '📜'} ${quest.quest_name}`)
     .setDescription(quest.quest_description || '-')
     .addFields(
-      { name: 'Requirement', value: reqText || '-', inline:false },
-      { name: 'Reward', value: rewardText || '-', inline:false }
+      {
+        name: 'รายละเอียด',
+        value: [
+          `สายอาชีพ: ${quest.profession_code || professionCode}`,
+          `เลเวล: ${quest.quest_level || '-'}`,
+          `Fame ที่แสดง: ${quest.fame_required_display ?? '-'}`
+        ].join('\n'),
+        inline: false
+      },
+      {
+        name: 'เงื่อนไข',
+        value: requirements.length ? requirements.map(formatRequirement).join('\n') : '-',
+        inline: false
+      },
+      {
+        name: 'รางวัล',
+        value: rewards.length ? rewards.map(formatReward).join('\n') : '-',
+        inline: false
+      }
     )
-    .setFooter({
-      text: quest.fame_note || 'SCUM Quest'
-    });
+    .setFooter({ text: quest.fame_note || 'SCUM Quest System' })
+    .setTimestamp();
 }
 
 module.exports = {
