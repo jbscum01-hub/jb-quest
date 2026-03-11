@@ -1,49 +1,221 @@
-const { getPool } = require('../db/pool');
+const { withTransaction } = require('../db/pool');
+const { findSubmissionById, updateSubmissionReview } = require('../db/queries/submission.repo');
+const { insertReviewLog, insertCompletionLog } = require('../db/queries/review.repo');
+const {
+  findNextMainQuestByProfession,
+  findQuestRewards
+} = require('../db/queries/questMaster.repo');
+const {
+  upsertMainProgress,
+  upsertRepeatableState,
+  setCurrentMainQuest,
+  markProfessionCompleted
+} = require('../db/queries/mainProgress.repo');
 
-async function approveSubmission(submissionId, reviewer) {
+function buildRewardSummary(rewards) {
+  if (!rewards.length) return 'ไม่มี reward ในฐานข้อมูล';
 
-  const pool = getPool();
-
-  await pool.query(`
-    UPDATE tb_quest_submission
-    SET submission_status = 'APPROVED',
-        reviewed_by = $2,
-        reviewed_at = NOW()
-    WHERE submission_id = $1
-  `,[submissionId, reviewer]);
-
+  return rewards.map((row) => {
+    if (row.reward_display_text) return `• ${row.reward_display_text}`;
+    if (row.reward_item_name && row.reward_quantity) return `• ${row.reward_item_name} x${row.reward_quantity}`;
+    if (row.reward_type === 'SCUM_MONEY' && row.reward_value_number) return `• เงิน ${row.reward_value_number}`;
+    if (row.reward_type === 'FAME_POINT' && row.reward_value_number) return `• Fame ${row.reward_value_number}`;
+    if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_name) return `• ยศ ${row.discord_role_name}`;
+    return `• ${row.reward_type}`;
+  }).join('\n');
 }
 
-async function rejectSubmission(submissionId, reviewer) {
+async function reviewSubmission({
+  submissionId,
+  action,
+  reviewerDiscordId,
+  reviewerDiscordTag,
+  reviewNote = null
+}) {
+  return withTransaction(async (client) => {
+    const submission = await findSubmissionById(submissionId, client);
 
-  const pool = getPool();
+    if (!submission) {
+      throw new Error('ไม่พบ submission ที่ต้องการตรวจ');
+    }
 
-  await pool.query(`
-    UPDATE tb_quest_submission
-    SET submission_status = 'REJECTED',
-        reviewed_by = $2,
-        reviewed_at = NOW()
-    WHERE submission_id = $1
-  `,[submissionId, reviewer]);
+    if (submission.submission_status !== 'PENDING_REVIEW') {
+      throw new Error('submission นี้ไม่ได้อยู่ในสถานะรอตรวจ');
+    }
 
-}
+    let updatedSubmission;
+    let actionType;
 
-async function requestRevision(submissionId, reviewer) {
+    if (action === 'approve') {
+      updatedSubmission = await updateSubmissionReview({
+        submissionId,
+        status: 'APPROVED',
+        reviewedBy: reviewerDiscordTag,
+        reviewResult: 'APPROVED',
+        reviewRemark: reviewNote
+      }, client);
+      actionType = 'APPROVE';
 
-  const pool = getPool();
+      if (submission.submission_type === 'MAIN') {
+        await upsertMainProgress({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          progressStatus: 'COMPLETED',
+          reviewedBy: reviewerDiscordTag,
+          reviewRemark: reviewNote,
+          incrementSubmission: false
+        }, client);
 
-  await pool.query(`
-    UPDATE tb_quest_submission
-    SET submission_status = 'REVISION_REQUIRED',
-        reviewed_by = $2,
-        reviewed_at = NOW()
-    WHERE submission_id = $1
-  `,[submissionId, reviewer]);
+        await insertCompletionLog({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          submissionId,
+          completedBy: reviewerDiscordTag,
+          completionType: 'MAIN',
+          remark: reviewNote
+        }, client);
 
+        const nextQuest = await findNextMainQuestByProfession(submission.profession_code, submission.quest_level, client);
+
+        if (nextQuest) {
+          await setCurrentMainQuest(
+            submission.player_id,
+            submission.profession_id,
+            nextQuest.quest_id,
+            nextQuest.quest_level,
+            client
+          );
+
+          await upsertMainProgress({
+            playerId: submission.player_id,
+            professionId: submission.profession_id,
+            questId: nextQuest.quest_id,
+            progressStatus: 'AVAILABLE'
+          }, client);
+        } else {
+          await markProfessionCompleted(submission.player_id, submission.profession_id, client);
+        }
+      }
+
+      if (submission.submission_type === 'REPEATABLE') {
+        await upsertRepeatableState({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          stateStatus: 'COOLDOWN',
+          reviewedBy: reviewerDiscordTag,
+          reviewRemark: reviewNote,
+          nextAvailableAt: null,
+          incrementRepeat: true
+        }, client);
+
+        await client.query(
+          `
+          UPDATE public.tb_quest_player_repeatable_state
+          SET next_available_at = NOW() + (($4 || ' days')::interval),
+              updated_at = NOW()
+          WHERE player_id = $1
+            AND profession_id = $2
+            AND quest_id = $3
+          `,
+          [submission.player_id, submission.profession_id, submission.quest_id, submission.repeat_cooldown_days || 1]
+        );
+
+        await insertCompletionLog({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          submissionId,
+          completedBy: reviewerDiscordTag,
+          completionType: 'REPEATABLE',
+          remark: reviewNote
+        }, client);
+      }
+    } else if (action === 'revision') {
+      updatedSubmission = await updateSubmissionReview({
+        submissionId,
+        status: 'REVISION_REQUIRED',
+        reviewedBy: reviewerDiscordTag,
+        reviewResult: 'REVISION_REQUIRED',
+        reviewRemark: reviewNote
+      }, client);
+      actionType = 'REQUEST_REVISION';
+
+      if (submission.submission_type === 'MAIN') {
+        await upsertMainProgress({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          progressStatus: 'REVISION_REQUIRED',
+          reviewedBy: reviewerDiscordTag,
+          reviewRemark: reviewNote
+        }, client);
+      }
+
+      if (submission.submission_type === 'REPEATABLE') {
+        await upsertRepeatableState({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          stateStatus: 'REVISION_REQUIRED',
+          reviewedBy: reviewerDiscordTag,
+          reviewRemark: reviewNote
+        }, client);
+      }
+    } else if (action === 'reject') {
+      updatedSubmission = await updateSubmissionReview({
+        submissionId,
+        status: 'REJECTED',
+        reviewedBy: reviewerDiscordTag,
+        reviewResult: 'REJECTED',
+        reviewRemark: reviewNote
+      }, client);
+      actionType = 'REJECT';
+
+      if (submission.submission_type === 'MAIN') {
+        await upsertMainProgress({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          progressStatus: 'REJECTED',
+          reviewedBy: reviewerDiscordTag,
+          reviewRemark: reviewNote
+        }, client);
+      }
+
+      if (submission.submission_type === 'REPEATABLE') {
+        await upsertRepeatableState({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          stateStatus: 'REJECTED',
+          reviewedBy: reviewerDiscordTag,
+          reviewRemark: reviewNote
+        }, client);
+      }
+    } else {
+      throw new Error('ไม่รองรับ action นี้');
+    }
+
+    await insertReviewLog({
+      submissionId,
+      actionType,
+      actionBy: reviewerDiscordTag || reviewerDiscordId,
+      actionRemark: reviewNote
+    }, client);
+
+    const refreshedSubmission = await findSubmissionById(submissionId, client);
+    const rewardSummary = buildRewardSummary(await findQuestRewards(submission.quest_id, client));
+
+    return {
+      submission: refreshedSubmission || updatedSubmission,
+      rewardSummary
+    };
+  });
 }
 
 module.exports = {
-  approveSubmission,
-  rejectSubmission,
-  requestRevision
+  reviewSubmission
 };
