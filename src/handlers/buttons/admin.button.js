@@ -1,4 +1,10 @@
 const {
+  ModalBuilder,
+  ActionRowBuilder,
+  TextInputBuilder,
+  TextInputStyle
+} = require('discord.js');
+const {
   renderAdminHome,
   showPanelManagement,
   showMasterHome,
@@ -13,6 +19,7 @@ const {
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
 const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
+const { findQuestById } = require('../../db/queries/questMaster.repo');
 
 function getLastPart(customId) {
   return customId.split(':').pop();
@@ -57,7 +64,9 @@ async function handleAdminButtons(interaction) {
       targetTable: 'panel'
     });
     await interaction.reply({
-      content: customId.endsWith('repair_panels') ? '🛠️ ซ่อม/สร้างพาเนลที่ขาดเรียบร้อยแล้ว' : '✅ สร้างพาเนลเรียบร้อยแล้ว',
+      content: customId.endsWith('repair_panels')
+        ? '🛠️ ซ่อม/สร้างพาเนลที่ขาดเรียบร้อยแล้ว'
+        : '✅ สร้างพาเนลเรียบร้อยแล้ว',
       ephemeral: true
     });
     return;
@@ -108,8 +117,75 @@ async function handleAdminButtons(interaction) {
     return;
   }
 
+  if (customId.startsWith('quest:admin:edit_description:')) {
+    const questId = getLastPart(customId);
+    const quest = await findQuestById(questId);
+
+    if (!quest) {
+      await interaction.reply({
+        content: 'ไม่พบเควสที่ต้องการแก้ไข',
+        ephemeral: true
+      });
+      return;
+    }
+
+    const modal = new ModalBuilder()
+      .setCustomId(`quest:admin:modal:edit_description:${questId}`)
+      .setTitle('แก้คำอธิบายเควส');
+
+    const questNameInput = new TextInputBuilder()
+      .setCustomId('quest_name')
+      .setLabel('ชื่อเควส')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(255)
+      .setValue(quest.quest_name || '');
+
+    const questDescriptionInput = new TextInputBuilder()
+      .setCustomId('quest_description')
+      .setLabel('คำอธิบายเควส')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false)
+      .setMaxLength(4000)
+      .setValue(quest.quest_description || '');
+
+    const panelTitleInput = new TextInputBuilder()
+      .setCustomId('panel_title')
+      .setLabel('หัวข้อบนพาเนล')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(255)
+      .setValue(quest.panel_title || '');
+
+    const panelDescriptionInput = new TextInputBuilder()
+      .setCustomId('panel_description')
+      .setLabel('คำอธิบายบนพาเนล')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false)
+      .setMaxLength(4000)
+      .setValue(quest.panel_description || '');
+
+    const buttonLabelInput = new TextInputBuilder()
+      .setCustomId('button_label')
+      .setLabel('ข้อความบนปุ่ม')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(100)
+      .setValue(quest.button_label || '');
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(questNameInput),
+      new ActionRowBuilder().addComponents(questDescriptionInput),
+      new ActionRowBuilder().addComponents(panelTitleInput),
+      new ActionRowBuilder().addComponents(panelDescriptionInput),
+      new ActionRowBuilder().addComponents(buttonLabelInput)
+    );
+
+    await interaction.showModal(modal);
+    return;
+  }
+
   if (
-    customId.startsWith('quest:admin:edit_description:') ||
     customId.startsWith('quest:admin:edit_requirements:') ||
     customId.startsWith('quest:admin:edit_rewards:') ||
     customId.startsWith('quest:admin:edit_dependency:') ||
