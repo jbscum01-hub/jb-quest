@@ -1,11 +1,16 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require('discord.js');
+
 const { findActiveProfessions } = require('../db/queries/adminPanel.repo');
 const {
   getProfessionPanelChannelId,
   getProfessionPanelMessageId,
-  setGlobalConfigValue
+  setProfessionPanelMessageId
 } = require('./discordConfig.service');
-const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 
 function buildProfessionPanelEmbed(profession) {
   return new EmbedBuilder()
@@ -16,8 +21,9 @@ function buildProfessionPanelEmbed(profession) {
       '',
       `**สายอาชีพ:** ${profession.profession_name_th} (${profession.profession_code})`,
       '',
-      'หมายเหตุ:',
-      '• ถ้าข้อมูลเควสมีการแก้ไข แอดมินสามารถกดรีเฟรชพาเนลได้จาก Admin Panel',
+      'วิธีใช้งาน:',
+      '• กด **ดูเควสปัจจุบัน** เพื่อเช็กว่าอยู่เควสไหน',
+      '• กด **ส่งเควส** เพื่อส่งหลักฐานของเควสปัจจุบัน',
       '• ถ้าเป็นเควสแบบ Step Quest ระบบจะเปิด Ticket ให้อัตโนมัติ'
     ].join('\n'))
     .setFooter({ text: `Profession: ${profession.profession_code}` })
@@ -43,13 +49,19 @@ async function deployProfessionPanels(client) {
   const professions = await findActiveProfessions();
 
   for (const profession of professions) {
-    const channelId = await getProfessionPanelChannelId(profession.profession_code);
-    if (!channelId) continue;
+    const professionCode = profession.profession_code;
+    const channelId = await getProfessionPanelChannelId(professionCode);
+
+    if (!channelId) {
+      continue;
+    }
 
     const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel) continue;
+    if (!channel) {
+      continue;
+    }
 
-    const oldMessageId = await getProfessionPanelMessageId(profession.profession_code);
+    const oldMessageId = await getProfessionPanelMessageId(professionCode);
     let message = null;
 
     if (oldMessageId) {
@@ -65,10 +77,10 @@ async function deployProfessionPanels(client) {
       await message.edit(payload);
     } else {
       message = await channel.send(payload);
-      await setGlobalConfigValue(
-        `${DISCORD_CONFIG_KEYS.QUEST_PANEL_MESSAGE_PREFIX}${profession.profession_code}`,
+      await setProfessionPanelMessageId(
+        professionCode,
         message.id,
-        `Quest Panel Message ${profession.profession_code}`
+        `Quest Panel Message ${professionCode}`
       );
     }
   }
