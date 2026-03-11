@@ -6,6 +6,7 @@ const { handleAdminButtons } = require('./buttons/admin.button');
 const { handleTicketButton } = require('./buttons/ticket.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
+const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -66,6 +67,11 @@ function registerInteractionHandler(client) {
 
         if (parsed.scope === 'modal_submit') {
           await handleQuestSubmissionModal(interaction, parsed);
+          return;
+        }
+
+        if (parsed.scope === 'modal_submit' && parsed.action === 'step_submit') {
+          await handleStepSubmissionModal(interaction, parsed);
           return;
         }
 
