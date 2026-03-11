@@ -4,6 +4,7 @@ const { handlePanelButton } = require('./buttons/panel.button');
 const { handleReviewButton } = require('./buttons/review.button');
 const { handleAdminButtons } = require('./buttons/admin.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
+const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -19,7 +20,7 @@ function registerInteractionHandler(client) {
         if (!parsed) {
           await interaction.reply({
             content: 'รูปแบบปุ่มไม่ถูกต้อง',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -36,7 +37,7 @@ function registerInteractionHandler(client) {
 
         await interaction.reply({
           content: 'ยังไม่รองรับ interaction นี้ในระบบ',
-          ephemeral: true
+          flags: 64
         });
         return;
       }
@@ -47,8 +48,13 @@ function registerInteractionHandler(client) {
         if (!parsed) {
           await interaction.reply({
             content: 'รูปแบบฟอร์มไม่ถูกต้อง',
-            ephemeral: true
+            flags: 64
           });
+          return;
+        }
+
+        if (parsed.scope === 'modal_submit' && parsed.action === 'review_revision') {
+          await handleReviewRevisionModal(interaction, parsed);
           return;
         }
 
@@ -59,7 +65,7 @@ function registerInteractionHandler(client) {
 
         await interaction.reply({
           content: 'ยังไม่รองรับ modal นี้ในระบบ',
-          ephemeral: true
+          flags: 64
         });
       }
     } catch (error) {
@@ -68,14 +74,14 @@ function registerInteractionHandler(client) {
       if (interaction.deferred || interaction.replied) {
         await interaction.followUp({
           content: 'เกิดข้อผิดพลาดระหว่างประมวลผล',
-          ephemeral: true
+          flags: 64
         });
         return;
       }
 
       await interaction.reply({
         content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`,
-        ephemeral: true
+        flags: 64
       });
     }
   });
