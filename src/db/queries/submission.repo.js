@@ -1,10 +1,16 @@
 const { getPool } = require('../pool');
 
+function getDb(client) {
+  return client || getPool();
+}
+
 async function createSubmission(
   { playerId, professionId, questId, submissionType, playerIngameName, submissionText, ticketId = null, stepId = null },
-  client = getPool()
+  client
 ) {
-  const result = await client.query(
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     INSERT INTO public.tb_quest_submission
     (player_id, profession_id, quest_id, submission_type, player_ingame_name, submission_text, ticket_id, step_id)
@@ -17,8 +23,10 @@ async function createSubmission(
   return result.rows[0];
 }
 
-async function findSubmissionById(submissionId, client = getPool()) {
-  const result = await client.query(
+async function findSubmissionById(submissionId, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     SELECT s.*, p.profession_code, p.profession_name_th, q.quest_code, q.quest_name, q.quest_level,
            c.category_code, q.repeat_cooldown_days, pp.discord_user_id, pp.discord_username, pp.discord_display_name
@@ -38,9 +46,11 @@ async function findSubmissionById(submissionId, client = getPool()) {
 
 async function findPendingSubmissionByPlayer(
   { playerId, professionId, submissionType },
-  client = getPool()
+  client
 ) {
-  const result = await client.query(
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_submission
@@ -59,9 +69,11 @@ async function findPendingSubmissionByPlayer(
 
 async function updateSubmissionReview(
   { submissionId, status, reviewedBy, reviewResult, reviewRemark = null },
-  client = getPool()
+  client
 ) {
-  const result = await client.query(
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     UPDATE public.tb_quest_submission
     SET submission_status = $2,
@@ -81,9 +93,11 @@ async function updateSubmissionReview(
 
 async function insertSubmissionAttachment(
   { submissionId, fileUrl, fileName = null, fileType = null, discordAttachmentId = null },
-  client = getPool()
+  client
 ) {
-  const result = await client.query(
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     INSERT INTO public.tb_quest_submission_attachment
     (submission_id, file_url, file_name, file_type, discord_attachment_id)
@@ -96,10 +110,34 @@ async function insertSubmissionAttachment(
   return result.rows[0];
 }
 
+async function saveSubmissionMessageRefs(
+  { submissionId, reviewChannelId, reviewMessageId, logChannelId, logMessageId },
+  client
+) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_submission
+    SET review_channel_id = COALESCE($2, review_channel_id),
+        review_message_id = COALESCE($3, review_message_id),
+        log_channel_id = COALESCE($4, log_channel_id),
+        log_message_id = COALESCE($5, log_message_id),
+        updated_at = NOW()
+    WHERE submission_id = $1
+    RETURNING *
+    `,
+    [submissionId, reviewChannelId || null, reviewMessageId || null, logChannelId || null, logMessageId || null]
+  );
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   createSubmission,
   findSubmissionById,
   findPendingSubmissionByPlayer,
   updateSubmissionReview,
-  insertSubmissionAttachment
+  insertSubmissionAttachment,
+  saveSubmissionMessageRefs
 };
