@@ -1,11 +1,13 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { logger } = require('../../config/logger');
 
 async function handleQuestSubmissionModal(interaction, parsed) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  const { submissionMode, professionCode } = parsed;
+  const { action, extra } = parsed;
+
+  const submissionMode = action;
+  const professionCode = extra;
 
   const characterName =
     interaction.fields.getTextInputValue('character_name');
@@ -22,9 +24,9 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     .setTitle(`📩 Quest Submission`)
     .addFields(
       { name: 'ผู้เล่น', value: `<@${interaction.user.id}>` },
-      { name: 'ตัวละคร', value: characterName },
-      { name: 'สายอาชีพ', value: professionCode },
-      { name: 'โหมดเควส', value: submissionMode }
+      { name: 'ตัวละคร', value: characterName || '-' },
+      { name: 'สายอาชีพ', value: professionCode || '-' },
+      { name: 'โหมดเควส', value: submissionMode || '-' }
     )
     .setImage(screenshot)
     .setColor(0x2b82ff)
