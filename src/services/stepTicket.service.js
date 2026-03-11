@@ -1,8 +1,18 @@
 const { ChannelType, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { withTransaction } = require('../db/pool');
 const { findProfessionByCode } = require('../db/queries/questMaster.repo');
-const { findPlayerByDiscordId, createPlayerProfile, updatePlayerNames } = require('../db/queries/playerProfile.repo');
-const { createTicket, updateTicketStatus, findTicketById, findOpenTicketByPlayerQuest } = require('../db/queries/ticket.repo');
+const {
+  findPlayerByDiscordId,
+  createPlayerProfile,
+  updatePlayerNames
+} = require('../db/queries/playerProfile.repo');
+const {
+  createTicket,
+  updateTicketStatus,
+  findTicketById,
+  findTicketByChannel,
+  findOpenTicketByPlayerQuest
+} = require('../db/queries/ticket.repo');
 const {
   findFirstQuestStep,
   findNextQuestStep,
@@ -19,6 +29,11 @@ const { buildTicketStepEmbed } = require('../builders/embeds/ticketStep.embed');
 const { buildTicketStepComponents } = require('../builders/components/ticketStep.components');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 
+console.log(
+  'DEBUG ticketRepo.findOpenTicketByPlayerQuest =',
+  typeof findOpenTicketByPlayerQuest
+);
+
 function makeTicketCode(professionCode) {
   const stamp = Date.now().toString().slice(-8);
   return `QT-${professionCode}-${stamp}`;
@@ -34,28 +49,37 @@ function makeTicketChannelName(professionCode, username) {
   return `quest-${professionCode.toLowerCase()}-${safeUser}`.slice(0, 90);
 }
 
-async function ensurePlayerProfile({
-  discordUserId,
-  discordUsername,
-  discordDisplayName,
-  ingameName
-}, client) {
+async function ensurePlayerProfile(
+  {
+    discordUserId,
+    discordUsername,
+    discordDisplayName,
+    ingameName
+  },
+  client
+) {
   let player = await findPlayerByDiscordId(discordUserId, client);
 
   if (!player) {
-    player = await createPlayerProfile({
-      discordUserId,
-      discordUsername,
-      discordDisplayName,
-      ingameName
-    }, client);
+    player = await createPlayerProfile(
+      {
+        discordUserId,
+        discordUsername,
+        discordDisplayName,
+        ingameName
+      },
+      client
+    );
   } else {
-    player = await updatePlayerNames({
-      playerId: player.player_id,
-      discordUsername,
-      discordDisplayName,
-      ingameName
-    }, client);
+    player = await updatePlayerNames(
+      {
+        playerId: player.player_id,
+        discordUsername,
+        discordDisplayName,
+        ingameName
+      },
+      client
+    );
   }
 
   return player;
@@ -73,7 +97,7 @@ async function sendTicketStateMessage(channel, ticket) {
     totalSteps
   });
 
-  const components = buildTicketStepComponents(ticket.ticket_id);
+  const components = buildTicketStepComponents(ticket.ticket_id, currentStep.step_no);
 
   return channel.send({
     embeds: [embed],
@@ -82,7 +106,9 @@ async function sendTicketStateMessage(channel, ticket) {
 }
 
 async function sendQuestCompletionLog(client, ticket, reviewerTag = null) {
-  const logChannelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_SUBMISSION_LOG_CHANNEL);
+  const logChannelId = await getGlobalConfigValue(
+    DISCORD_CONFIG_KEYS.QUEST_SUBMISSION_LOG_CHANNEL
+  );
   if (!logChannelId) return;
 
   const channel = await client.channels.fetch(logChannelId).catch(() => null);
@@ -107,6 +133,14 @@ async function sendQuestCompletionLog(client, ticket, reviewerTag = null) {
   await channel.send({ embeds: [embed] });
 }
 
+async function getTicketFromChannel(channelId) {
+  const ticketByChannel = await findTicketByChannel(channelId);
+  if (!ticketByChannel) return null;
+
+  const fullTicket = await findTicketById(ticketByChannel.ticket_id);
+  return fullTicket || ticketByChannel;
+}
+
 async function openStepQuestTicket({
   client,
   guild,
@@ -127,8 +161,12 @@ async function openStepQuestTicket({
   let ticketRow;
   let created = false;
 
-  const ticketCategoryId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_TICKET_CATEGORY);
-  const adminRoleId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_ADMIN_ROLE);
+  const ticketCategoryId = await getGlobalConfigValue(
+    DISCORD_CONFIG_KEYS.QUEST_TICKET_CATEGORY
+  );
+  const adminRoleId = await getGlobalConfigValue(
+    DISCORD_CONFIG_KEYS.QUEST_ADMIN_ROLE
+  );
 
   const player = await ensurePlayerProfile({
     discordUserId: user.id,
@@ -139,7 +177,10 @@ async function openStepQuestTicket({
 
   const existing = await findOpenTicketByPlayerQuest(player.player_id, quest.quest_id);
   if (existing) {
-    const existingChannel = existing.discord_channel_id ? guild.channels.cache.get(existing.discord_channel_id) : null;
+    const existingChannel = existing.discord_channel_id
+      ? guild.channels.cache.get(existing.discord_channel_id)
+      : null;
+
     return {
       created: false,
       ticket: existing,
@@ -189,20 +230,26 @@ async function openStepQuestTicket({
       throw new Error('ยังไม่มี Step ของเควสนี้ในฐานข้อมูล');
     }
 
-    const createdTicket = await createTicket({
-      ticketCode: makeTicketCode(professionCode),
-      playerId: player.player_id,
-      professionId: profession.profession_id,
-      questId: quest.quest_id,
-      discordChannelId: channel.id
-    }, db);
+    const createdTicket = await createTicket(
+      {
+        ticketCode: makeTicketCode(professionCode),
+        playerId: player.player_id,
+        professionId: profession.profession_id,
+        questId: quest.quest_id,
+        discordChannelId: channel.id
+      },
+      db
+    );
 
-    await createTicketStepProgress({
-      ticketId: createdTicket.ticket_id,
-      questId: quest.quest_id,
-      stepId: firstStep.step_id,
-      stepNo: firstStep.step_no
-    }, db);
+    await createTicketStepProgress(
+      {
+        ticketId: createdTicket.ticket_id,
+        questId: quest.quest_id,
+        stepId: firstStep.step_id,
+        stepNo: firstStep.step_no
+      },
+      db
+    );
 
     await updateTicketStatus(createdTicket.ticket_id, 'IN_PROGRESS', {}, db);
 
@@ -230,7 +277,8 @@ async function submitCurrentStep({
   channelId,
   userId
 }) {
-  const ticket = await findTicketById((await require('../db/queries/ticket.repo').findTicketByChannel(channelId))?.ticket_id);
+  const ticket = await getTicketFromChannel(channelId);
+
   if (!ticket) {
     throw new Error('ไม่พบ Ticket ของห้องนี้');
   }
@@ -249,12 +297,15 @@ async function submitCurrentStep({
   }
 
   await withTransaction(async (db) => {
-    await updateTicketStepProgressStatus({
-      ticketStepProgressId: currentStep.ticket_step_progress_id,
-      status: 'SUBMITTED',
-      incrementAttempt: true,
-      markSubmitted: true
-    }, db);
+    await updateTicketStepProgressStatus(
+      {
+        ticketStepProgressId: currentStep.ticket_step_progress_id,
+        status: 'SUBMITTED',
+        incrementAttempt: true,
+        markSubmitted: true
+      },
+      db
+    );
 
     await updateTicketStatus(ticket.ticket_id, 'WAITING_ADMIN', {}, db);
   });
@@ -272,7 +323,8 @@ async function approveCurrentStep({
   reviewerId,
   reviewerTag
 }) {
-  const ticket = await findTicketById((await require('../db/queries/ticket.repo').findTicketByChannel(channelId))?.ticket_id);
+  const ticket = await getTicketFromChannel(channelId);
+
   if (!ticket) {
     throw new Error('ไม่พบ Ticket ของห้องนี้');
   }
@@ -287,53 +339,74 @@ async function approveCurrentStep({
   }
 
   const result = await withTransaction(async (db) => {
-    await updateTicketStepProgressStatus({
-      ticketStepProgressId: currentStep.ticket_step_progress_id,
-      status: 'APPROVED',
-      reviewedBy: reviewerTag,
-      reviewRemark: 'APPROVED'
-    }, db);
+    await updateTicketStepProgressStatus(
+      {
+        ticketStepProgressId: currentStep.ticket_step_progress_id,
+        status: 'APPROVED',
+        reviewedBy: reviewerTag,
+        reviewRemark: 'APPROVED'
+      },
+      db
+    );
 
     const nextStep = await findNextQuestStep(ticket.quest_id, currentStep.step_no, db);
 
     if (nextStep) {
-      await createTicketStepProgress({
-        ticketId: ticket.ticket_id,
-        questId: ticket.quest_id,
-        stepId: nextStep.step_id,
-        stepNo: nextStep.step_no
-      }, db);
+      await createTicketStepProgress(
+        {
+          ticketId: ticket.ticket_id,
+          questId: ticket.quest_id,
+          stepId: nextStep.step_id,
+          stepNo: nextStep.step_no
+        },
+        db
+      );
 
       await updateTicketStatus(ticket.ticket_id, 'IN_PROGRESS', {}, db);
 
       return { completed: false };
     }
 
-    await updateTicketStatus(ticket.ticket_id, 'COMPLETED', {
-      closedBy: reviewerTag,
-      closeRemark: 'STEP_QUEST_COMPLETED'
-    }, db);
+    await updateTicketStatus(
+      ticket.ticket_id,
+      'COMPLETED',
+      {
+        closedBy: reviewerTag,
+        closeRemark: 'STEP_QUEST_COMPLETED'
+      },
+      db
+    );
 
-    await upsertMainProgress({
-      playerId: ticket.player_id,
-      professionId: ticket.profession_id,
-      questId: ticket.quest_id,
-      progressStatus: 'COMPLETED',
-      reviewedBy: reviewerTag,
-      reviewRemark: 'STEP_QUEST_COMPLETED'
-    }, db);
+    await upsertMainProgress(
+      {
+        playerId: ticket.player_id,
+        professionId: ticket.profession_id,
+        questId: ticket.quest_id,
+        progressStatus: 'COMPLETED',
+        reviewedBy: reviewerTag,
+        reviewRemark: 'STEP_QUEST_COMPLETED'
+      },
+      db
+    );
 
-    await insertCompletionLog({
-      playerId: ticket.player_id,
-      professionId: ticket.profession_id,
-      questId: ticket.quest_id,
-      submissionId: null,
-      completedBy: reviewerTag,
-      completionType: 'MAIN',
-      remark: 'STEP_QUEST_COMPLETED'
-    }, db);
+    await insertCompletionLog(
+      {
+        playerId: ticket.player_id,
+        professionId: ticket.profession_id,
+        questId: ticket.quest_id,
+        submissionId: null,
+        completedBy: reviewerTag,
+        completionType: 'MAIN',
+        remark: 'STEP_QUEST_COMPLETED'
+      },
+      db
+    );
 
-    await resolveCurrentMainQuestByPlayer(ticket.discord_user_id, ticket.profession_code, db);
+    await resolveCurrentMainQuestByPlayer(
+      ticket.discord_user_id,
+      ticket.profession_code,
+      db
+    );
 
     return { completed: true };
   });
@@ -366,7 +439,8 @@ async function revisionCurrentStep({
   reviewerId,
   reviewerTag
 }) {
-  const ticket = await findTicketById((await require('../db/queries/ticket.repo').findTicketByChannel(channelId))?.ticket_id);
+  const ticket = await getTicketFromChannel(channelId);
+
   if (!ticket) {
     throw new Error('ไม่พบ Ticket ของห้องนี้');
   }
@@ -377,12 +451,15 @@ async function revisionCurrentStep({
   }
 
   await withTransaction(async (db) => {
-    await updateTicketStepProgressStatus({
-      ticketStepProgressId: currentStep.ticket_step_progress_id,
-      status: 'ACTIVE',
-      reviewedBy: reviewerTag,
-      reviewRemark: 'REQUEST_REVISION'
-    }, db);
+    await updateTicketStepProgressStatus(
+      {
+        ticketStepProgressId: currentStep.ticket_step_progress_id,
+        status: 'ACTIVE',
+        reviewedBy: reviewerTag,
+        reviewRemark: 'REQUEST_REVISION'
+      },
+      db
+    );
 
     await updateTicketStatus(ticket.ticket_id, 'WAITING_PLAYER', {}, db);
   });
