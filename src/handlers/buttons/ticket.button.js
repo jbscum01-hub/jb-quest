@@ -5,13 +5,18 @@ const {
   revisionCurrentStep,
   closeTicketRoom
 } = require('../../services/stepTicket.service');
+const { findTicketById } = require('../../db/queries/ticket.repo');
 
 async function handleTicketButton(interaction, parsed) {
   const { action, extra } = parsed;
 
   if (action === 'submit_step') {
     const [ticketId, stepNo] = extra.split(':');
-    const modal = buildStepSubmissionModal(ticketId, stepNo);
+
+    const ticket = await findTicketById(ticketId);
+    const professionCode = ticket?.profession_code || 'QUEST';
+
+    const modal = buildStepSubmissionModal(ticketId, stepNo, professionCode);
     await interaction.showModal(modal);
     return;
   }
