@@ -4,7 +4,6 @@ async function handleStepSubmissionModal(interaction, parsed) {
   const [ticketId, stepNo] = parsed.extra.split(':');
 
   const characterName = interaction.fields.getTextInputValue('character_name');
-  const stepText = interaction.fields.getTextInputValue('step_text') || '';
   const screenshot = interaction.fields.getTextInputValue('screenshot');
 
   await interaction.deferReply({ flags: 64 });
@@ -15,7 +14,7 @@ async function handleStepSubmissionModal(interaction, parsed) {
     ticketId,
     stepNo: Number(stepNo),
     characterName,
-    text: stepText,
+    text: '',
     screenshot
   });
 
