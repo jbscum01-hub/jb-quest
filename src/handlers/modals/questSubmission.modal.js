@@ -15,39 +15,27 @@ async function handleQuestSubmissionModal(interaction, parsed) {
 
   await interaction.deferReply({ flags: 64 });
 
-  try {
+  const { action, extra } = parsed;
 
-    const { action, extra } = parsed;
+  const professionCode = extra;
+  const submissionId = generateSubmissionId();
 
-    const submissionMode = action;
-    const professionCode = extra;
+  const characterName =
+    interaction.fields.getTextInputValue('character_name');
 
-    const submissionId = generateSubmissionId();
+  const screenshot =
+    interaction.fields.getTextInputValue('screenshot');
 
-    const characterName =
-      interaction.fields.getTextInputValue('character_name');
+  const reviewChannelId =
+    await getConfig('QUEST_REVIEW_CHANNEL');
 
-    const screenshot =
-      interaction.fields.getTextInputValue('screenshot');
+  const reviewChannel =
+    await interaction.client.channels.fetch(reviewChannelId);
 
-    // ดึง channel id จาก config table
-    const reviewChannelId =
-      await getConfig('QUEST_REVIEW_CHANNEL');
-
-    if (!reviewChannelId) {
-      await interaction.editReply({
-        content: '❌ ไม่พบ QUEST_REVIEW_CHANNEL ใน config'
-      });
-      return;
-    }
-
-    const reviewChannel =
-      await interaction.client.channels.fetch(reviewChannelId);
-
-    const embed = new EmbedBuilder()
-      .setTitle("📩 Quest Submission")
-      .setColor(0x2b82ff)
-      .setDescription(
+  const embed = new EmbedBuilder()
+    .setTitle("📩 Quest Submission")
+    .setColor(0x2b82ff)
+    .setDescription(
 `Submission ID: ${submissionId}
 
 ผู้เล่น: ${characterName}
@@ -59,45 +47,54 @@ async function handleQuestSubmissionModal(interaction, parsed) {
 ผู้ตรวจ: -
 
 หมายเหตุ: -`
-      )
-      .setImage(screenshot)
-      .setFooter({
-        text: `Discord: ${interaction.user.tag}`
-      })
-      .setTimestamp();
+    )
+    .setImage(screenshot)
+    .setFooter({
+      text: `Discord: ${interaction.user.tag}`
+    })
+    .setTimestamp();
 
-    const row = new ActionRowBuilder().addComponents(
+  const row1 = new ActionRowBuilder().addComponents(
 
-      new ButtonBuilder()
-        .setCustomId(`quest:review:approve:${interaction.user.id}`)
-        .setLabel('Approve')
-        .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`quest:review:inspect:${submissionId}`)
+      .setLabel("🔎 ตรวจสอบ")
+      .setStyle(ButtonStyle.Secondary),
 
-      new ButtonBuilder()
-        .setCustomId(`quest:review:reject:${interaction.user.id}`)
-        .setLabel('Reject')
-        .setStyle(ButtonStyle.Danger)
+    new ButtonBuilder()
+      .setCustomId(`quest:review:approve:${submissionId}`)
+      .setLabel("✅ อนุมัติ")
+      .setStyle(ButtonStyle.Success),
 
-    );
+    new ButtonBuilder()
+      .setCustomId(`quest:review:revision:${submissionId}`)
+      .setLabel("📝 ขอแก้ไข")
+      .setStyle(ButtonStyle.Primary)
 
-    await reviewChannel.send({
-      embeds: [embed],
-      components: [row]
-    });
+  );
 
-    await interaction.editReply({
-      content: '✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ'
-    });
+  const row2 = new ActionRowBuilder().addComponents(
 
-  } catch (error) {
+    new ButtonBuilder()
+      .setCustomId(`quest:review:reject:${submissionId}`)
+      .setLabel("❌ ปฏิเสธ")
+      .setStyle(ButtonStyle.Danger),
 
-    console.error(error);
+    new ButtonBuilder()
+      .setCustomId(`quest:review:reward:${submissionId}`)
+      .setLabel("🎁 ดูรางวัล")
+      .setStyle(ButtonStyle.Secondary)
 
-    await interaction.editReply({
-      content: '❌ เกิดข้อผิดพลาดระหว่างส่งเควส'
-    });
+  );
 
-  }
+  await reviewChannel.send({
+    embeds: [embed],
+    components: [row1, row2]
+  });
+
+  await interaction.editReply({
+    content: "✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ"
+  });
 
 }
 
