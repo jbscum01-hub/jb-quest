@@ -7,7 +7,10 @@ async function handlePanelButton(interaction, parsedCustomId) {
   const professionCode = extra;
 
   if (action === 'view_current') {
+    await interaction.deferReply({ ephemeral: true });
+
     const summary = await getCurrentQuestSummary(interaction.user.id, professionCode);
+
     const embed = buildCurrentQuestEmbed({
       professionCode,
       quest: summary.quest,
@@ -15,7 +18,9 @@ async function handlePanelButton(interaction, parsedCustomId) {
       rewards: summary.rewards
     });
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({
+      embeds: [embed]
+    });
     return;
   }
 
@@ -30,14 +35,18 @@ async function handlePanelButton(interaction, parsedCustomId) {
   }
 
   if (action === 'submit_repeatable') {
+    await interaction.deferReply({ ephemeral: true });
+
     const repeatable = await getFirstRepeatableQuest(professionCode);
+
     if (!repeatable.quest) {
-      await interaction.reply({
-        content: `ยังไม่มีเควสซ้ำของสาย ${professionCode}`,
-        ephemeral: true
+      await interaction.editReply({
+        content: `ยังไม่มีเควสซ้ำของสาย ${professionCode}`
       });
       return;
     }
+
+    await interaction.deleteReply().catch(() => {});
 
     const modal = buildQuestSubmissionModal({
       submissionMode: 'REPEATABLE',
