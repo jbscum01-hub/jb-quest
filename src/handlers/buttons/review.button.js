@@ -1,6 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
 const { buildReviewRevisionModal } = require('../../builders/modals/reviewRevision.modal');
 const { reviewSubmission } = require('../../services/review.service');
+const {
+  buildRequirementEmbedBySubmissionId,
+  buildRewardEmbedBySubmissionId
+} = require('../../services/reviewView.service');
 
 function buildDisabledRows() {
   return [];
@@ -34,11 +38,6 @@ function buildUpdatedEmbedFromOriginal(originalEmbed, action, reviewerId, review
     color = 0xfee75c;
   }
 
-  if (action === 'reject') {
-    title = '🛠️ ผลการตรวจเควส: ปฏิเสธ';
-    color = 0xed4245;
-  }
-
   let description = originalEmbed.description || originalEmbed.data?.description || '';
 
   description = replaceLine(description, 'ผู้ตรวจ', `<@${reviewerId}>`);
@@ -67,16 +66,18 @@ async function handleReviewButton(interaction, parsed) {
   }
 
   if (action === 'inspect') {
+    const embed = await buildRequirementEmbedBySubmissionId(submissionId);
     await interaction.reply({
-      embeds: [EmbedBuilder.from(originalEmbed).setTitle('🔎 ตรวจสอบ Submission')],
+      embeds: [embed],
       flags: 64
     });
     return;
   }
 
   if (action === 'reward') {
+    const embed = await buildRewardEmbedBySubmissionId(submissionId);
     await interaction.reply({
-      content: `🎁 ดูรางวัลของ Submission ${submissionId}`,
+      embeds: [embed],
       flags: 64
     });
     return;
@@ -88,7 +89,7 @@ async function handleReviewButton(interaction, parsed) {
     return;
   }
 
-  if (action === 'approve' || action === 'reject') {
+  if (action === 'approve') {
     const reviewResult = await reviewSubmission({
       submissionId,
       action,
