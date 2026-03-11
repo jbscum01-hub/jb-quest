@@ -1,12 +1,19 @@
 const { getPool } = require('../pool');
 
-async function findQuestSteps(questId) {
-  const result = await getPool().query(
+function getDb(client) {
+  return client || getPool();
+}
+
+async function findQuestSteps(questId, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_master_step
     WHERE quest_id = $1
-    ORDER BY step_order ASC
+      AND is_active = TRUE
+    ORDER BY step_no ASC, created_at ASC
     `,
     [questId]
   );
@@ -14,59 +21,173 @@ async function findQuestSteps(questId) {
   return result.rows;
 }
 
-async function createStepProgress({
-  playerId,
-  professionId,
-  questId,
-  stepId
-}) {
-  const result = await getPool().query(
+async function findFirstQuestStep(questId, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
     `
-    INSERT INTO public.tb_quest_player_step_progress
+    SELECT *
+    FROM public.tb_quest_master_step
+    WHERE quest_id = $1
+      AND is_active = TRUE
+    ORDER BY step_no ASC, created_at ASC
+    LIMIT 1
+    `,
+    [questId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findNextQuestStep(questId, currentStepNo, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM public.tb_quest_master_step
+    WHERE quest_id = $1
+      AND is_active = TRUE
+      AND step_no > $2
+    ORDER BY step_no ASC, created_at ASC
+    LIMIT 1
+    `,
+    [questId, currentStepNo]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function findStepById(stepId, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM public.tb_quest_master_step
+    WHERE step_id = $1
+    LIMIT 1
+    `,
+    [stepId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function createTicketStepProgress({
+  ticketId,
+  questId,
+  stepId,
+  stepNo
+}, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    INSERT INTO public.tb_quest_ticket_step_progress
     (
-      player_id,
-      profession_id,
+      ticket_id,
       quest_id,
       step_id,
+      step_no,
       step_status
     )
-    VALUES ($1,$2,$3,$4,'ACTIVE')
+    VALUES ($1, $2, $3, $4, 'ACTIVE')
     RETURNING *
     `,
-    [
-      playerId,
-      professionId,
-      questId,
-      stepId
-    ]
+    [ticketId, questId, stepId, stepNo]
   );
 
   return result.rows[0];
 }
 
-async function updateStepStatus(
-  stepProgressId,
-  status
-) {
-  const result = await getPool().query(
+async function findCurrentTicketStepProgress(ticketId, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
     `
-    UPDATE public.tb_quest_player_step_progress
-    SET step_status = $2,
-        updated_at = NOW()
-    WHERE step_progress_id = $1
-    RETURNING *
+    SELECT tsp.*,
+           s.step_title,
+           s.step_description,
+           s.requires_text_input,
+           s.requires_attachment,
+           s.requires_admin_approval,
+           s.allow_resubmit,
+           s.success_message,
+           s.failure_message
+    FROM public.tb_quest_ticket_step_progress tsp
+    JOIN public.tb_quest_master_step s
+      ON tsp.step_id = s.step_id
+    WHERE tsp.ticket_id = $1
+      AND tsp.step_status IN ('ACTIVE', 'SUBMITTED')
+    ORDER BY tsp.step_no ASC, tsp.created_at ASC
+    LIMIT 1
     `,
-    [
-      stepProgressId,
-      status
-    ]
+    [ticketId]
   );
 
-  return result.rows[0];
+  return result.rows[0] || null;
+}
+
+async function updateTicketStepProgressStatus({
+  ticketStepProgressId,
+  status,
+  reviewedBy = null,
+  reviewRemark = null,
+  incrementAttempt = false,
+  markSubmitted = false
+}, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_ticket_step_progress
+    SET step_status = $2,
+        submitted_at = CASE
+          WHEN $6 THEN NOW()
+          ELSE submitted_at
+        END,
+        reviewed_at = CASE
+          WHEN $3 IS NOT NULL OR $4 IS NOT NULL OR $2 IN ('APPROVED', 'REJECTED')
+          THEN NOW()
+          ELSE reviewed_at
+        END,
+        reviewed_by = COALESCE($3, reviewed_by),
+        review_remark = COALESCE($4, review_remark),
+        attempt_count = attempt_count + CASE WHEN $5 THEN 1 ELSE 0 END,
+        updated_at = NOW()
+    WHERE ticket_step_progress_id = $1
+    RETURNING *
+    `,
+    [ticketStepProgressId, status, reviewedBy, reviewRemark, incrementAttempt, markSubmitted]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function countQuestSteps(questId, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    SELECT COUNT(*)::int AS total_steps
+    FROM public.tb_quest_master_step
+    WHERE quest_id = $1
+      AND is_active = TRUE
+    `,
+    [questId]
+  );
+
+  return result.rows[0]?.total_steps || 0;
 }
 
 module.exports = {
   findQuestSteps,
-  createStepProgress,
-  updateStepStatus
+  findFirstQuestStep,
+  findNextQuestStep,
+  findStepById,
+  createTicketStepProgress,
+  findCurrentTicketStepProgress,
+  updateTicketStepProgressStatus,
+  countQuestSteps
 };
