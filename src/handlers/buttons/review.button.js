@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { buildReviewRevisionModal } = require('../../builders/modals/reviewRevision.modal');
 const { reviewSubmission } = require('../../services/review.service');
+const { sendReviewLog } = require('../../services/reviewLog.service');
 const {
   buildRequirementEmbedBySubmissionId,
   buildRewardEmbedBySubmissionId
@@ -90,28 +91,36 @@ async function handleReviewButton(interaction, parsed) {
   }
 
   if (action === 'approve') {
-    const reviewResult = await reviewSubmission({
-      submissionId,
-      action,
-      reviewerDiscordId: interaction.user.id,
-      reviewerDiscordTag: interaction.user.tag,
-      reviewNote: null
-    });
+  const reviewResult = await reviewSubmission({
+    submissionId,
+    action,
+    reviewerDiscordId: interaction.user.id,
+    reviewerDiscordTag: interaction.user.tag,
+    reviewNote: null
+  });
 
-    const updatedEmbed = buildUpdatedEmbedFromOriginal(
-      originalEmbed,
-      action,
-      interaction.user.id,
-      reviewResult.submission?.review_remark || '-'
-    );
+  const updatedEmbed = buildUpdatedEmbedFromOriginal(
+    originalEmbed,
+    action,
+    interaction.user.id,
+    reviewResult.submission?.review_remark || '-'
+  );
 
-    await interaction.update({
-      embeds: [updatedEmbed],
-      components: buildDisabledRows()
-    });
+  await interaction.update({
+    embeds: [updatedEmbed],
+    components: buildDisabledRows()
+  });
 
-    return;
-  }
+  await sendReviewLog(
+    interaction.client,
+    reviewResult.submission,
+    'approve',
+    interaction.user.id,
+    reviewResult.submission?.review_remark || '-'
+  );
+
+  return;
+}
 
   await interaction.reply({
     content: '❌ ไม่พบ action นี้',
