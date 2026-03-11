@@ -1,7 +1,6 @@
 const { reviewSubmission } = require('../../services/review.service');
-const { buildUpdatedEmbedFromOriginal, buildDisabledRows } = require('../buttons/review.button');
 const { notifyRevision } = require('../../services/questNotification.service');
-const { sendReviewLog } = require('../../services/reviewLog.service');
+const { updateSubmissionMirrors } = require('../../services/submissionMessage.service');
 
 async function handleReviewRevisionModal(interaction, parsed) {
   await interaction.deferReply({ flags: 64 });
@@ -9,34 +8,6 @@ async function handleReviewRevisionModal(interaction, parsed) {
   try {
     const submissionId = parsed.extra;
     const reviewNote = interaction.fields.getTextInputValue('review_note');
-
-    const channel = interaction.channel;
-    const messages = await channel.messages.fetch({ limit: 50 });
-
-    const targetMessage = messages.find((msg) =>
-      msg.author?.id === interaction.client.user.id &&
-      msg.components?.some((row) =>
-        row.components?.some((btn) =>
-          btn.customId === `quest:review:revision:${submissionId}`
-        )
-      )
-    );
-
-    if (!targetMessage) {
-      await interaction.editReply({
-        content: '❌ ไม่พบข้อความ submission ที่ต้องการอัปเดต'
-      });
-      return;
-    }
-
-    const originalEmbed = targetMessage.embeds?.[0];
-
-    if (!originalEmbed) {
-      await interaction.editReply({
-        content: '❌ ไม่พบ embed เดิมของ submission'
-      });
-      return;
-    }
 
     const reviewResult = await reviewSubmission({
       submissionId,
@@ -46,16 +17,12 @@ async function handleReviewRevisionModal(interaction, parsed) {
       reviewNote
     });
 
-    const updatedEmbed = buildUpdatedEmbedFromOriginal(
-      originalEmbed,
-      'revision',
-      interaction.user.id,
-      reviewResult.submission?.review_remark || reviewNote
-    );
-
-    await targetMessage.edit({
-      embeds: [updatedEmbed],
-      components: buildDisabledRows()
+    await updateSubmissionMirrors({
+      client: interaction.client,
+      submissionId,
+      action: 'revision',
+      reviewerId: interaction.user.id,
+      reviewNote
     });
 
     await notifyRevision({
@@ -65,14 +32,6 @@ async function handleReviewRevisionModal(interaction, parsed) {
       reviewNote
     });
 
-    await sendReviewLog(
-      interaction.client,
-      reviewResult.submission,
-      'revision',
-      interaction.user.id,
-      reviewNote
-    );
-    
     await interaction.editReply({
       content: '✅ บันทึกการขอแก้ไขเรียบร้อยแล้ว'
     });
