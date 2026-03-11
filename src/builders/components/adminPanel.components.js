@@ -5,7 +5,7 @@ const {
   StringSelectMenuBuilder
 } = require('discord.js');
 
-function buildAdminHomeComponents() {
+function buildAdminPanelButtons() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -20,7 +20,7 @@ function buildAdminHomeComponents() {
   ];
 }
 
-function buildPanelManagementComponents() {
+function buildPanelManagementButtons() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -53,7 +53,7 @@ function buildPanelManagementComponents() {
   ];
 }
 
-function buildMasterHomeComponents() {
+function buildMasterHomeButtons() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -61,7 +61,7 @@ function buildMasterHomeComponents() {
         .setLabel('เลือกเควสเพื่อดู/แก้ไข')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId('quest:admin:create_quest_stub')
+        .setCustomId('quest:admin:create_quest')
         .setLabel('สร้างเควสใหม่')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
@@ -72,10 +72,10 @@ function buildMasterHomeComponents() {
   ];
 }
 
-function buildProfessionSelectRow(professions) {
+function buildProfessionSelect(professions) {
   const select = new StringSelectMenuBuilder()
     .setCustomId('quest:admin:select_profession')
-    .setPlaceholder('เลือกสายอาชีพที่ต้องการจัดการ')
+    .setPlaceholder('เลือกสายอาชีพ')
     .addOptions(
       professions.slice(0, 25).map((profession) => ({
         label: profession.profession_name_th,
@@ -87,7 +87,7 @@ function buildProfessionSelectRow(professions) {
   return [new ActionRowBuilder().addComponents(select)];
 }
 
-function buildLevelSelectRow(professionId, levels) {
+function buildLevelSelect(professionId, levels) {
   const select = new StringSelectMenuBuilder()
     .setCustomId(`quest:admin:select_level:${professionId}`)
     .setPlaceholder('เลือกระดับเควส')
@@ -102,10 +102,10 @@ function buildLevelSelectRow(professionId, levels) {
   return [new ActionRowBuilder().addComponents(select)];
 }
 
-function buildQuestSelectRow(professionId, level, quests) {
+function buildQuestSelect(professionId, level, quests) {
   const select = new StringSelectMenuBuilder()
     .setCustomId(`quest:admin:select_quest:${professionId}:${level}`)
-    .setPlaceholder('เลือกเควสที่ต้องการดูหรือแก้ไข')
+    .setPlaceholder('เลือกเควส')
     .addOptions(
       quests.slice(0, 25).map((quest) => ({
         label: `${quest.quest_code} · ${quest.quest_name}`.slice(0, 100),
@@ -120,7 +120,7 @@ function buildQuestSelectRow(professionId, level, quests) {
   return [new ActionRowBuilder().addComponents(select)];
 }
 
-function buildQuestDetailComponents(questId, hasSteps = false) {
+function buildQuestDetailButtons(questId, hasSteps = false) {
   const rows = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -211,7 +211,7 @@ function buildQuestDetailComponents(questId, hasSteps = false) {
   return rows;
 }
 
-function buildBackRows(backCustomId = 'quest:admin:master_home') {
+function buildBackButtons(backCustomId = 'quest:admin:master_home') {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -227,12 +227,12 @@ function buildBackRows(backCustomId = 'quest:admin:master_home') {
 }
 
 module.exports = {
-  buildAdminHomeComponents,
-  buildPanelManagementComponents,
-  buildMasterHomeComponents,
-  buildProfessionSelectRow,
-  buildLevelSelectRow,
-  buildQuestSelectRow,
-  buildQuestDetailComponents,
-  buildBackRows
+  buildAdminPanelButtons,
+  buildPanelManagementButtons,
+  buildMasterHomeButtons,
+  buildProfessionSelect,
+  buildLevelSelect,
+  buildQuestSelect,
+  buildQuestDetailButtons,
+  buildBackButtons
 };
