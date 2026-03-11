@@ -65,13 +65,13 @@ function registerInteractionHandler(client) {
           return;
         }
 
-        if (parsed.scope === 'modal_submit') {
-          await handleQuestSubmissionModal(interaction, parsed);
+        if (parsed.scope === 'modal_submit' && parsed.action === 'step_submit') {
+          await handleStepSubmissionModal(interaction, parsed);
           return;
         }
 
-        if (parsed.scope === 'modal_submit' && parsed.action === 'step_submit') {
-          await handleStepSubmissionModal(interaction, parsed);
+        if (parsed.scope === 'modal_submit') {
+          await handleQuestSubmissionModal(interaction, parsed);
           return;
         }
 
