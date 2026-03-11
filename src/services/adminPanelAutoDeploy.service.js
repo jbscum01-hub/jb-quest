@@ -1,46 +1,49 @@
-const { buildAdminPanelEmbed } = require('../builders/embeds/adminPanel.embed');
-const { buildAdminPanelButtons } = require('../builders/components/adminPanel.components');
-const { logger } = require('../config/logger');
-const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
+const { EmbedBuilder } = require('discord.js');
+const { renderAdminHome } = require('./adminPanel.service');
 const {
   getGlobalConfigValue,
-  getAdminPanelMessageId,
-  saveAdminPanelMessageId
+  setGlobalConfigValue,
+  getAdminPanelMessageId
 } = require('./discordConfig.service');
+const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 
 async function autoDeployAdminPanel(client) {
   const channelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_CHANNEL);
-
   if (!channelId) {
-    logger.warn('QUEST_ADMIN_PANEL_CHANNEL not configured');
-    return;
+    throw new Error('ยังไม่ได้ตั้งค่า QUEST_ADMIN_PANEL_CHANNEL');
   }
 
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel) {
-    logger.warn('Admin panel channel not found');
-    return;
+    throw new Error(`ไม่พบห้องแอดมินพาเนล: ${channelId}`);
   }
-
-  const payload = {
-    embeds: [buildAdminPanelEmbed()],
-    components: buildAdminPanelButtons()
-  };
 
   const existingMessageId = await getAdminPanelMessageId();
+  let message = null;
 
   if (existingMessageId) {
-    const existingMessage = await channel.messages.fetch(existingMessageId).catch(() => null);
-    if (existingMessage) {
-      await existingMessage.edit(payload);
-      logger.info('Admin panel refreshed');
-      return;
-    }
+    message = await channel.messages.fetch(existingMessageId).catch(() => null);
   }
 
-  const message = await channel.send(payload);
-  await saveAdminPanelMessageId(message.id);
-  logger.info('Admin panel created');
+  if (!message) {
+    message = await channel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x2b2d31)
+          .setTitle('⚙️ กำลังสร้าง Quest Admin Panel...')
+          .setDescription('ระบบจะอัปเดตข้อความนี้เป็นหน้าควบคุมหลักอัตโนมัติ')
+      ]
+    });
+
+    await setGlobalConfigValue(
+      DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_MESSAGE,
+      message.id,
+      'Quest Admin Panel Message ID'
+    );
+  }
+
+  await renderAdminHome(message);
+  return message;
 }
 
 module.exports = {
