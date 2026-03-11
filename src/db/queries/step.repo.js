@@ -142,24 +142,36 @@ async function updateTicketStepProgressStatus({
   const result = await db.query(
     `
     UPDATE public.tb_quest_ticket_step_progress
-    SET step_status = $2,
+    SET step_status = $2::varchar(30),
         submitted_at = CASE
-          WHEN $6 THEN NOW()
+          WHEN $6::boolean THEN NOW()
           ELSE submitted_at
         END,
         reviewed_at = CASE
-          WHEN $3 IS NOT NULL OR $4 IS NOT NULL OR $2 IN ('APPROVED', 'REJECTED')
+          WHEN $3::varchar(100) IS NOT NULL
+            OR $4::varchar(2000) IS NOT NULL
+            OR $2::varchar(30) IN ('APPROVED', 'REJECTED', 'CANCELLED')
           THEN NOW()
           ELSE reviewed_at
         END,
-        reviewed_by = COALESCE($3, reviewed_by),
-        review_remark = COALESCE($4, review_remark),
-        attempt_count = attempt_count + CASE WHEN $5 THEN 1 ELSE 0 END,
+        reviewed_by = COALESCE($3::varchar(100), reviewed_by),
+        review_remark = COALESCE($4::varchar(2000), review_remark),
+        attempt_count = attempt_count + CASE
+          WHEN $5::boolean THEN 1
+          ELSE 0
+        END,
         updated_at = NOW()
     WHERE ticket_step_progress_id = $1
     RETURNING *
     `,
-    [ticketStepProgressId, status, reviewedBy, reviewRemark, incrementAttempt, markSubmitted]
+    [
+      ticketStepProgressId,
+      status,
+      reviewedBy,
+      reviewRemark,
+      incrementAttempt,
+      markSubmitted
+    ]
   );
 
   return result.rows[0] || null;
