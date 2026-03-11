@@ -1,25 +1,17 @@
 const { createBot } = require('../bot');
-const { testConnection } = require('../db/pool');
-const { deployProfessionPanels } = require('../handlers/commands/deployPanels.command');
-const { logger } = require('../config/logger');
+const { autoDeployAdminPanel } = require('../services/adminPanelAutoDeploy.service');
+const { autoDeployPanels } = require('../services/panelAutoDeploy.service');
 
-async function main() {
+async function run() {
   const client = await createBot();
 
-  client.once('ready', async () => {
-    try {
-      await testConnection();
-      const results = await deployProfessionPanels(client);
-      logger.info('Deploy panel results', results);
-    } catch (error) {
-      logger.error('Deploy panels failed', error);
-    } finally {
-      await client.destroy();
-      process.exit(0);
-    }
+  client.once('clientReady', async () => {
+    await autoDeployAdminPanel(client);
+    await autoDeployPanels(client);
+    process.exit(0);
   });
 
   await client.login(process.env.BOT_TOKEN);
 }
 
-main();
+run();
