@@ -2,15 +2,15 @@ const { withTransaction } = require('../db/pool');
 const { findSubmissionById, updateSubmissionReview } = require('../db/queries/submission.repo');
 const { insertReviewLog, insertCompletionLog } = require('../db/queries/review.repo');
 const {
-  findNextMainQuestByProfession,
   findQuestRewards
 } = require('../db/queries/questMaster.repo');
 const {
   upsertMainProgress,
-  upsertRepeatableState,
-  setCurrentMainQuest,
-  markProfessionCompleted
+  upsertRepeatableState
 } = require('../db/queries/mainProgress.repo');
+const {
+  resolveCurrentMainQuestByPlayer
+} = require('./questProgress.service');
 
 function buildRewardSummary(rewards) {
   if (!rewards.length) return 'ไม่มี reward ในฐานข้อมูล';
@@ -77,34 +77,11 @@ async function reviewSubmission({
           remark: reviewNote
         }, client);
 
-        const nextQuest = await findNextMainQuestByProfession(
+        await resolveCurrentMainQuestByPlayer(
+          submission.discord_user_id,
           submission.profession_code,
-          submission.quest_level,
           client
         );
-
-        if (nextQuest) {
-          await setCurrentMainQuest(
-            submission.player_id,
-            submission.profession_id,
-            nextQuest.quest_id,
-            nextQuest.quest_level,
-            client
-          );
-
-          await upsertMainProgress({
-            playerId: submission.player_id,
-            professionId: submission.profession_id,
-            questId: nextQuest.quest_id,
-            progressStatus: 'AVAILABLE'
-          }, client);
-        } else {
-          await markProfessionCompleted(
-            submission.player_id,
-            submission.profession_id,
-            client
-          );
-        }
       }
 
       if (submission.submission_type === 'REPEATABLE') {
@@ -173,37 +150,6 @@ async function reviewSubmission({
           professionId: submission.profession_id,
           questId: submission.quest_id,
           stateStatus: 'REVISION_REQUIRED',
-          reviewedBy: reviewerDiscordTag,
-          reviewRemark: reviewNote
-        }, client);
-      }
-    } else if (action === 'reject') {
-      updatedSubmission = await updateSubmissionReview({
-        submissionId,
-        status: 'REJECTED',
-        reviewedBy: reviewerDiscordTag,
-        reviewResult: 'REJECTED',
-        reviewRemark: reviewNote
-      }, client);
-      actionType = 'REJECT';
-
-      if (submission.submission_type === 'MAIN') {
-        await upsertMainProgress({
-          playerId: submission.player_id,
-          professionId: submission.profession_id,
-          questId: submission.quest_id,
-          progressStatus: 'REJECTED',
-          reviewedBy: reviewerDiscordTag,
-          reviewRemark: reviewNote
-        }, client);
-      }
-
-      if (submission.submission_type === 'REPEATABLE') {
-        await upsertRepeatableState({
-          playerId: submission.player_id,
-          professionId: submission.profession_id,
-          questId: submission.quest_id,
-          stateStatus: 'REJECTED',
           reviewedBy: reviewerDiscordTag,
           reviewRemark: reviewNote
         }, client);
