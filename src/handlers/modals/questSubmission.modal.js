@@ -5,20 +5,21 @@ const {
   ButtonStyle
 } = require('discord.js');
 
+const crypto = require('crypto');
 const { getConfig } = require('../../services/config.service');
-const { getCurrentQuestSummary } = require('../../services/panel.service');
 
 function generateSubmissionId() {
   return crypto.randomUUID();
 }
 
 async function handleQuestSubmissionModal(interaction, parsed) {
+
   await interaction.deferReply({ flags: 64 });
 
   try {
-    const { action, extra } = parsed;
 
-    const submissionMode = action;
+    const { extra } = parsed;
+
     const professionCode = extra;
 
     const submissionId = generateSubmissionId();
@@ -32,78 +33,55 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     const reviewChannelId =
       await getConfig('QUEST_REVIEW_CHANNEL');
 
-    if (!reviewChannelId) {
-      await interaction.editReply({
-        content: '❌ ไม่พบ QUEST_REVIEW_CHANNEL ใน config'
-      });
-      return;
-    }
-
     const reviewChannel =
       await interaction.client.channels.fetch(reviewChannelId);
 
-    // ดึงเควสปัจจุบันของผู้เล่นจริง
-    const currentQuestSummary =
-      await getCurrentQuestSummary(
-        interaction.user.id,
-        professionCode
-      );
-
-    const currentQuest = currentQuestSummary?.quest || null;
-
-    const questName =
-      currentQuest?.quest_name || `${professionCode} Lv.?`;
-
-    const questLevel =
-      currentQuest?.quest_level ?? '-';
-
     const embed = new EmbedBuilder()
-      .setTitle('📩 Quest Submission')
+      .setTitle("📩 Quest Submission")
       .setColor(0x2b82ff)
-      .addFields(
-        { name: 'Submission ID', value: `${submissionId}` },
-        { name: 'ผู้เล่น', value: characterName || interaction.user.username },
-        { name: 'Discord Tag', value: interaction.user.tag || '-' },
-        { name: 'สายอาชีพ', value: professionCode || '-' },
-        { name: 'เควส', value: questName },
-        { name: 'เลเวลเควส', value: `${questLevel}` },
-        { name: 'โหมดเควส', value: submissionMode || '-' },
-        { name: 'ผู้ตรวจ', value: '-' },
-        { name: 'หมายเหตุ', value: '-' }
+      .setDescription(
+`Submission ID: ${submissionId}
+ผู้เล่น: <@${interaction.user.id}>
+ชื่อในเกม: ${characterName}
+สายอาชีพ: ${professionCode}
+เควส: แพทย์ Lv.1
+ผู้ตรวจ: -
+หมายเหตุ: -`
       )
       .setImage(screenshot)
-      .setFooter({
-        text: `Discord ID: ${interaction.user.id}`
-      })
       .setTimestamp();
 
     const row1 = new ActionRowBuilder().addComponents(
+
       new ButtonBuilder()
         .setCustomId(`quest:review:inspect:${submissionId}`)
-        .setLabel('🔎 ตรวจสอบ')
+        .setLabel("🔎 ตรวจสอบ")
         .setStyle(ButtonStyle.Secondary),
 
       new ButtonBuilder()
         .setCustomId(`quest:review:approve:${submissionId}`)
-        .setLabel('✅ อนุมัติ')
+        .setLabel("✅ อนุมัติ")
         .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
         .setCustomId(`quest:review:revision:${submissionId}`)
-        .setLabel('📝 ขอแก้ไข')
+        .setLabel("📝 ขอแก้ไข")
         .setStyle(ButtonStyle.Primary)
+
     );
 
     const row2 = new ActionRowBuilder().addComponents(
+
       new ButtonBuilder()
         .setCustomId(`quest:review:reject:${submissionId}`)
-        .setLabel('❌ ปฏิเสธ')
+        .setLabel("❌ ปฏิเสธ")
         .setStyle(ButtonStyle.Danger),
 
       new ButtonBuilder()
         .setCustomId(`quest:review:reward:${submissionId}`)
-        .setLabel('🎁 ดูรางวัล')
+        .setLabel("🎁 ดูรางวัล")
         .setStyle(ButtonStyle.Secondary)
+
     );
 
     await reviewChannel.send({
@@ -112,15 +90,19 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     });
 
     await interaction.editReply({
-      content: '✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ'
+      content: "✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ"
     });
+
   } catch (error) {
+
     console.error(error);
 
     await interaction.editReply({
-      content: '❌ เกิดข้อผิดพลาดระหว่างส่งเควส'
+      content: "❌ เกิดข้อผิดพลาดระหว่างส่งเควส"
     });
+
   }
+
 }
 
 module.exports = {
