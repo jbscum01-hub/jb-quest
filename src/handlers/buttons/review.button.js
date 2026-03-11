@@ -1,35 +1,57 @@
-const { EmbedBuilder } = require('discord.js');
-
 async function handleReviewButton(interaction, parsed) {
 
   const { action, extra } = parsed;
-  const userId = extra;
 
-  if (action === 'approve') {
+  const submissionId = extra;
 
-    await interaction.update({
-      content: '✅ เควสนี้ได้รับการอนุมัติแล้ว',
-      components: []
+  if (action === "inspect") {
+
+    await interaction.reply({
+      content: `🔎 กำลังตรวจสอบ Submission ${submissionId}`,
+      flags: 64
     });
-
-    const user = await interaction.client.users.fetch(userId);
-
-    await user.send('🎉 เควสของคุณได้รับการอนุมัติแล้ว');
 
     return;
   }
 
-  if (action === 'reject') {
+  if (action === "approve") {
 
     await interaction.update({
-      content: '❌ เควสนี้ถูกปฏิเสธ',
+      content: `✅ Submission ${submissionId} อนุมัติแล้ว`,
       components: []
     });
 
-    const user = await interaction.client.users.fetch(userId);
+    return;
+  }
 
-    await user.send('❌ เควสของคุณไม่ผ่านการตรวจสอบ');
+  if (action === "revision") {
 
+    await interaction.update({
+      content: `📝 Submission ${submissionId} ขอแก้ไข`,
+      components: []
+    });
+
+    return;
+  }
+
+  if (action === "reject") {
+
+    await interaction.update({
+      content: `❌ Submission ${submissionId} ถูกปฏิเสธ`,
+      components: []
+    });
+
+    return;
+  }
+
+  if (action === "reward") {
+
+    await interaction.reply({
+      content: `🎁 ดูรางวัลของ Submission ${submissionId}`,
+      flags: 64
+    });
+
+    return;
   }
 
 }
