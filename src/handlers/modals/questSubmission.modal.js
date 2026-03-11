@@ -22,11 +22,8 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     const submissionMode = action;
     const professionCode = extra;
 
-    const characterName =
-      interaction.fields.getTextInputValue('character_name');
-
-    const screenshot =
-      interaction.fields.getTextInputValue('screenshot');
+    const characterName = interaction.fields.getTextInputValue('character_name');
+    const screenshot = interaction.fields.getTextInputValue('screenshot');
 
     const reviewChannelId = await getConfig('QUEST_REVIEW_CHANNEL');
 
@@ -37,8 +34,7 @@ async function handleQuestSubmissionModal(interaction, parsed) {
       return;
     }
 
-    const reviewChannel =
-      await interaction.client.channels.fetch(reviewChannelId);
+    const reviewChannel = await interaction.client.channels.fetch(reviewChannelId);
 
     const result = await submitQuest({
       discordUserId: interaction.user.id,
@@ -51,13 +47,9 @@ async function handleQuestSubmissionModal(interaction, parsed) {
       attachments: []
     });
 
-    const currentQuestSummary =
-      await getCurrentQuestSummary(interaction.user.id, professionCode);
-
+    const currentQuestSummary = await getCurrentQuestSummary(interaction.user.id, professionCode);
     const currentQuest = result.quest || currentQuestSummary?.quest || null;
-
-    const questName =
-      currentQuest?.quest_name || `${professionCode} Lv.?`;
+    const questName = currentQuest?.quest_name || `${professionCode} Lv.?`;
 
     const embed = new EmbedBuilder()
       .setTitle('📩 Quest Submission')
@@ -88,24 +80,17 @@ async function handleQuestSubmissionModal(interaction, parsed) {
       new ButtonBuilder()
         .setCustomId(`quest:review:revision:${result.submission.submission_id}`)
         .setLabel('📝 ขอแก้ไข')
-        .setStyle(ButtonStyle.Primary)
-    );
-
-    const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`quest:review:reject:${result.submission.submission_id}`)
-        .setLabel('❌ ปฏิเสธ')
-        .setStyle(ButtonStyle.Danger),
+        .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
         .setCustomId(`quest:review:reward:${result.submission.submission_id}`)
-        .setLabel('🎁 ดูรางวัล')
+        .setLabel('🎁 รางวัล')
         .setStyle(ButtonStyle.Secondary)
     );
 
     await reviewChannel.send({
       embeds: [embed],
-      components: [row1, row2]
+      components: [row1]
     });
 
     await interaction.editReply({
