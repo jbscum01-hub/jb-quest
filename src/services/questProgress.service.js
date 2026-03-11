@@ -42,7 +42,7 @@ async function isQuestUnlocked(quest, completedQuestIds, client) {
   return andPassed && orPassed;
 }
 
-async function resolveCurrentMainQuestByPlayer(discordUserId, professionCode, client = null) {
+async function resolveCurrentMainQuestByPlayer(discordUserId, professionCode, client) {
   const profession = await findProfessionByCode(professionCode, client);
 
   if (!profession) {
