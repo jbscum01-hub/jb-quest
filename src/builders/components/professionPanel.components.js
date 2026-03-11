@@ -10,7 +10,7 @@ function buildProfessionPanelComponents(professionCode) {
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(buildCustomId('panel', 'submit_main', professionCode))
-        .setLabel('ส่งเควสหลัก')
+        .setLabel('ส่งเควส')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(buildCustomId('panel', 'submit_repeatable', professionCode))
