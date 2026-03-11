@@ -6,37 +6,54 @@ const {
   findQuestRewards,
   findQuestById
 } = require('../db/queries/questMaster.repo');
+
 const {
   findPlayerByDiscordId
 } = require('../db/queries/playerProfile.repo');
+
 const {
   findPlayerProfession,
   upsertPlayerProfession,
   setCurrentMainQuest
 } = require('../db/queries/mainProgress.repo');
 
-async function resolveCurrentMainQuestForPlayer(discordUserId, professionCode) {
+async function getCurrentQuestSummary(discordUserId, professionCode) {
   const profession = await findProfessionByCode(professionCode);
-  if (!profession) return { profession: null, quest: null, requirements: [], rewards: [] };
+
+  if (!profession) {
+    return { profession: null, quest: null, requirements: [], rewards: [] };
+  }
 
   const player = await findPlayerByDiscordId(discordUserId);
 
+  // ยังไม่มี player profile -> ใช้เควสแรกของสาย
   if (!player) {
-    const defaultQuest = await findCurrentMainQuestByProfession(professionCode);
-    if (!defaultQuest) return { profession, quest: null, requirements: [], rewards: [] };
+    const firstQuest = await findCurrentMainQuestByProfession(professionCode);
+
+    if (!firstQuest) {
+      return { profession, quest: null, requirements: [], rewards: [] };
+    }
+
     return {
       profession,
-      quest: defaultQuest,
-      requirements: await findQuestRequirements(defaultQuest.quest_id),
-      rewards: await findQuestRewards(defaultQuest.quest_id)
+      quest: firstQuest,
+      requirements: await findQuestRequirements(firstQuest.quest_id),
+      rewards: await findQuestRewards(firstQuest.quest_id)
     };
   }
 
-  let playerProfession = await findPlayerProfession(player.player_id, profession.profession_id);
+  let playerProfession = await findPlayerProfession(
+    player.player_id,
+    profession.profession_id
+  );
 
+  // ยังไม่มี progress ของสายนี้ -> set เควสแรกให้เลย
   if (!playerProfession) {
     const firstQuest = await findCurrentMainQuestByProfession(professionCode);
-    if (!firstQuest) return { profession, quest: null, requirements: [], rewards: [] };
+
+    if (!firstQuest) {
+      return { profession, quest: null, requirements: [], rewards: [] };
+    }
 
     playerProfession = await upsertPlayerProfession({
       playerId: player.player_id,
@@ -54,46 +71,41 @@ async function resolveCurrentMainQuestForPlayer(discordUserId, professionCode) {
     };
   }
 
+  // ถ้า current_main_quest_id ว่าง ให้ fallback เป็นเควสแรก
   if (!playerProfession.current_main_quest_id) {
-    const fallbackQuest = await findCurrentMainQuestByProfession(professionCode);
-    if (!fallbackQuest) return { profession, quest: null, requirements: [], rewards: [] };
+    const firstQuest = await findCurrentMainQuestByProfession(professionCode);
 
-    await setCurrentMainQuest(player.player_id, profession.profession_id, fallbackQuest.quest_id, fallbackQuest.quest_level);
+    if (!firstQuest) {
+      return { profession, quest: null, requirements: [], rewards: [] };
+    }
+
+    await setCurrentMainQuest(
+      player.player_id,
+      profession.profession_id,
+      firstQuest.quest_id,
+      firstQuest.quest_level
+    );
 
     return {
       profession,
-      quest: fallbackQuest,
-      requirements: await findQuestRequirements(fallbackQuest.quest_id),
-      rewards: await findQuestRewards(fallbackQuest.quest_id)
+      quest: firstQuest,
+      requirements: await findQuestRequirements(firstQuest.quest_id),
+      rewards: await findQuestRewards(firstQuest.quest_id)
     };
   }
 
-  const quest = await findQuestById(playerProfession.current_main_quest_id);
+  const currentQuest = await findQuestById(playerProfession.current_main_quest_id);
 
-  if (!quest) {
-    const fallbackQuest = await findCurrentMainQuestByProfession(professionCode);
-    if (!fallbackQuest) return { profession, quest: null, requirements: [], rewards: [] };
-
-    await setCurrentMainQuest(player.player_id, profession.profession_id, fallbackQuest.quest_id, fallbackQuest.quest_level);
-
-    return {
-      profession,
-      quest: fallbackQuest,
-      requirements: await findQuestRequirements(fallbackQuest.quest_id),
-      rewards: await findQuestRewards(fallbackQuest.quest_id)
-    };
+  if (!currentQuest) {
+    return { profession, quest: null, requirements: [], rewards: [] };
   }
 
   return {
     profession,
-    quest,
-    requirements: await findQuestRequirements(quest.quest_id),
-    rewards: await findQuestRewards(quest.quest_id)
+    quest: currentQuest,
+    requirements: await findQuestRequirements(currentQuest.quest_id),
+    rewards: await findQuestRewards(currentQuest.quest_id)
   };
-}
-
-async function getCurrentQuestSummary(discordUserId, professionCode) {
-  return resolveCurrentMainQuestForPlayer(discordUserId, professionCode);
 }
 
 async function getFirstRepeatableQuest(professionCode) {
