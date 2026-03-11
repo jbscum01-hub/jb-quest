@@ -1,5 +1,5 @@
 const { reviewSubmission } = require('../../services/review.service');
-const { buildResultEmbed, buildDisabledRows } = require('../buttons/review.button');
+const { buildUpdatedEmbedFromOriginal, buildDisabledRows } = require('../buttons/review.button');
 
 async function handleReviewRevisionModal(interaction, parsed) {
   await interaction.deferReply({ flags: 64 });
@@ -45,7 +45,7 @@ async function handleReviewRevisionModal(interaction, parsed) {
       reviewNote
     });
 
-    const resultEmbed = buildResultEmbed(
+    const updatedEmbed = buildUpdatedEmbedFromOriginal(
       originalEmbed,
       'revision',
       interaction.user.id,
@@ -53,7 +53,7 @@ async function handleReviewRevisionModal(interaction, parsed) {
     );
 
     await targetMessage.edit({
-      embeds: [resultEmbed],
+      embeds: [updatedEmbed],
       components: buildDisabledRows()
     });
 
