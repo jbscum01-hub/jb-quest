@@ -5,240 +5,234 @@ const {
   StringSelectMenuBuilder
 } = require('discord.js');
 
-function buildAdminPanelButtons() {
+function buildAdminHomeComponents() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('quest:admin:panel_home')
-        .setLabel('Panel Management')
+        .setLabel('จัดการพาเนล')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('quest:admin:master_home')
-        .setLabel('Master Data')
+        .setLabel('จัดการข้อมูลเควส')
         .setStyle(ButtonStyle.Success)
     )
   ];
 }
 
-function buildPanelManagementButtons() {
+function buildPanelManagementComponents() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('quest:admin:deploy_panels')
-        .setLabel('Deploy Player Panels')
+        .setLabel('สร้างพาเนลใหม่')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('quest:admin:refresh_panels')
-        .setLabel('Refresh Player Panels')
+        .setLabel('รีเฟรชพาเนล')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('quest:admin:repair_panels')
-        .setLabel('Repair Missing Panels')
+        .setLabel('ซ่อมพาเนลที่หาย')
         .setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('quest:admin:refresh_current_quest_view')
-        .setLabel('Refresh Current Quest View')
+        .setCustomId('quest:admin:refresh_current_view')
+        .setLabel('รีเฟรชมุมมองเควสปัจจุบัน')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('quest:admin:panel_status')
-        .setLabel('Panel Status')
+        .setLabel('สถานะพาเนล')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('quest:admin:home')
-        .setLabel('Back')
+        .setLabel('กลับหน้าหลัก')
         .setStyle(ButtonStyle.Danger)
     )
   ];
 }
 
-function buildMasterHomeButtons() {
+function buildMasterHomeComponents() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('quest:admin:browse_quest')
-        .setLabel('Browse Quest')
+        .setCustomId('quest:admin:browse_start')
+        .setLabel('เลือกเควสเพื่อดู/แก้ไข')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('quest:admin:create_quest_stub')
+        .setLabel('สร้างเควสใหม่')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId('quest:admin:search_quest')
-        .setLabel('Search Quest')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('quest:admin:create_quest')
-        .setLabel('Create Quest')
-        .setStyle(ButtonStyle.Primary)
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
         .setCustomId('quest:admin:home')
-        .setLabel('Back')
+        .setLabel('กลับหน้าหลัก')
         .setStyle(ButtonStyle.Danger)
     )
   ];
 }
 
-function buildProfessionSelect(professions) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('quest:admin:master_profession_select')
-        .setPlaceholder('เลือกสายอาชีพ')
-        .addOptions(
-          professions.slice(0, 25).map((profession) => ({
-            label: profession.profession_name_th,
-            description: profession.profession_code,
-            value: profession.profession_id
-          }))
-        )
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('quest:admin:master_home')
-        .setLabel('Back')
-        .setStyle(ButtonStyle.Danger)
-    )
-  ];
+function buildProfessionSelectRow(professions) {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('quest:admin:select_profession')
+    .setPlaceholder('เลือกสายอาชีพที่ต้องการจัดการ')
+    .addOptions(
+      professions.slice(0, 25).map((profession) => ({
+        label: profession.profession_name_th,
+        description: `${profession.profession_code}${profession.profession_name_en ? ` • ${profession.profession_name_en}` : ''}`.slice(0, 100),
+        value: profession.profession_id
+      }))
+    );
+
+  return [new ActionRowBuilder().addComponents(select)];
 }
 
-function buildLevelSelect(professionId, levels) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(`quest:admin:master_level_select:${professionId}`)
-        .setPlaceholder('เลือกเลเวลเควส')
-        .addOptions(
-          levels.slice(0, 25).map((level) => ({
-            label: `Lv.${level}`,
-            value: String(level)
-          }))
-        )
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('quest:admin:browse_quest')
-        .setLabel('Back')
-        .setStyle(ButtonStyle.Danger)
-    )
-  ];
+function buildLevelSelectRow(professionId, levels) {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`quest:admin:select_level:${professionId}`)
+    .setPlaceholder('เลือกระดับเควส')
+    .addOptions(
+      levels.slice(0, 25).map((level) => ({
+        label: `Lv.${level.quest_level}`,
+        description: `มี ${level.quest_count} เควส`,
+        value: String(level.quest_level)
+      }))
+    );
+
+  return [new ActionRowBuilder().addComponents(select)];
 }
 
-function buildQuestSelect(professionId, level, quests) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(`quest:admin:master_quest_select:${professionId}:${level}`)
-        .setPlaceholder('เลือกเควส')
-        .addOptions(
-          quests.slice(0, 25).map((quest) => ({
-            label: quest.quest_name.slice(0, 100),
-            description: quest.quest_code.slice(0, 100),
-            value: quest.quest_id
-          }))
-        )
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`quest:admin:browse_levels:${professionId}`)
-        .setLabel('Back')
-        .setStyle(ButtonStyle.Danger)
-    )
-  ];
+function buildQuestSelectRow(professionId, level, quests) {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`quest:admin:select_quest:${professionId}:${level}`)
+    .setPlaceholder('เลือกเควสที่ต้องการดูหรือแก้ไข')
+    .addOptions(
+      quests.slice(0, 25).map((quest) => ({
+        label: `${quest.quest_code} · ${quest.quest_name}`.slice(0, 100),
+        description: [
+          `Lv.${quest.quest_level ?? '-'} ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
+          quest.is_step_quest ? 'Step Quest' : 'Quest ปกติ'
+        ].join(' • ').slice(0, 100),
+        value: quest.quest_id
+      }))
+    );
+
+  return [new ActionRowBuilder().addComponents(select)];
 }
 
-function buildQuestDetailButtons(questId, professionId, level) {
-  return [
+function buildQuestDetailComponents(questId, hasSteps = false) {
+  const rows = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`quest:admin:view_requirements:${questId}`)
-        .setLabel('View Requirements')
-        .setStyle(ButtonStyle.Secondary),
+        .setLabel('ดูของที่ต้องส่ง')
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`quest:admin:view_rewards:${questId}`)
-        .setLabel('View Rewards')
-        .setStyle(ButtonStyle.Secondary),
+        .setLabel('ดูรางวัล')
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`quest:admin:view_dependency:${questId}`)
-        .setLabel('View Dependency')
-        .setStyle(ButtonStyle.Secondary)
+        .setLabel('ดูเงื่อนไขปลดล็อก')
+        .setStyle(ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`quest:admin:view_images:${questId}`)
-        .setLabel('View Example Images')
+        .setLabel('ดูรูปตัวอย่าง')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`quest:admin:edit_description:${questId}`)
-        .setLabel('Edit Description')
-        .setStyle(ButtonStyle.Primary),
+        .setLabel('แก้คำอธิบาย')
+        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`quest:admin:edit_dependency:${questId}`)
-        .setLabel('Edit Dependency')
-        .setStyle(ButtonStyle.Primary)
+        .setLabel('แก้ Dependency')
+        .setStyle(ButtonStyle.Success)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`quest:admin:edit_requirements:${questId}`)
-        .setLabel('Edit Requirements')
-        .setStyle(ButtonStyle.Primary),
+        .setLabel('แก้ของที่ต้องส่ง')
+        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`quest:admin:edit_rewards:${questId}`)
-        .setLabel('Edit Rewards')
-        .setStyle(ButtonStyle.Primary),
+        .setLabel('แก้รางวัล')
+        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`quest:admin:add_image:${questId}`)
-        .setLabel('Add Example Image')
+        .setLabel('เพิ่มรูปตัวอย่าง')
         .setStyle(ButtonStyle.Success)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`quest:admin:add_requirement:${questId}`)
-        .setLabel('Add Requirement')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(`quest:admin:add_reward:${questId}`)
-        .setLabel('Add Reward')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(`quest:admin:toggle_active:${questId}`)
-        .setLabel('Toggle Active')
-        .setStyle(ButtonStyle.Danger)
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`quest:admin:browse_quests:${professionId}:${level}`)
-        .setLabel('Back to Quest List')
+        .setLabel('เพิ่มของที่ต้องส่ง')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('quest:admin:master_home')
-        .setLabel('Back to Master Home')
+        .setCustomId(`quest:admin:add_reward:${questId}`)
+        .setLabel('เพิ่มรางวัล')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`quest:admin:toggle_active:${questId}`)
+        .setLabel('เปิด/ปิดเควส')
         .setStyle(ButtonStyle.Danger)
     )
   ];
+
+  if (hasSteps) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`quest:admin:view_steps:${questId}`)
+          .setLabel('ดูขั้นตอน Lv6')
+          .setStyle(ButtonStyle.Primary)
+      )
+    );
+  }
+
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('quest:admin:browse_start')
+        .setLabel('เลือกเควสอื่น')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('quest:admin:master_home')
+        .setLabel('กลับหน้าจัดการเควส')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('quest:admin:home')
+        .setLabel('กลับหน้าหลัก')
+        .setStyle(ButtonStyle.Danger)
+    )
+  );
+
+  return rows;
 }
 
-function buildQuestViewBackButtons(questId) {
+function buildBackRows(backCustomId = 'quest:admin:master_home') {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`quest:admin:quest_detail:${questId}`)
-        .setLabel('Back to Quest Detail')
-        .setStyle(ButtonStyle.Danger),
+        .setCustomId(backCustomId)
+        .setLabel('ย้อนกลับ')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('quest:admin:master_home')
-        .setLabel('Back to Master Home')
-        .setStyle(ButtonStyle.Secondary)
+        .setCustomId('quest:admin:home')
+        .setLabel('กลับหน้าหลัก')
+        .setStyle(ButtonStyle.Danger)
     )
   ];
 }
 
 module.exports = {
-  buildAdminPanelButtons,
-  buildPanelManagementButtons,
-  buildMasterHomeButtons,
-  buildProfessionSelect,
-  buildLevelSelect,
-  buildQuestSelect,
-  buildQuestDetailButtons,
-  buildQuestViewBackButtons
+  buildAdminHomeComponents,
+  buildPanelManagementComponents,
+  buildMasterHomeComponents,
+  buildProfessionSelectRow,
+  buildLevelSelectRow,
+  buildQuestSelectRow,
+  buildQuestDetailComponents,
+  buildBackRows
 };
