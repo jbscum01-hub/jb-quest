@@ -1,22 +1,25 @@
 const { EmbedBuilder } = require('discord.js');
 
-function buildReviewCard(submission, quest) {
-
+function buildReviewCardEmbed({ submission, quest, playerProfile, memberDisplayName }) {
   return new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle('Quest Submission')
+    .setColor(0xfee75c)
+    .setTitle('📝 Quest Submission Review')
+    .setDescription([
+      `ผู้เล่น: ${memberDisplayName || playerProfile?.discord_display_name || playerProfile?.discord_username || '-'}`,
+      `Discord: ${playerProfile?.discord_username || '-'}`,
+      `สายอาชีพ: ${quest.profession_code || '-'}`,
+      `ประเภท: ${submission.submission_type || '-'}`,
+      `สถานะ: ${submission.submission_status || '-'}`
+    ].join('\n'))
     .addFields(
-      { name: 'Quest', value: quest.quest_name, inline:false },
-      { name: 'Player IGN', value: submission.player_ingame_name || '-', inline:true },
-      { name: 'Submission', value: submission.submission_text || '-', inline:false }
+      { name: 'เควส', value: `${quest.quest_name}\nรหัส: ${quest.quest_code || '-'}`, inline: false },
+      { name: 'ชื่อตัวละคร', value: submission.player_ingame_name || '-', inline: false },
+      { name: 'รายละเอียดที่ส่ง', value: submission.submission_text || '-', inline: false }
     )
-    .setFooter({
-      text:`Submission ID: ${submission.submission_id}`
-    })
-    .setTimestamp();
-
+    .setFooter({ text: `Submission ID: ${submission.submission_id}` })
+    .setTimestamp(new Date(submission.submitted_at || Date.now()));
 }
 
 module.exports = {
-  buildReviewCard
+  buildReviewCardEmbed
 };
