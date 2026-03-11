@@ -9,13 +9,14 @@ const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 
 async function autoDeployAdminPanel(client) {
   const channelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_CHANNEL);
+
   if (!channelId) {
     throw new Error('ยังไม่ได้ตั้งค่า QUEST_ADMIN_PANEL_CHANNEL');
   }
 
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel) {
-    throw new Error(`ไม่พบห้องแอดมินพาเนล: ${channelId}`);
+    throw new Error(`ไม่พบห้อง Admin Panel: ${channelId}`);
   }
 
   const existingMessageId = await getAdminPanelMessageId();
