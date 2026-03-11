@@ -8,18 +8,20 @@ async function handleQuestSubmissionModal(interaction, parsedCustomId) {
   const submissionMode = parsedCustomId.action;
   const professionCode = parsedCustomId.extra;
 
-  const title = interaction.fields.getTextInputValue('submission_title');
-  const description = interaction.fields.getTextInputValue('submission_description');
-  const proofText = interaction.fields.getTextInputValue('submission_proof') || '';
+  const ingameName = interaction.fields.getTextInputValue('submission_ingame_name');
+  const submissionText = interaction.fields.getTextInputValue('submission_text');
+
+  const attachments = [];
 
   const result = await submitQuest({
     discordUserId: interaction.user.id,
     discordUsername: interaction.user.tag,
+    discordDisplayName: interaction.member?.displayName || interaction.user.username,
     professionCode,
     submissionMode,
-    title,
-    description,
-    proofText
+    ingameName,
+    submissionText,
+    attachments
   });
 
   const reviewChannelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_REVIEW_CHANNEL);
@@ -35,7 +37,7 @@ async function handleQuestSubmissionModal(interaction, parsedCustomId) {
         memberDisplayName: interaction.member?.displayName || interaction.user.username
       });
 
-      const reviewComponents = buildReviewCardComponents(result.submission.id);
+      const reviewComponents = buildReviewCardComponents(result.submission.submission_id);
 
       await reviewChannel.send({
         embeds: [reviewEmbed],
@@ -45,10 +47,9 @@ async function handleQuestSubmissionModal(interaction, parsedCustomId) {
   }
 
   await interaction.reply({
-    content:
-      submissionMode === 'MAIN'
-        ? `ส่งเควสหลักของสาย ${professionCode} เรียบร้อยแล้ว รอแอดมินตรวจสอบ`
-        : `ส่งเควสซ้ำของสาย ${professionCode} เรียบร้อยแล้ว รอแอดมินตรวจสอบ`,
+    content: submissionMode === 'MAIN'
+      ? `ส่งเควสหลักของสาย ${professionCode} เรียบร้อยแล้ว รอแอดมินตรวจสอบ`
+      : `ส่งเควสซ้ำของสาย ${professionCode} เรียบร้อยแล้ว รอแอดมินตรวจสอบ`,
     ephemeral: true
   });
 }
