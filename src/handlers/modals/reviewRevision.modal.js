@@ -1,13 +1,13 @@
 const { reviewSubmission } = require('../../services/review.service');
 const { buildUpdatedEmbedFromOriginal, buildDisabledRows } = require('../buttons/review.button');
+const { notifyRevision } = require('../../services/questNotification.service');
 
 async function handleReviewRevisionModal(interaction, parsed) {
   await interaction.deferReply({ flags: 64 });
 
   try {
     const submissionId = parsed.extra;
-    const reviewNote =
-      interaction.fields.getTextInputValue('review_note');
+    const reviewNote = interaction.fields.getTextInputValue('review_note');
 
     const channel = interaction.channel;
     const messages = await channel.messages.fetch({ limit: 50 });
@@ -55,6 +55,13 @@ async function handleReviewRevisionModal(interaction, parsed) {
     await targetMessage.edit({
       embeds: [updatedEmbed],
       components: buildDisabledRows()
+    });
+
+    await notifyRevision({
+      client: interaction.client,
+      submission: reviewResult.submission,
+      reviewerId: interaction.user.id,
+      reviewNote
     });
 
     await interaction.editReply({
