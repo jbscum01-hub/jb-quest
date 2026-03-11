@@ -1,24 +1,14 @@
 const { parseCustomId } = require('../utils/customId');
 const { logger } = require('../config/logger');
-
 const { handlePanelButton } = require('./buttons/panel.button');
 const { handleReviewButton } = require('./buttons/review.button');
 const { handleAdminButtons } = require('./buttons/admin.button');
-
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 
 function registerInteractionHandler(client) {
-
   client.on('interactionCreate', async (interaction) => {
-
     try {
-
-      // -----------------------------
-      // BUTTON INTERACTIONS
-      // -----------------------------
       if (interaction.isButton()) {
-
-        // ADMIN PANEL BUTTONS (ไม่ต้องใช้ customId parser)
         if (interaction.customId.startsWith('quest:admin')) {
           await handleAdminButtons(interaction);
           return;
@@ -41,15 +31,10 @@ function registerInteractionHandler(client) {
           content: 'ยังไม่รองรับ interaction นี้ในระบบ',
           ephemeral: true
         });
-
         return;
       }
 
-      // -----------------------------
-      // MODAL SUBMIT
-      // -----------------------------
       if (interaction.isModalSubmit()) {
-
         const parsed = parseCustomId(interaction.customId);
         if (!parsed) return;
 
@@ -62,11 +47,8 @@ function registerInteractionHandler(client) {
           content: 'ยังไม่รองรับ modal นี้ในระบบ',
           ephemeral: true
         });
-
       }
-
     } catch (error) {
-
       logger.error('interactionCreate handler failed', error);
 
       if (interaction.deferred || interaction.replied) {
@@ -81,11 +63,8 @@ function registerInteractionHandler(client) {
         content: 'เกิดข้อผิดพลาดระหว่างประมวลผล',
         ephemeral: true
       });
-
     }
-
   });
-
 }
 
 module.exports = {
