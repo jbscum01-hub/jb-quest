@@ -5,6 +5,8 @@ const {
   ButtonStyle
 } = require('discord.js');
 
+const { getConfig } = require('../../services/config.service');
+
 function generateSubmissionId() {
   return Math.floor(100000 + Math.random() * 900000);
 }
@@ -13,60 +15,89 @@ async function handleQuestSubmissionModal(interaction, parsed) {
 
   await interaction.deferReply({ flags: 64 });
 
-  const { action, extra } = parsed;
+  try {
 
-  const professionCode = extra;
-  const submissionId = generateSubmissionId();
+    const { action, extra } = parsed;
 
-  const characterName =
-    interaction.fields.getTextInputValue('character_name');
+    const submissionMode = action;
+    const professionCode = extra;
 
-  const screenshot =
-    interaction.fields.getTextInputValue('screenshot');
+    const submissionId = generateSubmissionId();
 
-  // 🔴 ใส่ ID ห้อง quest-review ของคุณ
-  const reviewChannelId = "1480607496023445665";
+    const characterName =
+      interaction.fields.getTextInputValue('character_name');
 
-  const reviewChannel =
-    await interaction.client.channels.fetch(reviewChannelId);
+    const screenshot =
+      interaction.fields.getTextInputValue('screenshot');
 
-  const embed = new EmbedBuilder()
-    .setTitle("📩 Quest Submission")
-    .setColor(0x2b82ff)
-    .addFields(
-      { name: "Submission ID", value: `${submissionId}` },
-      { name: "ผู้เล่น", value: characterName || interaction.user.username },
-      { name: "สายอาชีพ", value: professionCode },
-      { name: "เควส", value: `${professionCode} Lv.1` },
-      { name: "ผู้ตรวจ", value: "-" },
-      { name: "หมายเหตุ", value: "-" }
-    )
-    .setImage(screenshot)
-    .setFooter({ text: `Discord: ${interaction.user.tag}` })
-    .setTimestamp();
+    // ดึง channel id จาก config table
+    const reviewChannelId =
+      await getConfig('QUEST_REVIEW_CHANNEL');
 
-  const row = new ActionRowBuilder().addComponents(
+    if (!reviewChannelId) {
+      await interaction.editReply({
+        content: '❌ ไม่พบ QUEST_REVIEW_CHANNEL ใน config'
+      });
+      return;
+    }
 
-    new ButtonBuilder()
-      .setCustomId(`quest:review:approve:${interaction.user.id}`)
-      .setLabel("Approve")
-      .setStyle(ButtonStyle.Success),
+    const reviewChannel =
+      await interaction.client.channels.fetch(reviewChannelId);
 
-    new ButtonBuilder()
-      .setCustomId(`quest:review:reject:${interaction.user.id}`)
-      .setLabel("Reject")
-      .setStyle(ButtonStyle.Danger)
+    const embed = new EmbedBuilder()
+      .setTitle("📩 Quest Submission")
+      .setColor(0x2b82ff)
+      .setDescription(
+`Submission ID: ${submissionId}
 
-  );
+ผู้เล่น: ${characterName}
 
-  await reviewChannel.send({
-    embeds: [embed],
-    components: [row]
-  });
+สายอาชีพ: ${professionCode}
 
-  await interaction.editReply({
-    content: "✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ"
-  });
+เควส: ${professionCode} Lv.1
+
+ผู้ตรวจ: -
+
+หมายเหตุ: -`
+      )
+      .setImage(screenshot)
+      .setFooter({
+        text: `Discord: ${interaction.user.tag}`
+      })
+      .setTimestamp();
+
+    const row = new ActionRowBuilder().addComponents(
+
+      new ButtonBuilder()
+        .setCustomId(`quest:review:approve:${interaction.user.id}`)
+        .setLabel('Approve')
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId(`quest:review:reject:${interaction.user.id}`)
+        .setLabel('Reject')
+        .setStyle(ButtonStyle.Danger)
+
+    );
+
+    await reviewChannel.send({
+      embeds: [embed],
+      components: [row]
+    });
+
+    await interaction.editReply({
+      content: '✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ'
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    await interaction.editReply({
+      content: '❌ เกิดข้อผิดพลาดระหว่างส่งเควส'
+    });
+
+  }
 
 }
 
