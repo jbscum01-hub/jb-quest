@@ -16,7 +16,6 @@ async function handleReviewButton(interaction, parsedCustomId) {
   }
 
   const isAdmin = await isQuestAdmin(interaction.member);
-
   if (!isAdmin) {
     await interaction.reply({
       content: 'คุณไม่มีสิทธิ์ใช้งานปุ่มตรวจเควสนี้',
@@ -27,7 +26,7 @@ async function handleReviewButton(interaction, parsedCustomId) {
 
   if (action === 'reward') {
     await interaction.reply({
-      content: `ระบบแจกของรางวัลของ submission #${submissionId} ยังเป็น stub`,
+      content: 'ปุ่มนี้ไว้ดู reward หลังระบบแจกของจริงถูกต่อเข้ามา',
       ephemeral: true
     });
     return;
@@ -45,7 +44,8 @@ async function handleReviewButton(interaction, parsedCustomId) {
     action,
     submission: result.submission,
     reviewerTag: interaction.user.tag,
-    reviewNote: null
+    reviewNote: null,
+    rewardSummary: action === 'approve' ? result.rewardSummary : null
   });
 
   await interaction.update({
