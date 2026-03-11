@@ -36,6 +36,27 @@ async function findSubmissionById(submissionId, client = getPool()) {
   return result.rows[0] || null;
 }
 
+async function findPendingSubmissionByPlayer(
+  { playerId, professionId, submissionType },
+  client = getPool()
+) {
+  const result = await client.query(
+    `
+    SELECT *
+    FROM public.tb_quest_submission
+    WHERE player_id = $1
+      AND profession_id = $2
+      AND submission_type = $3
+      AND submission_status = 'PENDING_REVIEW'
+    ORDER BY submitted_at DESC
+    LIMIT 1
+    `,
+    [playerId, professionId, submissionType]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function updateSubmissionReview(
   { submissionId, status, reviewedBy, reviewResult, reviewRemark = null },
   client = getPool()
@@ -58,7 +79,10 @@ async function updateSubmissionReview(
   return result.rows[0] || null;
 }
 
-async function insertSubmissionAttachment({ submissionId, fileUrl, fileName = null, fileType = null, discordAttachmentId = null }, client = getPool()) {
+async function insertSubmissionAttachment(
+  { submissionId, fileUrl, fileName = null, fileType = null, discordAttachmentId = null },
+  client = getPool()
+) {
   const result = await client.query(
     `
     INSERT INTO public.tb_quest_submission_attachment
@@ -75,6 +99,7 @@ async function insertSubmissionAttachment({ submissionId, fileUrl, fileName = nu
 module.exports = {
   createSubmission,
   findSubmissionById,
+  findPendingSubmissionByPlayer,
   updateSubmissionReview,
   insertSubmissionAttachment
 };
