@@ -6,6 +6,7 @@ const {
 } = require('discord.js');
 
 const { getConfig } = require('../../services/config.service');
+const { getCurrentQuestSummary } = require('../../services/panel.service');
 
 function generateSubmissionId() {
   return crypto.randomUUID();
@@ -15,8 +16,11 @@ async function handleQuestSubmissionModal(interaction, parsed) {
   await interaction.deferReply({ flags: 64 });
 
   try {
-    const { extra } = parsed;
+    const { action, extra } = parsed;
+
+    const submissionMode = action;
     const professionCode = extra;
+
     const submissionId = generateSubmissionId();
 
     const characterName =
@@ -25,7 +29,8 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     const screenshot =
       interaction.fields.getTextInputValue('screenshot');
 
-    const reviewChannelId = await getConfig('QUEST_REVIEW_CHANNEL');
+    const reviewChannelId =
+      await getConfig('QUEST_REVIEW_CHANNEL');
 
     if (!reviewChannelId) {
       await interaction.editReply({
@@ -37,20 +42,38 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     const reviewChannel =
       await interaction.client.channels.fetch(reviewChannelId);
 
+    // ดึงเควสปัจจุบันของผู้เล่นจริง
+    const currentQuestSummary =
+      await getCurrentQuestSummary(
+        interaction.user.id,
+        professionCode
+      );
+
+    const currentQuest = currentQuestSummary?.quest || null;
+
+    const questName =
+      currentQuest?.quest_name || `${professionCode} Lv.?`;
+
+    const questLevel =
+      currentQuest?.quest_level ?? '-';
+
     const embed = new EmbedBuilder()
       .setTitle('📩 Quest Submission')
       .setColor(0x2b82ff)
       .addFields(
         { name: 'Submission ID', value: `${submissionId}` },
         { name: 'ผู้เล่น', value: characterName || interaction.user.username },
+        { name: 'Discord Tag', value: interaction.user.tag || '-' },
         { name: 'สายอาชีพ', value: professionCode || '-' },
-        { name: 'เควส', value: `${professionCode} Lv.1` },
+        { name: 'เควส', value: questName },
+        { name: 'เลเวลเควส', value: `${questLevel}` },
+        { name: 'โหมดเควส', value: submissionMode || '-' },
         { name: 'ผู้ตรวจ', value: '-' },
         { name: 'หมายเหตุ', value: '-' }
       )
       .setImage(screenshot)
       .setFooter({
-        text: `Discord: ${interaction.user.tag}`
+        text: `Discord ID: ${interaction.user.id}`
       })
       .setTimestamp();
 
