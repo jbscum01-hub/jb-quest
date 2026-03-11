@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 
 async function handleQuestSubmissionModal(interaction, parsed) {
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: 64 });
 
   const { action, extra } = parsed;
 
@@ -15,13 +15,19 @@ async function handleQuestSubmissionModal(interaction, parsed) {
   const screenshot =
     interaction.fields.getTextInputValue('screenshot');
 
-  const reviewChannel =
-    interaction.client.channels.cache.get(
-      process.env.QUEST_REVIEW_CHANNEL
-    );
+  const reviewChannel = await interaction.client.channels.fetch(
+    process.env.QUEST_REVIEW_CHANNEL
+  );
+
+  if (!reviewChannel) {
+    await interaction.editReply({
+      content: 'ไม่พบห้อง review'
+    });
+    return;
+  }
 
   const embed = new EmbedBuilder()
-    .setTitle(`📩 Quest Submission`)
+    .setTitle('📩 Quest Submission')
     .addFields(
       { name: 'ผู้เล่น', value: `<@${interaction.user.id}>` },
       { name: 'ตัวละคร', value: characterName || '-' },
