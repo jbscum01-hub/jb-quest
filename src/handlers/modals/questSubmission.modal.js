@@ -5,8 +5,6 @@ const {
   ButtonStyle
 } = require('discord.js');
 
-const { getConfig } = require('../../services/config.service');
-
 async function handleQuestSubmissionModal(interaction, parsed) {
 
   await interaction.deferReply({ flags: 64 });
@@ -22,18 +20,8 @@ async function handleQuestSubmissionModal(interaction, parsed) {
   const screenshot =
     interaction.fields.getTextInputValue('screenshot');
 
-  const reviewChannelId =
-    await getConfig('QUEST_REVIEW_CHANNEL');
-
-  if (!reviewChannelId) {
-    await interaction.editReply({
-      content: '❌ QUEST_REVIEW_CHANNEL ยังไม่ได้ตั้งค่า'
-    });
-    return;
-  }
-
-  const reviewChannel =
-    await interaction.client.channels.fetch(reviewChannelId);
+  // ใช้ channel ที่กดส่งเควสแทนไปก่อน
+  const reviewChannel = interaction.channel;
 
   const embed = new EmbedBuilder()
     .setTitle('📩 Quest Submission')
@@ -48,7 +36,6 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
-
     new ButtonBuilder()
       .setCustomId(`quest:review:approve:${interaction.user.id}`)
       .setLabel('Approve')
@@ -58,7 +45,6 @@ async function handleQuestSubmissionModal(interaction, parsed) {
       .setCustomId(`quest:review:reject:${interaction.user.id}`)
       .setLabel('Reject')
       .setStyle(ButtonStyle.Danger)
-
   );
 
   await reviewChannel.send({
@@ -67,7 +53,7 @@ async function handleQuestSubmissionModal(interaction, parsed) {
   });
 
   await interaction.editReply({
-    content: '✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ'
+    content: '✅ ส่งเควสเรียบร้อยแล้ว'
   });
 
 }
