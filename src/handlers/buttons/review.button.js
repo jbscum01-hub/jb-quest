@@ -5,9 +5,27 @@ const {
   ButtonStyle
 } = require('discord.js');
 
+const { buildReviewRevisionModal } = require('../../builders/modals/reviewRevision.modal');
+const { reviewSubmission } = require('../../services/review.service');
+
 function getFieldValue(embed, fieldName) {
   const field = embed.fields?.find((f) => f.name === fieldName);
   return field ? field.value : '-';
+}
+
+function extractDescriptionValue(description, label) {
+  const regex = new RegExp(`${label}:\\s*(.*)`);
+  const match = description.match(regex);
+  return match ? match[1].trim() : '-';
+}
+
+function getValueFromEmbed(originalEmbed, fieldName, descriptionLabel) {
+  if (originalEmbed.fields?.length) {
+    return getFieldValue(originalEmbed, fieldName);
+  }
+
+  const description = originalEmbed?.data?.description || originalEmbed?.description || '';
+  return extractDescriptionValue(description, descriptionLabel);
 }
 
 function buildDisabledRows() {
@@ -48,18 +66,21 @@ function buildDisabledRows() {
   return [row1, row2];
 }
 
-function buildResultEmbed(originalEmbed, action, reviewerTag) {
-  const submissionId = getFieldValue(originalEmbed, 'Submission ID');
-  const playerName = getFieldValue(originalEmbed, 'ผู้เล่น');
-  const profession = getFieldValue(originalEmbed, 'สายอาชีพ');
-  const questName = getFieldValue(originalEmbed, 'เควส');
+function buildResultEmbed(originalEmbed, action, reviewerId, reviewNote = '-') {
+  const submissionId = getValueFromEmbed(originalEmbed, 'Submission ID', 'Submission ID');
+  const player = getValueFromEmbed(originalEmbed, 'ผู้เล่น', 'ผู้เล่น');
+  const ingameName = getValueFromEmbed(originalEmbed, 'ชื่อในเกม', 'ชื่อในเกม');
+  const profession = getValueFromEmbed(originalEmbed, 'สายอาชีพ', 'สายอาชีพ');
+  const quest = getValueFromEmbed(originalEmbed, 'เควส', 'เควส');
 
   let title = '🛠️ ผลการตรวจเควส';
   let color = 0x5865f2;
+  let note = reviewNote || '-';
 
   if (action === 'approve') {
     title = '🛠️ ผลการตรวจเควส: อนุมัติ';
     color = 0x57f287;
+    note = '-';
   }
 
   if (action === 'revision') {
@@ -70,6 +91,7 @@ function buildResultEmbed(originalEmbed, action, reviewerTag) {
   if (action === 'reject') {
     title = '🛠️ ผลการตรวจเควส: ปฏิเสธ';
     color = 0xed4245;
+    note = reviewNote || '-';
   }
 
   const embed = new EmbedBuilder()
@@ -77,16 +99,19 @@ function buildResultEmbed(originalEmbed, action, reviewerTag) {
     .setColor(color)
     .addFields(
       { name: 'Submission ID', value: submissionId || '-' },
-      { name: 'ผู้เล่น', value: playerName || '-' },
+      { name: 'ผู้เล่น', value: player || '-' },
+      { name: 'ชื่อในเกม', value: ingameName || '-' },
       { name: 'สายอาชีพ', value: profession || '-' },
-      { name: 'เควส', value: questName || '-' },
-      { name: 'ผู้ตรวจ', value: reviewerTag || '-' },
-      { name: 'หมายเหตุ', value: '-' }
+      { name: 'เควส', value: quest || '-' },
+      { name: 'ผู้ตรวจ', value: `<@${reviewerId}>` },
+      { name: 'หมายเหตุ', value: note || '-' }
     )
     .setTimestamp();
 
   if (originalEmbed.image?.url) {
     embed.setImage(originalEmbed.image.url);
+  } else if (originalEmbed.data?.image?.url) {
+    embed.setImage(originalEmbed.data.image.url);
   }
 
   return embed;
@@ -118,14 +143,33 @@ async function handleReviewButton(interaction, parsed) {
 
   if (action === 'reward') {
     await interaction.reply({
-      content: `🎁 ดูรางวัลของ Submission ${submissionId}\n(ยังไม่ได้เชื่อม reward จริง)`,
+      content: `🎁 ดูรางวัลของ Submission ${submissionId}`,
       flags: 64
     });
     return;
   }
 
-  if (action === 'approve' || action === 'revision' || action === 'reject') {
-    const resultEmbed = buildResultEmbed(originalEmbed, action, interaction.user.tag);
+  if (action === 'revision') {
+    const modal = buildReviewRevisionModal(submissionId);
+    await interaction.showModal(modal);
+    return;
+  }
+
+  if (action === 'approve' || action === 'reject') {
+    const reviewResult = await reviewSubmission({
+      submissionId,
+      action,
+      reviewerDiscordId: interaction.user.id,
+      reviewerDiscordTag: interaction.user.tag,
+      reviewNote: null
+    });
+
+    const resultEmbed = buildResultEmbed(
+      originalEmbed,
+      action,
+      interaction.user.id,
+      reviewResult.submission?.review_remark || '-'
+    );
 
     await interaction.update({
       embeds: [resultEmbed],
@@ -142,5 +186,7 @@ async function handleReviewButton(interaction, parsed) {
 }
 
 module.exports = {
-  handleReviewButton
+  handleReviewButton,
+  buildResultEmbed,
+  buildDisabledRows
 };
