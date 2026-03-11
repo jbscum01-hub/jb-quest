@@ -22,7 +22,7 @@ async function findProfessionConfig(scopeKey, configKey) {
     `
     SELECT *
     FROM public.tb_quest_master_discord_config
-    WHERE scope_type = 'PROFESSION'
+    WHERE scope_type = 'PANEL'
       AND scope_key = $1
       AND config_key = $2
       AND is_active = TRUE
@@ -58,7 +58,7 @@ async function upsertProfessionConfig(professionCode, configKey, configValue, di
     `
     INSERT INTO public.tb_quest_master_discord_config
     (scope_type, scope_key, config_key, config_value, display_name)
-    VALUES ('PROFESSION', $1, $2, $3, $4)
+    VALUES ('PANEL', $1, $2, $3, $4)
     ON CONFLICT (scope_type, scope_key, config_key)
     DO UPDATE SET
       config_value = EXCLUDED.config_value,
