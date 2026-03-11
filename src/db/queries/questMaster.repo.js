@@ -1,7 +1,12 @@
 const { getPool } = require('../pool');
 
-async function findQuestById(questId, client = getPool()) {
-  const result = await client.query(
+function getDb(client) {
+  return client || getPool();
+}
+
+async function findQuestById(questId, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
@@ -16,8 +21,9 @@ async function findQuestById(questId, client = getPool()) {
   return result.rows[0] || null;
 }
 
-async function findProfessionByCode(professionCode, client = getPool()) {
-  const result = await client.query(
+async function findProfessionByCode(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_master_profession
@@ -31,8 +37,9 @@ async function findProfessionByCode(professionCode, client = getPool()) {
   return result.rows[0] || null;
 }
 
-async function findCurrentMainQuestByProfession(professionCode, client = getPool()) {
-  const result = await client.query(
+async function findCurrentMainQuestByProfession(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
@@ -51,8 +58,9 @@ async function findCurrentMainQuestByProfession(professionCode, client = getPool
   return result.rows[0] || null;
 }
 
-async function findActiveMainQuestsByProfession(professionCode, client = getPool()) {
-  const result = await client.query(
+async function findActiveMainQuestsByProfession(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
@@ -70,8 +78,9 @@ async function findActiveMainQuestsByProfession(professionCode, client = getPool
   return result.rows;
 }
 
-async function findQuestDependencies(questId, client = getPool()) {
-  const result = await client.query(
+async function findQuestDependencies(questId, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_master_dependency
@@ -85,8 +94,9 @@ async function findQuestDependencies(questId, client = getPool()) {
   return result.rows;
 }
 
-async function findNextMainQuestByProfession(professionCode, currentLevel, client = getPool()) {
-  const result = await client.query(
+async function findNextMainQuestByProfession(professionCode, currentLevel, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
@@ -106,8 +116,9 @@ async function findNextMainQuestByProfession(professionCode, currentLevel, clien
   return result.rows[0] || null;
 }
 
-async function findRepeatableQuestsByProfession(professionCode, client = getPool()) {
-  const result = await client.query(
+async function findRepeatableQuestsByProfession(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
@@ -124,8 +135,9 @@ async function findRepeatableQuestsByProfession(professionCode, client = getPool
   return result.rows;
 }
 
-async function findQuestRequirements(questId, client = getPool()) {
-  const result = await client.query(
+async function findQuestRequirements(questId, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_master_requirement
@@ -139,8 +151,9 @@ async function findQuestRequirements(questId, client = getPool()) {
   return result.rows;
 }
 
-async function findQuestGuideMedia(questId, client = getPool()) {
-  const result = await client.query(
+async function findQuestGuideMedia(questId, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_master_media
@@ -158,8 +171,9 @@ async function findQuestGuideMedia(questId, client = getPool()) {
   return result.rows;
 }
 
-async function findQuestRewards(questId, client = getPool()) {
-  const result = await client.query(
+async function findQuestRewards(questId, client) {
+  const db = getDb(client);
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_master_reward
