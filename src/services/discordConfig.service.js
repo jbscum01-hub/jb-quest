@@ -1,7 +1,9 @@
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const {
   findGlobalConfig,
-  findProfessionConfig
+  findProfessionConfig,
+  upsertGlobalConfig,
+  upsertProfessionConfig
 } = require('../db/queries/discordConfig.repo');
 
 async function getGlobalConfigValue(configKey) {
@@ -16,16 +18,27 @@ async function getProfessionPanelChannelId(professionCode) {
 
 async function getProfessionPanelMessageId(professionCode) {
   const row = await findProfessionConfig(professionCode, DISCORD_CONFIG_KEYS.QUEST_PANEL_MESSAGE);
+  return row && row.config_value ? row.config_value : null;
+}
 
-  if (!row || !row.config_value || row.config_value === '0') {
-    return null;
-  }
+async function saveProfessionPanelMessageId(professionCode, messageId) {
+  return upsertProfessionConfig(professionCode, DISCORD_CONFIG_KEYS.QUEST_PANEL_MESSAGE, messageId, `Profession Panel Message ${professionCode}`);
+}
 
-  return row.config_value;
+async function getAdminPanelMessageId() {
+  const row = await findGlobalConfig(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_MESSAGE);
+  return row ? row.config_value : null;
+}
+
+async function saveAdminPanelMessageId(messageId) {
+  return upsertGlobalConfig(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_MESSAGE, messageId, 'Quest Admin Panel Message');
 }
 
 module.exports = {
   getGlobalConfigValue,
   getProfessionPanelChannelId,
-  getProfessionPanelMessageId
+  getProfessionPanelMessageId,
+  saveProfessionPanelMessageId,
+  getAdminPanelMessageId,
+  saveAdminPanelMessageId
 };
