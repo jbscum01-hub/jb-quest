@@ -19,8 +19,7 @@ const {
   openEditDependencyModal,
   showRequirementEditor,
   showRewardEditor,
-  toggleQuestActive,
-  insertAuditLog
+  toggleQuestActiveWithAudit
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
 const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
@@ -55,22 +54,15 @@ async function handleAdminButtons(interaction) {
   if (customId === 'quest:admin:refresh_panels') {
     await refreshAdminPanel(interaction.message);
     await deployProfessionPanels(interaction.client);
-
-    await interaction.reply({
-      content: '✅ รีเฟรชพาเนลเรียบร้อยแล้ว',
-      ephemeral: true
-    });
+    await interaction.reply({ content: '✅ รีเฟรชพาเนลเรียบร้อยแล้ว', ephemeral: true });
     return;
   }
 
   if (customId === 'quest:admin:deploy_panels' || customId === 'quest:admin:repair_panels') {
     await autoDeployAdminPanel(interaction.client);
     await deployProfessionPanels(interaction.client);
-
     await interaction.reply({
-      content: customId.endsWith('repair_panels')
-        ? '🛠️ ซ่อม/สร้างพาเนลที่ขาดเรียบร้อยแล้ว'
-        : '✅ สร้างพาเนลเรียบร้อยแล้ว',
+      content: customId.endsWith('repair_panels') ? '🛠️ ซ่อม/สร้างพาเนลที่ขาดเรียบร้อยแล้ว' : '✅ สร้างพาเนลเรียบร้อยแล้ว',
       ephemeral: true
     });
     return;
@@ -78,10 +70,7 @@ async function handleAdminButtons(interaction) {
 
   if (customId === 'quest:admin:refresh_current_view') {
     await deployProfessionPanels(interaction.client);
-    await interaction.reply({
-      content: '🔄 รีเฟรชมุมมองเควสปัจจุบันเรียบร้อยแล้ว',
-      ephemeral: true
-    });
+    await interaction.reply({ content: '🔄 รีเฟรชมุมมองเควสปัจจุบันเรียบร้อยแล้ว', ephemeral: true });
     return;
   }
 
@@ -162,16 +151,10 @@ async function handleAdminButtons(interaction) {
 
   if (customId.startsWith('quest:admin:toggle_active:')) {
     const questId = getLastPart(customId);
-    const result = await toggleQuestActive(questId, interaction.user.tag);
-
-    await insertAuditLog({
+    await toggleQuestActiveWithAudit(questId, {
       actorId: interaction.user.id,
-      actorTag: interaction.user.tag,
-      action: 'QUEST_ACTIVE_TOGGLED',
-      target: questId,
-      meta: result
+      actorTag: interaction.user.tag
     });
-
     await showQuestDetail(interaction, questId);
   }
 }

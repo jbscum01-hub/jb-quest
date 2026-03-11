@@ -10,7 +10,6 @@ const {
 
 async function autoDeployAdminPanel(client) {
   const channelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_CHANNEL);
-
   if (!channelId) {
     logger.warn('QUEST_ADMIN_PANEL_CHANNEL not configured');
     return;
@@ -28,7 +27,6 @@ async function autoDeployAdminPanel(client) {
   };
 
   const existingMessageId = await getAdminPanelMessageId();
-
   if (existingMessageId) {
     const existingMessage = await channel.messages.fetch(existingMessageId).catch(() => null);
     if (existingMessage) {
