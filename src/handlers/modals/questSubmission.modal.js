@@ -5,14 +5,18 @@ const {
   ButtonStyle
 } = require('discord.js');
 
+function generateSubmissionId() {
+  return Math.floor(100000 + Math.random() * 900000);
+}
+
 async function handleQuestSubmissionModal(interaction, parsed) {
 
   await interaction.deferReply({ flags: 64 });
 
   const { action, extra } = parsed;
 
-  const submissionMode = action;
   const professionCode = extra;
+  const submissionId = generateSubmissionId();
 
   const characterName =
     interaction.fields.getTextInputValue('character_name');
@@ -20,31 +24,39 @@ async function handleQuestSubmissionModal(interaction, parsed) {
   const screenshot =
     interaction.fields.getTextInputValue('screenshot');
 
-  // ใช้ channel ที่กดส่งเควสแทนไปก่อน
-  const reviewChannel = interaction.channel;
+  // 🔴 ใส่ ID ห้อง quest-review ของคุณ
+  const reviewChannelId = "1480607496023445665";
+
+  const reviewChannel =
+    await interaction.client.channels.fetch(reviewChannelId);
 
   const embed = new EmbedBuilder()
-    .setTitle('📩 Quest Submission')
+    .setTitle("📩 Quest Submission")
+    .setColor(0x2b82ff)
     .addFields(
-      { name: 'ผู้เล่น', value: `<@${interaction.user.id}>` },
-      { name: 'ตัวละคร', value: characterName || '-' },
-      { name: 'สายอาชีพ', value: professionCode || '-' },
-      { name: 'โหมดเควส', value: submissionMode || '-' }
+      { name: "Submission ID", value: `${submissionId}` },
+      { name: "ผู้เล่น", value: characterName || interaction.user.username },
+      { name: "สายอาชีพ", value: professionCode },
+      { name: "เควส", value: `${professionCode} Lv.1` },
+      { name: "ผู้ตรวจ", value: "-" },
+      { name: "หมายเหตุ", value: "-" }
     )
     .setImage(screenshot)
-    .setColor(0x2b82ff)
+    .setFooter({ text: `Discord: ${interaction.user.tag}` })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
+
     new ButtonBuilder()
       .setCustomId(`quest:review:approve:${interaction.user.id}`)
-      .setLabel('Approve')
+      .setLabel("Approve")
       .setStyle(ButtonStyle.Success),
 
     new ButtonBuilder()
       .setCustomId(`quest:review:reject:${interaction.user.id}`)
-      .setLabel('Reject')
+      .setLabel("Reject")
       .setStyle(ButtonStyle.Danger)
+
   );
 
   await reviewChannel.send({
@@ -53,7 +65,7 @@ async function handleQuestSubmissionModal(interaction, parsed) {
   });
 
   await interaction.editReply({
-    content: '✅ ส่งเควสเรียบร้อยแล้ว'
+    content: "✅ ส่งเควสเรียบร้อยแล้ว ทีมงานกำลังตรวจสอบ"
   });
 
 }
