@@ -1,4 +1,4 @@
-const { isQuestAdmin } = require('../../utils/permission');
+const { buildStepSubmissionModal } = require('../../builders/modals/stepSubmission.modal');
 const {
   submitCurrentStep,
   approveCurrentStep,
@@ -6,33 +6,17 @@ const {
 } = require('../../services/stepTicket.service');
 
 async function handleTicketButton(interaction, parsed) {
-  const { action } = parsed;
+  const { action, extra } = parsed;
 
   if (action === 'submit_step') {
-    await interaction.deferReply({ flags: 64 });
+    const [ticketId, stepNo] = extra.split(':');
 
-    await submitCurrentStep({
-      client: interaction.client,
-      channelId: interaction.channelId,
-      userId: interaction.user.id
-    });
-
-    await interaction.editReply({
-      content: '✅ ส่งขั้นตอนนี้ให้แอดมินตรวจสอบแล้ว'
-    });
+    const modal = buildStepSubmissionModal(ticketId, stepNo);
+    await interaction.showModal(modal);
     return;
   }
 
   if (action === 'approve_step') {
-    const isAdmin = await isQuestAdmin(interaction.member);
-    if (!isAdmin) {
-      await interaction.reply({
-        content: '❌ เฉพาะแอดมินเควสเท่านั้น',
-        flags: 64
-      });
-      return;
-    }
-
     await interaction.deferReply({ flags: 64 });
 
     await approveCurrentStep({
@@ -43,21 +27,12 @@ async function handleTicketButton(interaction, parsed) {
     });
 
     await interaction.editReply({
-      content: '✅ อนุมัติขั้นตอนเรียบร้อยแล้ว'
+      content: '✅ อนุมัติ Step แล้ว'
     });
     return;
   }
 
   if (action === 'revision_step') {
-    const isAdmin = await isQuestAdmin(interaction.member);
-    if (!isAdmin) {
-      await interaction.reply({
-        content: '❌ เฉพาะแอดมินเควสเท่านั้น',
-        flags: 64
-      });
-      return;
-    }
-
     await interaction.deferReply({ flags: 64 });
 
     await revisionCurrentStep({
@@ -68,15 +43,10 @@ async function handleTicketButton(interaction, parsed) {
     });
 
     await interaction.editReply({
-      content: '✅ ส่งกลับให้ผู้เล่นแก้ไขแล้ว'
+      content: '📝 ส่งกลับให้ผู้เล่นแก้ไขแล้ว'
     });
     return;
   }
-
-  await interaction.reply({
-    content: '❌ ไม่พบ action ของ ticket นี้',
-    flags: 64
-  });
 }
 
 module.exports = {
