@@ -5,21 +5,21 @@ function buildReviewCardComponents(submissionId) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
+        .setCustomId(buildCustomId('review', 'inspect', submissionId))
+        .setLabel('ตรวจสอบ')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
         .setCustomId(buildCustomId('review', 'approve', submissionId))
         .setLabel('อนุมัติ')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(buildCustomId('review', 'revision', submissionId))
         .setLabel('ขอแก้ไข')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(buildCustomId('review', 'reject', submissionId))
-        .setLabel('ปฏิเสธ')
-        .setStyle(ButtonStyle.Danger),
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(buildCustomId('review', 'reward', submissionId))
         .setLabel('ดูรางวัล')
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Secondary)
     )
   ];
 }
