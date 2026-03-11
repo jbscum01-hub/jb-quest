@@ -1,91 +1,57 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require('discord.js');
-
-const { findActiveProfessions } = require('../db/queries/adminPanel.repo');
+const { PROFESSION_LIST } = require('../constants/professions');
+const { logger } = require('../config/logger');
 const {
   getProfessionPanelChannelId,
   getProfessionPanelMessageId,
-  setProfessionPanelMessageId
+  saveProfessionPanelMessageId
 } = require('./discordConfig.service');
+const { buildProfessionPanelEmbed } = require('../builders/embeds/professionPanel.embed');
+const { buildProfessionPanelComponents } = require('../builders/components/professionPanel.components');
 
-function buildProfessionPanelEmbed(profession) {
-  return new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle(`${profession.icon_emoji || '📘'} เควสสาย ${profession.profession_name_th}`)
-    .setDescription([
-      'ใช้พาเนลนี้เพื่อดูเควสปัจจุบันและส่งเควสของสายนี้',
-      '',
-      `**สายอาชีพ:** ${profession.profession_name_th} (${profession.profession_code})`,
-      '',
-      'วิธีใช้งาน:',
-      '• กด **ดูเควสปัจจุบัน** เพื่อเช็กว่าอยู่เควสไหน',
-      '• กด **ส่งเควส** เพื่อส่งหลักฐานของเควสปัจจุบัน',
-      '• ถ้าเป็นเควสแบบ Step Quest ระบบจะเปิด Ticket ให้อัตโนมัติ'
-    ].join('\n'))
-    .setFooter({ text: `Profession: ${profession.profession_code}` })
-    .setTimestamp();
+async function deployOrRefreshProfessionPanel(client, professionCode) {
+  const channelId = await getProfessionPanelChannelId(professionCode);
+  if (!channelId) {
+    logger.warn(`Missing panel channel config for ${professionCode}`);
+    return;
+  }
+
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  if (!channel) {
+    logger.warn(`Panel channel not found for ${professionCode}`);
+    return;
+  }
+
+  const payload = {
+    embeds: [buildProfessionPanelEmbed(professionCode)],
+    components: buildProfessionPanelComponents(professionCode)
+  };
+
+  const messageId = await getProfessionPanelMessageId(professionCode);
+  if (messageId) {
+    const existingMessage = await channel.messages.fetch(messageId).catch(() => null);
+    if (existingMessage) {
+      await existingMessage.edit(payload);
+      logger.info(`Panel refreshed for ${professionCode}`);
+      return;
+    }
+  }
+
+  const message = await channel.send(payload);
+  await saveProfessionPanelMessageId(professionCode, message.id);
+  logger.info(`Panel created for ${professionCode}`);
 }
 
-function buildProfessionPanelComponents(profession) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`quest:panel:current:${profession.profession_code}`)
-        .setLabel('ดูเควสปัจจุบัน')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`quest:panel:submit:${profession.profession_code}`)
-        .setLabel('ส่งเควส')
-        .setStyle(ButtonStyle.Success)
-    )
-  ];
-}
-
-async function deployProfessionPanels(client) {
-  const professions = await findActiveProfessions();
-
-  for (const profession of professions) {
-    const professionCode = profession.profession_code;
-    const channelId = await getProfessionPanelChannelId(professionCode);
-
-    if (!channelId) {
-      continue;
-    }
-
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel) {
-      continue;
-    }
-
-    const oldMessageId = await getProfessionPanelMessageId(professionCode);
-    let message = null;
-
-    if (oldMessageId) {
-      message = await channel.messages.fetch(oldMessageId).catch(() => null);
-    }
-
-    const payload = {
-      embeds: [buildProfessionPanelEmbed(profession)],
-      components: buildProfessionPanelComponents(profession)
-    };
-
-    if (message) {
-      await message.edit(payload);
-    } else {
-      message = await channel.send(payload);
-      await setProfessionPanelMessageId(
-        professionCode,
-        message.id,
-        `Quest Panel Message ${professionCode}`
-      );
-    }
+async function autoDeployPanels(client) {
+  for (const professionCode of PROFESSION_LIST) {
+    await deployOrRefreshProfessionPanel(client, professionCode);
   }
 }
 
+async function deployProfessionPanels(client) {
+  await autoDeployPanels(client);
+}
+
 module.exports = {
+  autoDeployPanels,
   deployProfessionPanels
 };
