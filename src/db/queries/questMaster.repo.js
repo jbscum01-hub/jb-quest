@@ -3,9 +3,9 @@ const { getPool } = require('../pool');
 async function findQuestById(questId, client = getPool()) {
   const result = await client.query(
     `
-    SELECT q.*, c.category_code, p.profession_code, p.profession_name_th, p.icon_emoji
+    SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
+    LEFT JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
     LEFT JOIN public.tb_quest_master_profession p ON q.profession_id = p.profession_id
     WHERE q.quest_id = $1
     LIMIT 1
@@ -34,14 +34,15 @@ async function findProfessionByCode(professionCode, client = getPool()) {
 async function findCurrentMainQuestByProfession(professionCode, client = getPool()) {
   const result = await client.query(
     `
-    SELECT q.*, c.category_code, p.profession_code, p.profession_name_th, p.icon_emoji
+    SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
     JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
     JOIN public.tb_quest_master_profession p ON q.profession_id = p.profession_id
     WHERE p.profession_code = $1
-      AND c.category_code = 'MAIN'
+      AND q.is_repeatable = FALSE
       AND q.is_active = TRUE
-    ORDER BY q.quest_level ASC, q.display_order ASC, q.created_at ASC
+      AND q.tier_type = 'NORMAL'
+    ORDER BY q.display_order ASC, q.quest_level ASC, q.created_at ASC
     LIMIT 1
     `,
     [professionCode]
@@ -50,21 +51,56 @@ async function findCurrentMainQuestByProfession(professionCode, client = getPool
   return result.rows[0] || null;
 }
 
-async function findNextMainQuestByProfession(professionCode, currentQuestLevel, client = getPool()) {
+async function findActiveMainQuestsByProfession(professionCode, client = getPool()) {
   const result = await client.query(
     `
-    SELECT q.*, c.category_code, p.profession_code, p.profession_name_th, p.icon_emoji
+    SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
     JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
     JOIN public.tb_quest_master_profession p ON q.profession_id = p.profession_id
     WHERE p.profession_code = $1
-      AND c.category_code = 'MAIN'
+      AND q.is_repeatable = FALSE
       AND q.is_active = TRUE
-      AND q.quest_level > $2
-    ORDER BY q.quest_level ASC, q.display_order ASC, q.created_at ASC
+      AND q.tier_type = 'NORMAL'
+    ORDER BY q.display_order ASC, q.quest_level ASC, q.created_at ASC
+    `,
+    [professionCode]
+  );
+
+  return result.rows;
+}
+
+async function findQuestDependencies(questId, client = getPool()) {
+  const result = await client.query(
+    `
+    SELECT *
+    FROM public.tb_quest_master_dependency
+    WHERE quest_id = $1
+      AND is_active = TRUE
+    ORDER BY sort_order ASC, created_at ASC
+    `,
+    [questId]
+  );
+
+  return result.rows;
+}
+
+async function findNextMainQuestByProfession(professionCode, currentLevel, client = getPool()) {
+  const result = await client.query(
+    `
+    SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
+    FROM public.tb_quest_master q
+    JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
+    JOIN public.tb_quest_master_profession p ON q.profession_id = p.profession_id
+    WHERE p.profession_code = $1
+      AND q.is_repeatable = FALSE
+      AND q.is_active = TRUE
+      AND q.tier_type = 'NORMAL'
+      AND COALESCE(q.quest_level, 0) > COALESCE($2, 0)
+    ORDER BY q.display_order ASC, q.quest_level ASC, q.created_at ASC
     LIMIT 1
     `,
-    [professionCode, currentQuestLevel || 0]
+    [professionCode, currentLevel]
   );
 
   return result.rows[0] || null;
@@ -73,7 +109,7 @@ async function findNextMainQuestByProfession(professionCode, currentQuestLevel, 
 async function findRepeatableQuestsByProfession(professionCode, client = getPool()) {
   const result = await client.query(
     `
-    SELECT q.*, c.category_code, p.profession_code, p.profession_name_th, p.icon_emoji
+    SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
     FROM public.tb_quest_master q
     JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
     JOIN public.tb_quest_master_profession p ON q.profession_id = p.profession_id
@@ -103,6 +139,25 @@ async function findQuestRequirements(questId, client = getPool()) {
   return result.rows;
 }
 
+async function findQuestGuideMedia(questId, client = getPool()) {
+  const result = await client.query(
+    `
+    SELECT *
+    FROM public.tb_quest_master_media
+    WHERE quest_id = $1
+      AND is_active = TRUE
+      AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
+    ORDER BY
+      CASE WHEN media_type = 'GUIDE_IMAGE' THEN 0 ELSE 1 END,
+      display_order ASC,
+      created_at ASC
+    `,
+    [questId]
+  );
+
+  return result.rows;
+}
+
 async function findQuestRewards(questId, client = getPool()) {
   const result = await client.query(
     `
@@ -122,8 +177,11 @@ module.exports = {
   findQuestById,
   findProfessionByCode,
   findCurrentMainQuestByProfession,
+  findActiveMainQuestsByProfession,
+  findQuestDependencies,
   findNextMainQuestByProfession,
   findRepeatableQuestsByProfession,
   findQuestRequirements,
+  findQuestGuideMedia,
   findQuestRewards
 };
