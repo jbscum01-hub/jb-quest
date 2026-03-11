@@ -1,6 +1,7 @@
 const { reviewSubmission } = require('../../services/review.service');
 const { buildUpdatedEmbedFromOriginal, buildDisabledRows } = require('../buttons/review.button');
 const { notifyRevision } = require('../../services/questNotification.service');
+const { sendReviewLog } = require('../../services/reviewLog.service');
 
 async function handleReviewRevisionModal(interaction, parsed) {
   await interaction.deferReply({ flags: 64 });
@@ -64,6 +65,14 @@ async function handleReviewRevisionModal(interaction, parsed) {
       reviewNote
     });
 
+    await sendReviewLog(
+      interaction.client,
+      reviewResult.submission,
+      'revision',
+      interaction.user.id,
+      reviewNote
+    );
+    
     await interaction.editReply({
       content: '✅ บันทึกการขอแก้ไขเรียบร้อยแล้ว'
     });
