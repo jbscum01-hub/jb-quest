@@ -54,7 +54,7 @@ function buildCurrentQuestEmbed({
         name: 'รายละเอียด',
         value: [
           `สายอาชีพ: ${quest.profession_code || professionCode}`,
-          `เลเวล: ${quest.quest_level || '-'}`,
+          `เลเวล: ${quest.quest_level || '-'}${quest.is_step_quest ? ' Step Quest' : ''}`,
           `Fame ที่แสดง: ${quest.fame_required_display ?? '-'}`
         ].join('\n'),
         inline: false
