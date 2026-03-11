@@ -4,32 +4,28 @@ const {
   TextInputStyle,
   ActionRowBuilder
 } = require('discord.js');
-const { buildCustomId } = require('../../utils/customId');
 
 function buildQuestSubmissionModal({ submissionMode, professionCode }) {
+
   const modal = new ModalBuilder()
-    .setCustomId(buildCustomId('modal_submit', submissionMode, professionCode))
-    .setTitle(submissionMode === 'MAIN' ? `ส่งเควสหลัก - ${professionCode}` : `ส่งเควสซ้ำ - ${professionCode}`);
+    .setCustomId(`quest:modal_submit:${submissionMode}:${professionCode}`)
+    .setTitle(`ส่งเควส ${professionCode}`);
 
-  const ingameNameInput = new TextInputBuilder()
-    .setCustomId('submission_ingame_name')
-    .setLabel('ชื่อตัวละครในเกม')
+  const characterName = new TextInputBuilder()
+    .setCustomId('character_name')
+    .setLabel('ชื่อตัวละคร')
     .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(100)
-    .setPlaceholder('เช่น PraewRung');
+    .setRequired(true);
 
-  const textInput = new TextInputBuilder()
-    .setCustomId('submission_text')
-    .setLabel('รายละเอียดการส่งเควส')
+  const screenshot = new TextInputBuilder()
+    .setCustomId('screenshot')
+    .setLabel('อัปโหลดรูปหลักฐาน (วางรูปได้เลย)')
     .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true)
-    .setMaxLength(1500)
-    .setPlaceholder('อธิบายสิ่งที่ทำให้ครบตามเงื่อนไข พร้อมลิงก์หลักฐานถ้ามี');
+    .setRequired(true);
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(ingameNameInput),
-    new ActionRowBuilder().addComponents(textInput)
+    new ActionRowBuilder().addComponents(characterName),
+    new ActionRowBuilder().addComponents(screenshot)
   );
 
   return modal;
