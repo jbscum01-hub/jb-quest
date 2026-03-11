@@ -26,13 +26,12 @@ const { insertCompletionLog } = require('../db/queries/review.repo');
 const { resolveCurrentMainQuestByPlayer } = require('./questProgress.service');
 const { getGlobalConfigValue } = require('./discordConfig.service');
 const { buildTicketStepEmbed } = require('../builders/embeds/ticketStep.embed');
-const { buildTicketStepComponents } = require('../builders/components/ticketStep.components');
+const {
+  buildTicketStepComponents,
+  buildTicketCloseComponents
+} = require('../builders/components/ticketStep.components');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
-
-console.log(
-  'DEBUG ticketRepo.findOpenTicketByPlayerQuest =',
-  typeof findOpenTicketByPlayerQuest
-);
+const { getPool } = require('../db/pool');
 
 function makeTicketCode(professionCode) {
   const stamp = Date.now().toString().slice(-8);
@@ -85,6 +84,19 @@ async function ensurePlayerProfile(
   return player;
 }
 
+async function getTicketFromChannel(channelId) {
+  const ticketByChannel = await findTicketByChannel(channelId);
+  if (!ticketByChannel) return null;
+
+  const fullTicket = await findTicketById(ticketByChannel.ticket_id);
+  return fullTicket || ticketByChannel;
+}
+
+async function clearOldActionMessage(message) {
+  if (!message) return;
+  await message.edit({ components: [] }).catch(() => null);
+}
+
 async function sendTicketStateMessage(channel, ticket) {
   const currentStep = await findCurrentTicketStepProgress(ticket.ticket_id);
   const totalSteps = await countQuestSteps(ticket.quest_id);
@@ -105,6 +117,32 @@ async function sendTicketStateMessage(channel, ticket) {
   });
 }
 
+async function findLatestTicketSubmission(ticketId) {
+  const db = getPool();
+
+  const result = await db.query(
+    `
+    SELECT s.*,
+           a.file_url
+    FROM public.tb_quest_submission s
+    LEFT JOIN LATERAL (
+      SELECT file_url
+      FROM public.tb_quest_submission_attachment a
+      WHERE a.submission_id = s.submission_id
+      ORDER BY a.uploaded_at DESC
+      LIMIT 1
+    ) a ON TRUE
+    WHERE s.ticket_id = $1
+      AND s.submission_type = 'STEP'
+    ORDER BY s.submitted_at DESC, s.created_at DESC
+    LIMIT 1
+    `,
+    [ticketId]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function sendQuestCompletionLog(client, ticket, reviewerTag = null) {
   const logChannelId = await getGlobalConfigValue(
     DISCORD_CONFIG_KEYS.QUEST_SUBMISSION_LOG_CHANNEL
@@ -114,31 +152,62 @@ async function sendQuestCompletionLog(client, ticket, reviewerTag = null) {
   const channel = await client.channels.fetch(logChannelId).catch(() => null);
   if (!channel) return;
 
+  const latestSubmission = await findLatestTicketSubmission(ticket.ticket_id);
+
   const embed = new EmbedBuilder()
     .setColor(0x57f287)
-    .setTitle('🏁 Step Quest Completed')
+    .setTitle('✅ Step Quest Completed')
     .setDescription(
       [
+        `Submission ID: ${latestSubmission?.submission_id || '-'}`,
         `ผู้เล่น: <@${ticket.discord_user_id}>`,
+        `ชื่อในเกม: ${latestSubmission?.player_ingame_name || ticket.ingame_name || '-'}`,
         `สายอาชีพ: ${ticket.profession_name_th || ticket.profession_code || '-'}`,
         `เควส: ${ticket.quest_name || '-'}`,
-        `Ticket: ${ticket.ticket_code}`,
-        `ห้อง Ticket: <#${ticket.discord_channel_id}>`,
-        `ผู้ปิดเควส: ${reviewerTag || '-'}`,
-        `สถานะ: สำเร็จ`
+        `ผู้ตรวจ: ${reviewerTag || '-'}`,
+        `หมายเหตุ: STEP_QUEST_COMPLETED`
       ].join('\n')
     )
     .setTimestamp();
 
+  if (latestSubmission?.file_url) {
+    embed.setImage(latestSubmission.file_url);
+  }
+
   await channel.send({ embeds: [embed] });
 }
 
-async function getTicketFromChannel(channelId) {
-  const ticketByChannel = await findTicketByChannel(channelId);
-  if (!ticketByChannel) return null;
+async function closeTicketRoom({
+  client,
+  channelId,
+  reviewerTag
+}) {
+  const ticket = await getTicketFromChannel(channelId);
+  if (!ticket) {
+    throw new Error('ไม่พบ Ticket ของห้องนี้');
+  }
 
-  const fullTicket = await findTicketById(ticketByChannel.ticket_id);
-  return fullTicket || ticketByChannel;
+  await updateTicketStatus(ticket.ticket_id, 'CLOSED', {
+    closedBy: reviewerTag,
+    closeRemark: 'MANUAL_CLOSE'
+  });
+
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  if (!channel) return;
+
+  await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xed4245)
+        .setTitle('🔒 ปิดห้อง Ticket')
+        .setDescription('ห้องนี้จะถูกลบในอีก 5 วินาที')
+        .setTimestamp()
+    ]
+  });
+
+  setTimeout(async () => {
+    await channel.delete('Step quest ticket closed').catch(() => null);
+  }, 5000);
 }
 
 async function openStepQuestTicket({
@@ -275,7 +344,8 @@ async function openStepQuestTicket({
 async function submitCurrentStep({
   client,
   channelId,
-  userId
+  userId,
+  actionMessage = null
 }) {
   const ticket = await getTicketFromChannel(channelId);
 
@@ -310,6 +380,8 @@ async function submitCurrentStep({
     await updateTicketStatus(ticket.ticket_id, 'WAITING_ADMIN', {}, db);
   });
 
+  await clearOldActionMessage(actionMessage);
+
   const refreshed = await findTicketById(ticket.ticket_id);
   const channel = await client.channels.fetch(channelId);
   await sendTicketStateMessage(channel, refreshed);
@@ -320,8 +392,8 @@ async function submitCurrentStep({
 async function approveCurrentStep({
   client,
   channelId,
-  reviewerId,
-  reviewerTag
+  reviewerTag,
+  actionMessage = null
 }) {
   const ticket = await getTicketFromChannel(channelId);
 
@@ -411,6 +483,8 @@ async function approveCurrentStep({
     return { completed: true };
   });
 
+  await clearOldActionMessage(actionMessage);
+
   const refreshed = await findTicketById(ticket.ticket_id);
   const channel = await client.channels.fetch(channelId);
 
@@ -422,7 +496,8 @@ async function approveCurrentStep({
           .setTitle('✅ จบ Step Quest สำเร็จ')
           .setDescription(`เควส **${ticket.quest_name}** เสร็จสมบูรณ์แล้ว`)
           .setTimestamp()
-      ]
+      ],
+      components: buildTicketCloseComponents(ticket.ticket_id)
     });
 
     await sendQuestCompletionLog(client, refreshed, reviewerTag);
@@ -436,8 +511,8 @@ async function approveCurrentStep({
 async function revisionCurrentStep({
   client,
   channelId,
-  reviewerId,
-  reviewerTag
+  reviewerTag,
+  actionMessage = null
 }) {
   const ticket = await getTicketFromChannel(channelId);
 
@@ -464,6 +539,8 @@ async function revisionCurrentStep({
     await updateTicketStatus(ticket.ticket_id, 'WAITING_PLAYER', {}, db);
   });
 
+  await clearOldActionMessage(actionMessage);
+
   const refreshed = await findTicketById(ticket.ticket_id);
   const channel = await client.channels.fetch(channelId);
 
@@ -479,5 +556,6 @@ module.exports = {
   openStepQuestTicket,
   submitCurrentStep,
   approveCurrentStep,
-  revisionCurrentStep
+  revisionCurrentStep,
+  closeTicketRoom
 };
