@@ -7,10 +7,6 @@ const { handleTicketButton } = require('./buttons/ticket.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
-const {
-  handleAdminSelectMenu,
-  handleAdminModalSubmit
-} = require('../services/adminPanel.service');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -53,25 +49,7 @@ function registerInteractionHandler(client) {
         return;
       }
 
-      if (interaction.isStringSelectMenu()) {
-        if (interaction.customId.startsWith('quest:admin')) {
-          await handleAdminSelectMenu(interaction);
-          return;
-        }
-
-        await interaction.reply({
-          content: 'ยังไม่รองรับเมนูเลือกนี้ในระบบ',
-          flags: 64
-        });
-        return;
-      }
-
       if (interaction.isModalSubmit()) {
-        if (interaction.customId.startsWith('quest:admin:modal:')) {
-          await handleAdminModalSubmit(interaction);
-          return;
-        }
-
         const parsed = parseCustomId(interaction.customId);
 
         if (!parsed) {
@@ -105,18 +83,24 @@ function registerInteractionHandler(client) {
     } catch (error) {
       logger.error('interactionCreate handler failed', error);
 
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({
-          content: 'เกิดข้อผิดพลาดระหว่างประมวลผล',
-          flags: 64
-        });
-        return;
-      }
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp({
+            content: 'เกิดข้อผิดพลาดระหว่างประมวลผล',
+            flags: 64
+          });
+          return;
+        }
 
-      await interaction.reply({
-        content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`,
-        flags: 64
-      });
+        if (typeof interaction.reply === 'function') {
+          await interaction.reply({
+            content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`,
+            flags: 64
+          });
+        }
+      } catch (followError) {
+        logger.error('interaction error reply failed', followError);
+      }
     }
   });
 }
