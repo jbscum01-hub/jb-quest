@@ -1,66 +1,57 @@
 const { PROFESSION_LIST } = require('../constants/professions');
+const { logger } = require('../config/logger');
 const {
   getProfessionPanelChannelId,
-  getProfessionPanelMessageId
+  getProfessionPanelMessageId,
+  saveProfessionPanelMessageId
 } = require('./discordConfig.service');
-
 const { buildProfessionPanelEmbed } = require('../builders/embeds/professionPanel.embed');
 const { buildProfessionPanelComponents } = require('../builders/components/professionPanel.components');
 
-const { getPool } = require('../db/pool');
+async function deployOrRefreshProfessionPanel(client, professionCode) {
+  const channelId = await getProfessionPanelChannelId(professionCode);
+  if (!channelId) {
+    logger.warn(`Missing channel config for ${professionCode}`);
+    return;
+  }
 
-async function savePanelMessageId(professionCode, messageId) {
-  const query = `
-  UPDATE public.tb_quest_master_discord_config
-  SET config_value = $2
-  WHERE scope_type='PROFESSION'
-  AND scope_key=$1
-  AND config_key='QUEST_PANEL_MESSAGE'
-  `;
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  if (!channel) {
+    logger.warn(`Channel not found for ${professionCode}`);
+    return;
+  }
 
-  await getPool().query(query, [professionCode, messageId]);
+  const payload = {
+    embeds: [buildProfessionPanelEmbed(professionCode)],
+    components: buildProfessionPanelComponents(professionCode)
+  };
+
+  const messageId = await getProfessionPanelMessageId(professionCode);
+  if (messageId) {
+    const existingMessage = await channel.messages.fetch(messageId).catch(() => null);
+    if (existingMessage) {
+      await existingMessage.edit(payload);
+      logger.info(`Panel refreshed for ${professionCode}`);
+      return;
+    }
+  }
+
+  const message = await channel.send(payload);
+  await saveProfessionPanelMessageId(professionCode, message.id);
+  logger.info(`Panel created for ${professionCode}`);
 }
 
 async function autoDeployPanels(client) {
-
   for (const professionCode of PROFESSION_LIST) {
-
-    const messageId = await getProfessionPanelMessageId(professionCode);
-
-    if (messageId) {
-      console.log(`Panel exists for ${professionCode}`);
-      continue;
-    }
-
-    const channelId = await getProfessionPanelChannelId(professionCode);
-
-    if (!channelId) {
-      console.log(`Missing channel config for ${professionCode}`);
-      continue;
-    }
-
-    const channel = await client.channels.fetch(channelId).catch(()=>null);
-
-    if (!channel) {
-      console.log(`Channel not found ${professionCode}`);
-      continue;
-    }
-
-    const embed = buildProfessionPanelEmbed(professionCode);
-    const components = buildProfessionPanelComponents(professionCode);
-
-    const message = await channel.send({
-      embeds:[embed],
-      components
-    });
-
-    await savePanelMessageId(professionCode, message.id);
-
-    console.log(`Panel created for ${professionCode}`);
+    await deployOrRefreshProfessionPanel(client, professionCode);
   }
+}
 
+async function deployProfessionPanels(client) {
+  await autoDeployPanels(client);
 }
 
 module.exports = {
-  autoDeployPanels
+  autoDeployPanels,
+  deployProfessionPanels
 };
