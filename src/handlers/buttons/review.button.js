@@ -1,86 +1,41 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require('discord.js');
-
+const { EmbedBuilder } = require('discord.js');
 const { buildReviewRevisionModal } = require('../../builders/modals/reviewRevision.modal');
 const { reviewSubmission } = require('../../services/review.service');
 
-function getFieldValue(embed, fieldName) {
-  const field = embed.fields?.find((f) => f.name === fieldName);
-  return field ? field.value : '-';
+function buildDisabledRows() {
+  return [];
 }
 
-function extractDescriptionValue(description, label) {
-  const regex = new RegExp(`${label}:\\s*(.*)`);
-  const match = description.match(regex);
-  return match ? match[1].trim() : '-';
-}
+function replaceOrAppendField(fields, fieldName, fieldValue) {
+  const cloned = [...fields];
+  const index = cloned.findIndex((f) => f.name === fieldName);
 
-function getValueFromEmbed(originalEmbed, fieldName, descriptionLabel) {
-  if (originalEmbed.fields?.length) {
-    return getFieldValue(originalEmbed, fieldName);
+  if (index >= 0) {
+    cloned[index] = {
+      ...cloned[index],
+      value: fieldValue
+    };
+  } else {
+    cloned.push({
+      name: fieldName,
+      value: fieldValue,
+      inline: false
+    });
   }
 
-  const description = originalEmbed?.data?.description || originalEmbed?.description || '';
-  return extractDescriptionValue(description, descriptionLabel);
+  return cloned;
 }
 
-function buildDisabledRows() {
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('review_done_inspect')
-      .setLabel('🔎 ตรวจสอบ')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true),
+function buildUpdatedEmbedFromOriginal(originalEmbed, action, reviewerId, reviewNote = '-') {
+  const embed = EmbedBuilder.from(originalEmbed);
 
-    new ButtonBuilder()
-      .setCustomId('review_done_approve')
-      .setLabel('✅ อนุมัติ')
-      .setStyle(ButtonStyle.Success)
-      .setDisabled(true),
-
-    new ButtonBuilder()
-      .setCustomId('review_done_revision')
-      .setLabel('📝 ขอแก้ไข')
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(true)
-  );
-
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('review_done_reject')
-      .setLabel('❌ ปฏิเสธ')
-      .setStyle(ButtonStyle.Danger)
-      .setDisabled(true),
-
-    new ButtonBuilder()
-      .setCustomId('review_done_reward')
-      .setLabel('🎁 ดูรางวัล')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true)
-  );
-
-  return [row1, row2];
-}
-
-function buildResultEmbed(originalEmbed, action, reviewerId, reviewNote = '-') {
-  const submissionId = getValueFromEmbed(originalEmbed, 'Submission ID', 'Submission ID');
-  const player = getValueFromEmbed(originalEmbed, 'ผู้เล่น', 'ผู้เล่น');
-  const ingameName = getValueFromEmbed(originalEmbed, 'ชื่อในเกม', 'ชื่อในเกม');
-  const profession = getValueFromEmbed(originalEmbed, 'สายอาชีพ', 'สายอาชีพ');
-  const quest = getValueFromEmbed(originalEmbed, 'เควส', 'เควส');
-
-  let title = '🛠️ ผลการตรวจเควส';
-  let color = 0x5865f2;
-  let note = reviewNote || '-';
+  let title = '📩 Quest Submission';
+  let color = 0x2b82ff;
 
   if (action === 'approve') {
     title = '🛠️ ผลการตรวจเควส: อนุมัติ';
     color = 0x57f287;
-    note = '-';
+    reviewNote = '-';
   }
 
   if (action === 'revision') {
@@ -91,28 +46,17 @@ function buildResultEmbed(originalEmbed, action, reviewerId, reviewNote = '-') {
   if (action === 'reject') {
     title = '🛠️ ผลการตรวจเควส: ปฏิเสธ';
     color = 0xed4245;
-    note = reviewNote || '-';
   }
 
-  const embed = new EmbedBuilder()
-    .setTitle(title)
-    .setColor(color)
-    .addFields(
-      { name: 'Submission ID', value: submissionId || '-' },
-      { name: 'ผู้เล่น', value: player || '-' },
-      { name: 'ชื่อในเกม', value: ingameName || '-' },
-      { name: 'สายอาชีพ', value: profession || '-' },
-      { name: 'เควส', value: quest || '-' },
-      { name: 'ผู้ตรวจ', value: `<@${reviewerId}>` },
-      { name: 'หมายเหตุ', value: note || '-' }
-    )
-    .setTimestamp();
+  let fields = originalEmbed.fields ? [...originalEmbed.fields] : [];
 
-  if (originalEmbed.image?.url) {
-    embed.setImage(originalEmbed.image.url);
-  } else if (originalEmbed.data?.image?.url) {
-    embed.setImage(originalEmbed.data.image.url);
-  }
+  fields = replaceOrAppendField(fields, 'ผู้ตรวจ', `<@${reviewerId}>`);
+  fields = replaceOrAppendField(fields, 'หมายเหตุ', reviewNote || '-');
+
+  embed.setTitle(title);
+  embed.setColor(color);
+  embed.setFields(fields);
+  embed.setTimestamp();
 
   return embed;
 }
@@ -132,10 +76,8 @@ async function handleReviewButton(interaction, parsed) {
   }
 
   if (action === 'inspect') {
-    const inspectEmbed = EmbedBuilder.from(originalEmbed).setTitle('🔎 ตรวจสอบ Submission');
-
     await interaction.reply({
-      embeds: [inspectEmbed],
+      embeds: [EmbedBuilder.from(originalEmbed).setTitle('🔎 ตรวจสอบ Submission')],
       flags: 64
     });
     return;
@@ -164,7 +106,7 @@ async function handleReviewButton(interaction, parsed) {
       reviewNote: null
     });
 
-    const resultEmbed = buildResultEmbed(
+    const updatedEmbed = buildUpdatedEmbedFromOriginal(
       originalEmbed,
       action,
       interaction.user.id,
@@ -172,7 +114,7 @@ async function handleReviewButton(interaction, parsed) {
     );
 
     await interaction.update({
-      embeds: [resultEmbed],
+      embeds: [updatedEmbed],
       components: buildDisabledRows()
     });
 
@@ -187,6 +129,6 @@ async function handleReviewButton(interaction, parsed) {
 
 module.exports = {
   handleReviewButton,
-  buildResultEmbed,
+  buildUpdatedEmbedFromOriginal,
   buildDisabledRows
 };
