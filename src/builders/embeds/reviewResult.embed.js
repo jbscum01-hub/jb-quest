@@ -1,29 +1,31 @@
 const { EmbedBuilder } = require('discord.js');
 
-function buildReviewResultEmbed({ action, submission, reviewerTag, reviewNote }) {
-  const actionLabelMap = {
+function buildReviewResultEmbed({ action, submission, reviewerTag, reviewNote, rewardSummary }) {
+  const actionMap = {
     approve: 'อนุมัติ',
     revision: 'ขอแก้ไข',
     reject: 'ปฏิเสธ',
-    reward: 'แจกของรางวัล'
+    reward: 'ดูรางวัล'
   };
 
-  const questName = submission.quest_name_th || submission.quest_name || submission.quest_code || 'ไม่ระบุชื่อเควส';
+  const lines = [
+    `Submission ID: ${submission.submission_id}`,
+    `ผู้เล่น: ${submission.discord_display_name || submission.discord_username || '-'}`,
+    `สายอาชีพ: ${submission.profession_code || '-'}`,
+    `เควส: ${submission.quest_name || '-'}`,
+    `ผู้ตรวจ: ${reviewerTag || '-'}`,
+    `หมายเหตุ: ${reviewNote || '-'}`
+  ];
+
+  if (rewardSummary) {
+    lines.push('', 'รางวัล', rewardSummary);
+  }
 
   return new EmbedBuilder()
-    .setTitle(`🛠️ ผลการตรวจเควส: ${actionLabelMap[action] || action}`)
-    .setDescription([
-      `**Submission ID:** ${submission.id}`,
-      `**ผู้เล่น:** ${submission.discord_username || submission.submitted_by_discord_tag || '-'}`,
-      `**สายอาชีพ:** ${submission.profession_code || '-'}`,
-      `**เควส:** ${questName}`,
-      `**รหัสเควส:** ${submission.quest_code || '-'}`,
-      `**ผู้ตรวจ:** ${reviewerTag || '-'}`,
-      '',
-      `**หมายเหตุ:**`,
-      `${reviewNote || '-'}`
-    ].join('\n'))
-    .setTimestamp(new Date());
+    .setColor(action === 'approve' ? 0x57f287 : action === 'reject' ? 0xed4245 : 0xfee75c)
+    .setTitle(`🛠️ ผลการตรวจเควส: ${actionMap[action] || action}`)
+    .setDescription(lines.join('\n'))
+    .setTimestamp();
 }
 
 module.exports = {
