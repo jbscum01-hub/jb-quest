@@ -8,7 +8,14 @@ async function findQuestById(questId, client) {
   const db = getDb(client);
   const result = await db.query(
     `
-    SELECT q.*, c.category_code, c.category_name, p.profession_code, p.profession_name_th
+    SELECT
+      q.*,
+      c.category_code,
+      c.category_name,
+      p.profession_code,
+      p.profession_name_th,
+      p.profession_name_en,
+      p.icon_emoji
     FROM public.tb_quest_master q
     LEFT JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
     LEFT JOIN public.tb_quest_master_profession p ON q.profession_id = p.profession_id
@@ -35,6 +42,62 @@ async function findProfessionByCode(professionCode, client) {
   );
 
   return result.rows[0] || null;
+}
+
+async function findAllActiveProfessions(client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT *
+    FROM public.tb_quest_master_profession
+    WHERE is_active = TRUE
+    ORDER BY sort_order ASC, profession_name_th ASC
+    `
+  );
+
+  return result.rows;
+}
+
+async function findQuestLevelsByProfession(professionId, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT DISTINCT quest_level
+    FROM public.tb_quest_master
+    WHERE profession_id = $1
+      AND is_active = TRUE
+      AND quest_level IS NOT NULL
+    ORDER BY quest_level ASC
+    `,
+    [professionId]
+  );
+
+  return result.rows.map((row) => row.quest_level);
+}
+
+async function findQuestsByProfessionAndLevel(professionId, questLevel, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT
+      q.*,
+      c.category_code,
+      c.category_name,
+      p.profession_code,
+      p.profession_name_th,
+      p.profession_name_en,
+      p.icon_emoji
+    FROM public.tb_quest_master q
+    LEFT JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
+    LEFT JOIN public.tb_quest_master_profession p ON q.profession_id = p.profession_id
+    WHERE q.profession_id = $1
+      AND q.quest_level = $2
+    ORDER BY q.display_order ASC, q.created_at ASC
+    `,
+    [professionId, questLevel]
+  );
+
+  return result.rows;
 }
 
 async function findCurrentMainQuestByProfession(professionCode, client) {
@@ -82,11 +145,16 @@ async function findQuestDependencies(questId, client) {
   const db = getDb(client);
   const result = await db.query(
     `
-    SELECT *
-    FROM public.tb_quest_master_dependency
-    WHERE quest_id = $1
-      AND is_active = TRUE
-    ORDER BY sort_order ASC, created_at ASC
+    SELECT
+      d.*,
+      rq.quest_code AS required_quest_code,
+      rq.quest_name AS required_quest_name
+    FROM public.tb_quest_master_dependency d
+    LEFT JOIN public.tb_quest_master rq
+      ON d.required_quest_id = rq.quest_id
+    WHERE d.quest_id = $1
+      AND d.is_active = TRUE
+    ORDER BY d.sort_order ASC, d.created_at ASC
     `,
     [questId]
   );
@@ -187,9 +255,28 @@ async function findQuestRewards(questId, client) {
   return result.rows;
 }
 
+async function findQuestSteps(questId, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT *
+    FROM public.tb_quest_master_step
+    WHERE quest_id = $1
+      AND is_active = TRUE
+    ORDER BY step_no ASC, created_at ASC
+    `,
+    [questId]
+  );
+
+  return result.rows;
+}
+
 module.exports = {
   findQuestById,
   findProfessionByCode,
+  findAllActiveProfessions,
+  findQuestLevelsByProfession,
+  findQuestsByProfessionAndLevel,
   findCurrentMainQuestByProfession,
   findActiveMainQuestsByProfession,
   findQuestDependencies,
@@ -197,5 +284,6 @@ module.exports = {
   findRepeatableQuestsByProfession,
   findQuestRequirements,
   findQuestGuideMedia,
-  findQuestRewards
+  findQuestRewards,
+  findQuestSteps
 };
