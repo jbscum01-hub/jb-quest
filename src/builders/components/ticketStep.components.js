@@ -22,6 +22,18 @@ function buildTicketStepComponents(ticketId, stepNo) {
   ];
 }
 
+function buildTicketCloseComponents(ticketId) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('ticket', 'close_room', ticketId))
+        .setLabel('🔒 ปิดห้อง')
+        .setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
 module.exports = {
-  buildTicketStepComponents
+  buildTicketStepComponents,
+  buildTicketCloseComponents
 };
