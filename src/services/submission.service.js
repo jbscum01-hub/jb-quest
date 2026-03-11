@@ -1,6 +1,17 @@
 const { withTransaction } = require('../db/pool');
-const { findProfessionByCode, findCurrentMainQuestByProfession, findRepeatableQuestsByProfession, findQuestById } = require('../db/queries/questMaster.repo');
-const { findPlayerByDiscordId, createPlayerProfile, updatePlayerNames } = require('../db/queries/playerProfile.repo');
+const {
+  findProfessionByCode,
+  findCurrentMainQuestByProfession,
+  findRepeatableQuestsByProfession,
+  findQuestById
+} = require('../db/queries/questMaster.repo');
+
+const {
+  findPlayerByDiscordId,
+  createPlayerProfile,
+  updatePlayerNames
+} = require('../db/queries/playerProfile.repo');
+
 const {
   findPlayerProfession,
   upsertPlayerProfession,
@@ -8,7 +19,12 @@ const {
   findRepeatableState,
   upsertRepeatableState
 } = require('../db/queries/mainProgress.repo');
-const { createSubmission, insertSubmissionAttachment } = require('../db/queries/submission.repo');
+
+const {
+  createSubmission,
+  insertSubmissionAttachment,
+  findPendingSubmissionByPlayer
+} = require('../db/queries/submission.repo');
 
 async function submitQuest({
   discordUserId,
@@ -22,11 +38,13 @@ async function submitQuest({
 }) {
   return withTransaction(async (client) => {
     const profession = await findProfessionByCode(professionCode, client);
+
     if (!profession) {
       throw new Error(`Profession not found: ${professionCode}`);
     }
 
     let playerProfile = await findPlayerByDiscordId(discordUserId, client);
+
     if (!playerProfile) {
       playerProfile = await createPlayerProfile({
         discordUserId,
@@ -43,13 +61,29 @@ async function submitQuest({
       }, client);
     }
 
+    // กันส่งซ้ำถ้ายังมีเควสรอตรวจของ mode เดียวกันอยู่
+    const pendingSubmission = await findPendingSubmissionByPlayer({
+      playerId: playerProfile.player_id,
+      professionId: profession.profession_id,
+      submissionType: submissionMode
+    }, client);
+
+    if (pendingSubmission) {
+      throw new Error('คุณมีเควสที่ส่งค้างตรวจอยู่แล้ว กรุณารอแอดมินตรวจสอบก่อน');
+    }
+
     let quest;
 
     if (submissionMode === 'MAIN') {
-      let playerProfession = await findPlayerProfession(playerProfile.player_id, profession.profession_id, client);
+      let playerProfession = await findPlayerProfession(
+        playerProfile.player_id,
+        profession.profession_id,
+        client
+      );
 
       if (!playerProfession || !playerProfession.current_main_quest_id) {
         const firstQuest = await findCurrentMainQuestByProfession(professionCode, client);
+
         if (!firstQuest) {
           throw new Error(`Main quest not found for profession ${professionCode}`);
         }
@@ -78,8 +112,18 @@ async function submitQuest({
         throw new Error(`Repeatable quest not found for profession ${professionCode}`);
       }
 
-      const state = await findRepeatableState(playerProfile.player_id, profession.profession_id, quest.quest_id, client);
-      if (state?.state_status === 'COOLDOWN' && state.next_available_at && new Date(state.next_available_at) > new Date()) {
+      const state = await findRepeatableState(
+        playerProfile.player_id,
+        profession.profession_id,
+        quest.quest_id,
+        client
+      );
+
+      if (
+        state?.state_status === 'COOLDOWN' &&
+        state.next_available_at &&
+        new Date(state.next_available_at) > new Date()
+      ) {
         throw new Error(`Quest ยังติดคูลดาวน์ถึง ${new Date(state.next_available_at).toLocaleString('th-TH')}`);
       }
     } else {
