@@ -6,24 +6,15 @@ function buildDisabledRows() {
   return [];
 }
 
-function replaceOrAppendField(fields, fieldName, fieldValue) {
-  const cloned = [...fields];
-  const index = cloned.findIndex((f) => f.name === fieldName);
+function replaceLine(description, label, value) {
+  const pattern = new RegExp(`${label}:\\s*.*`);
+  const replacement = `${label}: ${value}`;
 
-  if (index >= 0) {
-    cloned[index] = {
-      ...cloned[index],
-      value: fieldValue
-    };
-  } else {
-    cloned.push({
-      name: fieldName,
-      value: fieldValue,
-      inline: false
-    });
+  if (pattern.test(description)) {
+    return description.replace(pattern, replacement);
   }
 
-  return cloned;
+  return `${description}\n${replacement}`;
 }
 
 function buildUpdatedEmbedFromOriginal(originalEmbed, action, reviewerId, reviewNote = '-') {
@@ -48,14 +39,14 @@ function buildUpdatedEmbedFromOriginal(originalEmbed, action, reviewerId, review
     color = 0xed4245;
   }
 
-  let fields = originalEmbed.fields ? [...originalEmbed.fields] : [];
+  let description = originalEmbed.description || originalEmbed.data?.description || '';
 
-  fields = replaceOrAppendField(fields, 'ผู้ตรวจ', `<@${reviewerId}>`);
-  fields = replaceOrAppendField(fields, 'หมายเหตุ', reviewNote || '-');
+  description = replaceLine(description, 'ผู้ตรวจ', `<@${reviewerId}>`);
+  description = replaceLine(description, 'หมายเหตุ', reviewNote || '-');
 
   embed.setTitle(title);
   embed.setColor(color);
-  embed.setFields(fields);
+  embed.setDescription(description);
   embed.setTimestamp();
 
   return embed;
