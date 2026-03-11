@@ -3,12 +3,14 @@ const { logger } = require('../config/logger');
 const { handlePanelButton } = require('./buttons/panel.button');
 const { handleReviewButton } = require('./buttons/review.button');
 const { handleAdminButtons } = require('./buttons/admin.button');
-const { handleAdminSelect } = require('./selects/admin.select');
 const { handleTicketButton } = require('./buttons/ticket.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
-const { handleAdminQuestEditDescriptionModal } = require('./modals/adminQuestEditDescription.modal');
+const {
+  handleAdminSelectMenu,
+  handleAdminModalSubmit
+} = require('../services/adminPanel.service');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -53,7 +55,7 @@ function registerInteractionHandler(client) {
 
       if (interaction.isStringSelectMenu()) {
         if (interaction.customId.startsWith('quest:admin')) {
-          await handleAdminSelect(interaction);
+          await handleAdminSelectMenu(interaction);
           return;
         }
 
@@ -65,8 +67,8 @@ function registerInteractionHandler(client) {
       }
 
       if (interaction.isModalSubmit()) {
-        if (interaction.customId.startsWith('quest:admin:modal:edit_description:')) {
-          await handleAdminQuestEditDescriptionModal(interaction);
+        if (interaction.customId.startsWith('quest:admin:modal:')) {
+          await handleAdminModalSubmit(interaction);
           return;
         }
 
