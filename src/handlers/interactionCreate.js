@@ -15,7 +15,14 @@ function registerInteractionHandler(client) {
         }
 
         const parsed = parseCustomId(interaction.customId);
-        if (!parsed) return;
+
+        if (!parsed) {
+          await interaction.reply({
+            content: 'รูปแบบปุ่มไม่ถูกต้อง',
+            ephemeral: true
+          });
+          return;
+        }
 
         if (parsed.scope === 'panel') {
           await handlePanelButton(interaction, parsed);
@@ -36,7 +43,14 @@ function registerInteractionHandler(client) {
 
       if (interaction.isModalSubmit()) {
         const parsed = parseCustomId(interaction.customId);
-        if (!parsed) return;
+
+        if (!parsed) {
+          await interaction.reply({
+            content: 'รูปแบบฟอร์มไม่ถูกต้อง',
+            ephemeral: true
+          });
+          return;
+        }
 
         if (parsed.scope === 'modal_submit') {
           await handleQuestSubmissionModal(interaction, parsed);
@@ -60,7 +74,7 @@ function registerInteractionHandler(client) {
       }
 
       await interaction.reply({
-        content: 'เกิดข้อผิดพลาดระหว่างประมวลผล',
+        content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`,
         ephemeral: true
       });
     }
