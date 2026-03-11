@@ -3,6 +3,7 @@ const { logger } = require('../config/logger');
 const { handlePanelButton } = require('./buttons/panel.button');
 const { handleReviewButton } = require('./buttons/review.button');
 const { handleAdminButtons } = require('./buttons/admin.button');
+const { handleTicketButton } = require('./buttons/ticket.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 
@@ -32,6 +33,11 @@ function registerInteractionHandler(client) {
 
         if (parsed.scope === 'review') {
           await handleReviewButton(interaction, parsed);
+          return;
+        }
+
+        if (parsed.scope === 'ticket') {
+          await handleTicketButton(interaction, parsed);
           return;
         }
 
