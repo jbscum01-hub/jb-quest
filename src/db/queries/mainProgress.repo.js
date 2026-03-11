@@ -96,23 +96,56 @@ async function upsertMainProgress(
   const result = await client.query(
     `
     INSERT INTO public.tb_quest_player_main_progress
-    (player_id, profession_id, quest_id, progress_status, first_available_at, last_submitted_at, reviewed_by, review_remark, submission_count)
+    (
+      player_id,
+      profession_id,
+      quest_id,
+      progress_status,
+      first_available_at,
+      last_submitted_at,
+      reviewed_by,
+      review_remark,
+      submission_count
+    )
     VALUES (
-      $1, $2, $3, $4,
-      CASE WHEN $4 = 'AVAILABLE' THEN NOW() ELSE NULL END,
-      CASE WHEN $4 = 'PENDING_REVIEW' THEN NOW() ELSE NULL END,
+      $1,
+      $2,
+      $3,
+      $4::varchar(30),
+      CASE WHEN $4::varchar(30) = 'AVAILABLE' THEN NOW() ELSE NULL END,
+      CASE WHEN $4::varchar(30) = 'PENDING_REVIEW' THEN NOW() ELSE NULL END,
       $5,
       $6,
       CASE WHEN $7 THEN 1 ELSE 0 END
     )
     ON CONFLICT (player_id, profession_id, quest_id)
     DO UPDATE SET
-      progress_status = EXCLUDED.progress_status,
-      last_submitted_at = CASE WHEN EXCLUDED.progress_status = 'PENDING_REVIEW' THEN NOW() ELSE public.tb_quest_player_main_progress.last_submitted_at END,
-      last_reviewed_at = CASE WHEN EXCLUDED.reviewed_by IS NOT NULL OR EXCLUDED.review_remark IS NOT NULL OR EXCLUDED.progress_status IN ('COMPLETED','REVISION_REQUIRED','REJECTED') THEN NOW() ELSE public.tb_quest_player_main_progress.last_reviewed_at END,
-      last_completed_at = CASE WHEN EXCLUDED.progress_status = 'COMPLETED' THEN NOW() ELSE public.tb_quest_player_main_progress.last_completed_at END,
-      reviewed_by = COALESCE(EXCLUDED.reviewed_by, public.tb_quest_player_main_progress.reviewed_by),
-      review_remark = COALESCE(EXCLUDED.review_remark, public.tb_quest_player_main_progress.review_remark),
+      progress_status = $4::varchar(30),
+      first_available_at = CASE
+        WHEN public.tb_quest_player_main_progress.first_available_at IS NULL
+         AND $4::varchar(30) = 'AVAILABLE'
+        THEN NOW()
+        ELSE public.tb_quest_player_main_progress.first_available_at
+      END,
+      last_submitted_at = CASE
+        WHEN $4::varchar(30) = 'PENDING_REVIEW'
+        THEN NOW()
+        ELSE public.tb_quest_player_main_progress.last_submitted_at
+      END,
+      last_reviewed_at = CASE
+        WHEN $5 IS NOT NULL
+          OR $6 IS NOT NULL
+          OR $4::varchar(30) IN ('COMPLETED', 'REVISION_REQUIRED', 'REJECTED')
+        THEN NOW()
+        ELSE public.tb_quest_player_main_progress.last_reviewed_at
+      END,
+      last_completed_at = CASE
+        WHEN $4::varchar(30) = 'COMPLETED'
+        THEN NOW()
+        ELSE public.tb_quest_player_main_progress.last_completed_at
+      END,
+      reviewed_by = COALESCE($5, public.tb_quest_player_main_progress.reviewed_by),
+      review_remark = COALESCE($6, public.tb_quest_player_main_progress.review_remark),
       submission_count = public.tb_quest_player_main_progress.submission_count + CASE WHEN $7 THEN 1 ELSE 0 END,
       updated_at = NOW()
     RETURNING *
@@ -146,10 +179,23 @@ async function upsertRepeatableState(
   const result = await client.query(
     `
     INSERT INTO public.tb_quest_player_repeatable_state
-    (player_id, profession_id, quest_id, state_status, last_submitted_at, reviewed_by, review_remark, next_available_at, repeat_count)
+    (
+      player_id,
+      profession_id,
+      quest_id,
+      state_status,
+      last_submitted_at,
+      reviewed_by,
+      review_remark,
+      next_available_at,
+      repeat_count
+    )
     VALUES (
-      $1, $2, $3, $4,
-      CASE WHEN $4 = 'PENDING_REVIEW' THEN NOW() ELSE NULL END,
+      $1,
+      $2,
+      $3,
+      $4::varchar(30),
+      CASE WHEN $4::varchar(30) = 'PENDING_REVIEW' THEN NOW() ELSE NULL END,
       $5,
       $6,
       $7,
@@ -157,13 +203,27 @@ async function upsertRepeatableState(
     )
     ON CONFLICT (player_id, profession_id, quest_id)
     DO UPDATE SET
-      state_status = EXCLUDED.state_status,
-      last_submitted_at = CASE WHEN EXCLUDED.state_status = 'PENDING_REVIEW' THEN NOW() ELSE public.tb_quest_player_repeatable_state.last_submitted_at END,
-      last_reviewed_at = CASE WHEN EXCLUDED.reviewed_by IS NOT NULL OR EXCLUDED.review_remark IS NOT NULL OR EXCLUDED.state_status IN ('COOLDOWN','REJECTED','REVISION_REQUIRED') THEN NOW() ELSE public.tb_quest_player_repeatable_state.last_reviewed_at END,
-      last_completed_at = CASE WHEN EXCLUDED.state_status = 'COOLDOWN' THEN NOW() ELSE public.tb_quest_player_repeatable_state.last_completed_at END,
-      next_available_at = COALESCE(EXCLUDED.next_available_at, public.tb_quest_player_repeatable_state.next_available_at),
-      reviewed_by = COALESCE(EXCLUDED.reviewed_by, public.tb_quest_player_repeatable_state.reviewed_by),
-      review_remark = COALESCE(EXCLUDED.review_remark, public.tb_quest_player_repeatable_state.review_remark),
+      state_status = $4::varchar(30),
+      last_submitted_at = CASE
+        WHEN $4::varchar(30) = 'PENDING_REVIEW'
+        THEN NOW()
+        ELSE public.tb_quest_player_repeatable_state.last_submitted_at
+      END,
+      last_reviewed_at = CASE
+        WHEN $5 IS NOT NULL
+          OR $6 IS NOT NULL
+          OR $4::varchar(30) IN ('COOLDOWN', 'REJECTED', 'REVISION_REQUIRED')
+        THEN NOW()
+        ELSE public.tb_quest_player_repeatable_state.last_reviewed_at
+      END,
+      last_completed_at = CASE
+        WHEN $4::varchar(30) = 'COOLDOWN'
+        THEN NOW()
+        ELSE public.tb_quest_player_repeatable_state.last_completed_at
+      END,
+      next_available_at = COALESCE($7, public.tb_quest_player_repeatable_state.next_available_at),
+      reviewed_by = COALESCE($5, public.tb_quest_player_repeatable_state.reviewed_by),
+      review_remark = COALESCE($6, public.tb_quest_player_repeatable_state.review_remark),
       repeat_count = public.tb_quest_player_repeatable_state.repeat_count + CASE WHEN $8 THEN 1 ELSE 0 END,
       updated_at = NOW()
     RETURNING *
