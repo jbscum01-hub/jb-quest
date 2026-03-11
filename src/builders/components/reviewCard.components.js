@@ -1,30 +1,29 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { buildCustomId } = require('../../utils/customId');
 
-function buildReviewButtons(submissionId) {
-
+function buildReviewCardComponents(submissionId) {
   return [
     new ActionRowBuilder().addComponents(
-
       new ButtonBuilder()
-        .setCustomId(`quest:review:approve:${submissionId}`)
-        .setLabel('Approve')
+        .setCustomId(buildCustomId('review', 'approve', submissionId))
+        .setLabel('อนุมัติ')
         .setStyle(ButtonStyle.Success),
-
       new ButtonBuilder()
-        .setCustomId(`quest:review:reject:${submissionId}`)
-        .setLabel('Reject')
+        .setCustomId(buildCustomId('review', 'revision', submissionId))
+        .setLabel('ขอแก้ไข')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('review', 'reject', submissionId))
+        .setLabel('ปฏิเสธ')
         .setStyle(ButtonStyle.Danger),
-
       new ButtonBuilder()
-        .setCustomId(`quest:review:revision:${submissionId}`)
-        .setLabel('Revision')
-        .setStyle(ButtonStyle.Secondary)
-
+        .setCustomId(buildCustomId('review', 'reward', submissionId))
+        .setLabel('ดูรางวัล')
+        .setStyle(ButtonStyle.Primary)
     )
   ];
-
 }
 
 module.exports = {
-  buildReviewButtons
+  buildReviewCardComponents
 };
