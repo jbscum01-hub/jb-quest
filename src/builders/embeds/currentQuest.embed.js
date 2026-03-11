@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
 function formatRequirement(row) {
+  if (row.admin_display_text) return `• ${row.admin_display_text}`;
   if (row.display_text) return `• ${row.display_text}`;
   if (row.item_name && row.required_quantity) return `• ${row.item_name} x${row.required_quantity}`;
   if (row.item_name) return `• ${row.item_name}`;
@@ -19,7 +20,24 @@ function formatReward(row) {
   return `• ${row.reward_type}`;
 }
 
-function buildCurrentQuestEmbed({ professionCode, quest, requirements, rewards, isRepeatable = false }) {
+function buildCurrentQuestEmbed({
+  professionCode,
+  profession,
+  quest,
+  requirements = [],
+  rewards = [],
+  isRepeatable = false,
+  completedAllMain = false
+}) {
+  if (!quest && completedAllMain) {
+    return new EmbedBuilder()
+      .setColor(0x57f287)
+      .setTitle(`✅ ${profession?.profession_name_th || professionCode}`)
+      .setDescription('คุณจบเควสหลักทั้งหมดแล้ว รออัปเดตเควสใหม่')
+      .setFooter({ text: 'SCUM Quest System' })
+      .setTimestamp();
+  }
+
   if (!quest) {
     return new EmbedBuilder()
       .setColor(0xff0000)
