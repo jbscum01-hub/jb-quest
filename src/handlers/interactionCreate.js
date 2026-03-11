@@ -2,7 +2,8 @@ const { parseCustomId } = require('../utils/customId');
 const { logger } = require('../config/logger');
 const { handlePanelButton } = require('./buttons/panel.button');
 const { handleReviewButton } = require('./buttons/review.button');
-const { handleAdminButtons, handleAdminSelectMenus } = require('./buttons/admin.button');
+const { handleAdminButtons } = require('./buttons/admin.button');
+const { handleAdminSelect } = require('./selects/admin.select');
 const { handleTicketButton } = require('./buttons/ticket.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
@@ -51,12 +52,12 @@ function registerInteractionHandler(client) {
 
       if (interaction.isStringSelectMenu()) {
         if (interaction.customId.startsWith('quest:admin')) {
-          await handleAdminSelectMenus(interaction);
+          await handleAdminSelect(interaction);
           return;
         }
 
         await interaction.reply({
-          content: 'ยังไม่รองรับ select menu นี้ในระบบ',
+          content: 'ยังไม่รองรับเมนูเลือกนี้ในระบบ',
           flags: 64
         });
         return;
