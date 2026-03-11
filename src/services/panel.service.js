@@ -1,53 +1,117 @@
-const { getPool } = require('../db/pool');
+const {
+  findProfessionByCode,
+  findCurrentMainQuestByProfession,
+  findRepeatableQuestsByProfession,
+  findQuestRequirements,
+  findQuestRewards,
+  findQuestById
+} = require('../db/queries/questMaster.repo');
+const {
+  findPlayerByDiscordId
+} = require('../db/queries/playerProfile.repo');
+const {
+  findPlayerProfession,
+  upsertPlayerProfession,
+  setCurrentMainQuest
+} = require('../db/queries/mainProgress.repo');
 
-async function getCurrentQuestSummary(professionCode) {
-  const pool = getPool();
+async function resolveCurrentMainQuestForPlayer(discordUserId, professionCode) {
+  const profession = await findProfessionByCode(professionCode);
+  if (!profession) return { profession: null, quest: null, requirements: [], rewards: [] };
 
-  const result = await pool.query(`
-    SELECT
-      q.quest_id,
-      q.quest_name,
-      q.quest_description,
-      q.quest_level,
-      q.fame_required_display,
-      q.fame_note
-    FROM tb_quest_master q
-    JOIN tb_quest_master_profession p
-      ON q.profession_id = p.profession_id
-    JOIN tb_quest_master_category c
-      ON q.category_id = c.category_id
-    WHERE p.profession_code = $1
-      AND c.category_code = 'MAIN'
-      AND q.is_active = true
-    ORDER BY q.quest_level ASC
-    LIMIT 1
-  `,[professionCode]);
+  const player = await findPlayerByDiscordId(discordUserId);
 
-  if (!result.rows.length) return null;
+  if (!player) {
+    const defaultQuest = await findCurrentMainQuestByProfession(professionCode);
+    if (!defaultQuest) return { profession, quest: null, requirements: [], rewards: [] };
+    return {
+      profession,
+      quest: defaultQuest,
+      requirements: await findQuestRequirements(defaultQuest.quest_id),
+      rewards: await findQuestRewards(defaultQuest.quest_id)
+    };
+  }
 
-  const quest = result.rows[0];
+  let playerProfession = await findPlayerProfession(player.player_id, profession.profession_id);
 
-  const req = await pool.query(`
-    SELECT requirement_type, item_name, required_quantity, display_text
-    FROM tb_quest_master_requirement
-    WHERE quest_id = $1
-    ORDER BY sort_order
-  `,[quest.quest_id]);
+  if (!playerProfession) {
+    const firstQuest = await findCurrentMainQuestByProfession(professionCode);
+    if (!firstQuest) return { profession, quest: null, requirements: [], rewards: [] };
 
-  const reward = await pool.query(`
-    SELECT reward_type, reward_item_name, reward_quantity, reward_value_number
-    FROM tb_quest_master_reward
-    WHERE quest_id = $1
-    ORDER BY sort_order
-  `,[quest.quest_id]);
+    playerProfession = await upsertPlayerProfession({
+      playerId: player.player_id,
+      professionId: profession.profession_id,
+      currentMainQuestId: firstQuest.quest_id,
+      currentMainLevel: firstQuest.quest_level,
+      isUnlocked: true
+    });
+
+    return {
+      profession,
+      quest: firstQuest,
+      requirements: await findQuestRequirements(firstQuest.quest_id),
+      rewards: await findQuestRewards(firstQuest.quest_id)
+    };
+  }
+
+  if (!playerProfession.current_main_quest_id) {
+    const fallbackQuest = await findCurrentMainQuestByProfession(professionCode);
+    if (!fallbackQuest) return { profession, quest: null, requirements: [], rewards: [] };
+
+    await setCurrentMainQuest(player.player_id, profession.profession_id, fallbackQuest.quest_id, fallbackQuest.quest_level);
+
+    return {
+      profession,
+      quest: fallbackQuest,
+      requirements: await findQuestRequirements(fallbackQuest.quest_id),
+      rewards: await findQuestRewards(fallbackQuest.quest_id)
+    };
+  }
+
+  const quest = await findQuestById(playerProfession.current_main_quest_id);
+
+  if (!quest) {
+    const fallbackQuest = await findCurrentMainQuestByProfession(professionCode);
+    if (!fallbackQuest) return { profession, quest: null, requirements: [], rewards: [] };
+
+    await setCurrentMainQuest(player.player_id, profession.profession_id, fallbackQuest.quest_id, fallbackQuest.quest_level);
+
+    return {
+      profession,
+      quest: fallbackQuest,
+      requirements: await findQuestRequirements(fallbackQuest.quest_id),
+      rewards: await findQuestRewards(fallbackQuest.quest_id)
+    };
+  }
+
+  return {
+    profession,
+    quest,
+    requirements: await findQuestRequirements(quest.quest_id),
+    rewards: await findQuestRewards(quest.quest_id)
+  };
+}
+
+async function getCurrentQuestSummary(discordUserId, professionCode) {
+  return resolveCurrentMainQuestForPlayer(discordUserId, professionCode);
+}
+
+async function getFirstRepeatableQuest(professionCode) {
+  const quests = await findRepeatableQuestsByProfession(professionCode);
+  const quest = quests[0] || null;
+
+  if (!quest) {
+    return { quest: null, requirements: [], rewards: [] };
+  }
 
   return {
     quest,
-    requirements: req.rows,
-    rewards: reward.rows
+    requirements: await findQuestRequirements(quest.quest_id),
+    rewards: await findQuestRewards(quest.quest_id)
   };
 }
 
 module.exports = {
-  getCurrentQuestSummary
+  getCurrentQuestSummary,
+  getFirstRepeatableQuest
 };
