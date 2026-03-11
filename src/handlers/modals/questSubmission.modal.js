@@ -1,18 +1,6 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require('discord.js');
-
-const crypto = require('crypto');
-const { getConfig } = require('../../services/config.service');
 const { getCurrentQuestSummary } = require('../../services/panel.service');
 const { submitQuest } = require('../../services/submission.service');
-
-function generateSubmissionId() {
-  return crypto.randomUUID();
-}
+const { sendSubmissionMirrors } = require('../../services/submissionMessage.service');
 
 async function handleQuestSubmissionModal(interaction, parsed) {
   await interaction.deferReply({ flags: 64 });
@@ -24,17 +12,6 @@ async function handleQuestSubmissionModal(interaction, parsed) {
 
     const characterName = interaction.fields.getTextInputValue('character_name');
     const screenshot = interaction.fields.getTextInputValue('screenshot');
-
-    const reviewChannelId = await getConfig('QUEST_REVIEW_CHANNEL');
-
-    if (!reviewChannelId) {
-      await interaction.editReply({
-        content: '❌ ไม่พบ QUEST_REVIEW_CHANNEL ใน config'
-      });
-      return;
-    }
-
-    const reviewChannel = await interaction.client.channels.fetch(reviewChannelId);
 
     const result = await submitQuest({
       discordUserId: interaction.user.id,
@@ -51,46 +28,14 @@ async function handleQuestSubmissionModal(interaction, parsed) {
     const currentQuest = result.quest || currentQuestSummary?.quest || null;
     const questName = currentQuest?.quest_name || `${professionCode} Lv.?`;
 
-    const embed = new EmbedBuilder()
-      .setTitle('📩 Quest Submission')
-      .setColor(0x2b82ff)
-      .setDescription(
-`Submission ID: ${result.submission.submission_id || generateSubmissionId()}
-ผู้เล่น: <@${interaction.user.id}>
-ชื่อในเกม: ${characterName}
-สายอาชีพ: ${professionCode}
-เควส: ${questName}
-ผู้ตรวจ: -
-หมายเหตุ: -`
-      )
-      .setImage(screenshot)
-      .setTimestamp();
-
-    const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`quest:review:inspect:${result.submission.submission_id}`)
-        .setLabel('🔎 ตรวจสอบ')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId(`quest:review:approve:${result.submission.submission_id}`)
-        .setLabel('✅ อนุมัติ')
-        .setStyle(ButtonStyle.Success),
-
-      new ButtonBuilder()
-        .setCustomId(`quest:review:revision:${result.submission.submission_id}`)
-        .setLabel('📝 ขอแก้ไข')
-        .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId(`quest:review:reward:${result.submission.submission_id}`)
-        .setLabel('🎁 รางวัล')
-        .setStyle(ButtonStyle.Secondary)
-    );
-
-    await reviewChannel.send({
-      embeds: [embed],
-      components: [row1]
+    await sendSubmissionMirrors({
+      client: interaction.client,
+      submission: result.submission,
+      discordUserId: interaction.user.id,
+      characterName,
+      professionCode,
+      questName,
+      screenshot
     });
 
     await interaction.editReply({
