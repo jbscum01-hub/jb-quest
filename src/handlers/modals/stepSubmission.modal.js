@@ -3,9 +3,9 @@ const { insertStepSubmission } = require('../../services/stepSubmission.service'
 async function handleStepSubmissionModal(interaction, parsed) {
   const [ticketId, stepNo] = parsed.extra.split(':');
 
-  const text = interaction.fields.getTextInputValue('step_text');
-
-  const attachment = interaction.message.attachments.first();
+  const characterName = interaction.fields.getTextInputValue('character_name');
+  const stepText = interaction.fields.getTextInputValue('step_text') || '';
+  const screenshot = interaction.fields.getTextInputValue('screenshot');
 
   await interaction.deferReply({ flags: 64 });
 
@@ -13,9 +13,10 @@ async function handleStepSubmissionModal(interaction, parsed) {
     client: interaction.client,
     userId: interaction.user.id,
     ticketId,
-    stepNo,
-    text,
-    attachment
+    stepNo: Number(stepNo),
+    characterName,
+    text: stepText,
+    screenshot
   });
 
   await interaction.editReply({
