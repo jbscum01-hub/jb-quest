@@ -1,4 +1,9 @@
-const { pool } = require('../database');
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 async function getConfig(key) {
 
@@ -12,10 +17,7 @@ async function getConfig(key) {
     [key]
   );
 
-  if (result.rows.length === 0) {
-    console.error(`CONFIG NOT FOUND: ${key}`);
-    return null;
-  }
+  if (result.rows.length === 0) return null;
 
   return result.rows[0].config_value;
 }
