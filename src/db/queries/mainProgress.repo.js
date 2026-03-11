@@ -135,7 +135,7 @@ async function upsertMainProgress(
       last_reviewed_at = CASE
         WHEN $5 IS NOT NULL
           OR $6 IS NOT NULL
-          OR $4::varchar(30) IN ('COMPLETED', 'REVISION_REQUIRED', 'REJECTED')
+          OR $4::varchar(30) IN ('COMPLETED', 'REVISION_REQUIRED')
         THEN NOW()
         ELSE public.tb_quest_player_main_progress.last_reviewed_at
       END,
@@ -212,7 +212,7 @@ async function upsertRepeatableState(
       last_reviewed_at = CASE
         WHEN $5 IS NOT NULL
           OR $6 IS NOT NULL
-          OR $4::varchar(30) IN ('COOLDOWN', 'REJECTED', 'REVISION_REQUIRED')
+          OR $4::varchar(30) IN ('COOLDOWN', 'REVISION_REQUIRED')
         THEN NOW()
         ELSE public.tb_quest_player_repeatable_state.last_reviewed_at
       END,
@@ -233,7 +233,20 @@ async function upsertRepeatableState(
 
   return result.rows[0];
 }
+async function findCompletedMainQuestIds(playerId, professionId, client = getPool()) {
+  const result = await client.query(
+    `
+    SELECT quest_id
+    FROM public.tb_quest_player_main_progress
+    WHERE player_id = $1
+      AND profession_id = $2
+      AND progress_status = 'COMPLETED'
+    `,
+    [playerId, professionId]
+  );
 
+  return result.rows.map((row) => row.quest_id);
+}
 module.exports = {
   findPlayerProfession,
   upsertPlayerProfession,
@@ -242,5 +255,6 @@ module.exports = {
   findMainProgress,
   upsertMainProgress,
   findRepeatableState,
-  upsertRepeatableState
+  upsertRepeatableState,
+  findCompletedMainQuestIds
 };
