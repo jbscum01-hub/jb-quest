@@ -1,9 +1,7 @@
 const { withTransaction } = require('../db/pool');
 const {
   findProfessionByCode,
-  findCurrentMainQuestByProfession,
-  findRepeatableQuestsByProfession,
-  findQuestById
+  findRepeatableQuestsByProfession
 } = require('../db/queries/questMaster.repo');
 
 const {
@@ -13,8 +11,6 @@ const {
 } = require('../db/queries/playerProfile.repo');
 
 const {
-  findPlayerProfession,
-  upsertPlayerProfession,
   upsertMainProgress,
   findRepeatableState,
   upsertRepeatableState
@@ -25,6 +21,10 @@ const {
   insertSubmissionAttachment,
   findPendingSubmissionByPlayer
 } = require('../db/queries/submission.repo');
+
+const {
+  resolveCurrentMainQuestByPlayer
+} = require('./questProgress.service');
 
 async function submitQuest({
   discordUserId,
@@ -61,7 +61,6 @@ async function submitQuest({
       }, client);
     }
 
-    // กันส่งซ้ำถ้ายังมีเควสรอตรวจของ mode เดียวกันอยู่
     const pendingSubmission = await findPendingSubmissionByPlayer({
       playerId: playerProfile.player_id,
       professionId: profession.profession_id,
@@ -75,30 +74,11 @@ async function submitQuest({
     let quest;
 
     if (submissionMode === 'MAIN') {
-      let playerProfession = await findPlayerProfession(
-        playerProfile.player_id,
-        profession.profession_id,
-        client
-      );
+      const resolved = await resolveCurrentMainQuestByPlayer(discordUserId, professionCode, client);
+      quest = resolved.quest || null;
 
-      if (!playerProfession || !playerProfession.current_main_quest_id) {
-        const firstQuest = await findCurrentMainQuestByProfession(professionCode, client);
-
-        if (!firstQuest) {
-          throw new Error(`Main quest not found for profession ${professionCode}`);
-        }
-
-        playerProfession = await upsertPlayerProfession({
-          playerId: playerProfile.player_id,
-          professionId: profession.profession_id,
-          currentMainQuestId: firstQuest.quest_id,
-          currentMainLevel: firstQuest.quest_level,
-          isUnlocked: true
-        }, client);
-
-        quest = firstQuest;
-      } else {
-        quest = await findQuestById(playerProfession.current_main_quest_id, client);
+      if (!quest && resolved.completedAllMain) {
+        throw new Error('คุณจบเควสหลักทั้งหมดแล้ว รออัปเดตเควสใหม่');
       }
 
       if (!quest) {
