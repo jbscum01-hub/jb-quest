@@ -1,7 +1,13 @@
 const { getPool } = require('../pool');
 
-async function findPlayerByDiscordId(discordUserId, client = getPool()) {
-  const result = await client.query(
+function getDb(client) {
+  return client || getPool();
+}
+
+async function findPlayerByDiscordId(discordUserId, client) {
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     SELECT *
     FROM public.tb_quest_player_profile
@@ -16,9 +22,11 @@ async function findPlayerByDiscordId(discordUserId, client = getPool()) {
 
 async function createPlayerProfile(
   { discordUserId, discordUsername, discordDisplayName, ingameName },
-  client = getPool()
+  client
 ) {
-  const result = await client.query(
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     INSERT INTO public.tb_quest_player_profile
     (discord_user_id, discord_username, discord_display_name, ingame_name)
@@ -33,9 +41,11 @@ async function createPlayerProfile(
 
 async function updatePlayerNames(
   { playerId, discordUsername, discordDisplayName, ingameName },
-  client = getPool()
+  client
 ) {
-  const result = await client.query(
+  const db = getDb(client);
+
+  const result = await db.query(
     `
     UPDATE public.tb_quest_player_profile
     SET discord_username = COALESCE($2, discord_username),
@@ -51,8 +61,29 @@ async function updatePlayerNames(
   return result.rows[0] || null;
 }
 
+async function incrementPlayerFame(
+  { playerId, famePoint },
+  client
+) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_player_profile
+    SET current_fame_point = current_fame_point + $2,
+        updated_at = NOW()
+    WHERE player_id = $1
+    RETURNING *
+    `,
+    [playerId, Number(famePoint || 0)]
+  );
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   findPlayerByDiscordId,
   createPlayerProfile,
-  updatePlayerNames
+  updatePlayerNames,
+  incrementPlayerFame
 };
