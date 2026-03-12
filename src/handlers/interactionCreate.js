@@ -15,7 +15,6 @@ const { handleAdminQuestRewardModal } = require('./modals/adminQuestReward.modal
 const { handleAdminCreateQuestModal } = require('./modals/adminCreateQuest.modal');
 const { handleAdminStepModal } = require('./modals/adminStep.modal');
 const { handleAdminSelect } = require('./selects/admin.select');
-const { handleAdminMigrationModal } = require('./modals/adminMigration.modal');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -101,13 +100,6 @@ function registerInteractionHandler(client) {
         if (interaction.customId.startsWith('quest:admin_modal:stpa:')
           || interaction.customId.startsWith('quest:admin_modal:stpe:')) {
           await handleAdminStepModal(interaction);
-          return;
-        }
-
-        if (interaction.customId.startsWith('quest:admin_modal:migrate_upto:')
-          || interaction.customId.startsWith('quest:admin_modal:migrate_single:')
-          || interaction.customId.startsWith('quest:admin_modal:migrate_history:')) {
-          await handleAdminMigrationModal(interaction);
           return;
         }
 

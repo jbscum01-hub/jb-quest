@@ -6,51 +6,13 @@ const {
   showEditRewardModal,
   showCreateQuestModal,
   saveDependencySelection,
-  renderStepDetail,
-  renderMigrationLevelPicker,
-  renderMigrationQuestList
+  renderStepDetail
 } = require('../../services/adminPanel.service');
-const {
-  buildMigrationUpToModal,
-  buildMigrationSingleModal,
-  buildMigrationHistoryModal
-} = require('../../builders/modals/adminMigration.modal');
-const { findQuestsByProfessionAndLevel } = require('../../db/queries/questMaster.repo');
 
 async function handleAdminSelect(interaction) {
   const parts = interaction.customId.split(':');
   const action = parts[2];
   const extra = parts.slice(3).join(':') || null;
-
-
-  if (action === 'migration_profession_single') {
-    return renderMigrationLevelPicker(interaction, interaction.values[0], 'single');
-  }
-
-  if (action === 'migration_profession_upto') {
-    return renderMigrationLevelPicker(interaction, interaction.values[0], 'upto');
-  }
-
-  if (action === 'migration_profession_history') {
-    return interaction.showModal(buildMigrationHistoryModal(interaction.values[0]));
-  }
-
-  if (action === 'migration_level_upto') {
-    return interaction.showModal(buildMigrationUpToModal(extra, Number(interaction.values[0])));
-  }
-
-  if (action === 'migration_level_single') {
-    return renderMigrationQuestList(interaction, extra, Number(interaction.values[0]));
-  }
-
-  if (action === 'migration_quest_single') {
-    const questId = interaction.values[0];
-    if (questId === 'NO_QUEST') {
-      await interaction.reply({ content: 'ไม่พบเควสให้เลือก', ephemeral: true });
-      return;
-    }
-    return interaction.showModal(buildMigrationSingleModal(questId));
-  }
 
   if (action === 'profession') {
     return renderLevelPicker(interaction, interaction.values[0], 'browse');

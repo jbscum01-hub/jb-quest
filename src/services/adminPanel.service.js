@@ -16,10 +16,7 @@ const {
   buildStepManagerEmbed,
   buildStepDetailEmbed,
   buildStepImageEmbeds,
-  buildStepImageManagerEmbed,
-  buildMigrationHomeEmbed,
-  buildMigrationProfessionEmbed,
-  buildMigrationQuestListEmbed
+  buildStepImageManagerEmbed
 } = require('../builders/embeds/adminPanel.embed');
 const {
   buildAdminHomeButtons,
@@ -36,11 +33,7 @@ const {
   buildDependencySelectComponents,
   buildStepManagerComponents,
   buildStepDetailButtons,
-  buildStepImageManagerButtons,
-  buildMigrationHomeButtons,
-  buildMigrationProfessionSelectComponents,
-  buildMigrationLevelSelectComponents,
-  buildMigrationQuestSelectComponents
+  buildStepImageManagerButtons
 } = require('../builders/components/adminPanel.components');
 const { buildQuestDescriptionModal } = require('../builders/modals/adminQuestDescription.modal');
 const { buildQuestRequirementModal } = require('../builders/modals/adminQuestRequirement.modal');
@@ -163,47 +156,6 @@ async function renderPanelManagement(interaction) {
 
 async function renderMasterHome(interaction) {
   await updateOrReply(interaction, { embeds: [buildMasterHomeEmbed()], components: buildMasterHomeButtons() });
-}
-
-
-async function renderMigrationHome(interaction) {
-  await updateOrReply(interaction, { embeds: [buildMigrationHomeEmbed()], components: buildMigrationHomeButtons() });
-}
-
-async function renderMigrationProfessionPicker(interaction, mode = 'single') {
-  const professions = await listActiveProfessions();
-  const options = professions.slice(0, 25).map((item) => ({
-    label: `${item.icon_emoji || '📘'} ${item.profession_name_th}`.slice(0, 100),
-    value: item.profession_code,
-    description: `${item.profession_code}`.slice(0, 100)
-  }));
-
-  await updateOrReply(interaction, {
-    embeds: [buildMigrationProfessionEmbed(mode)],
-    components: buildMigrationProfessionSelectComponents(options, mode)
-  });
-}
-
-async function renderMigrationLevelPicker(interaction, professionCode, mode = 'single') {
-  const profession = await findProfessionByCode(professionCode);
-  const professionLabel = profession?.profession_name_th || professionCode;
-  const embed = buildMigrationProfessionEmbed(mode).setDescription(`${professionLabel}\n\n${buildMigrationProfessionEmbed(mode).data.description || ''}`);
-
-  await updateOrReply(interaction, {
-    embeds: [embed],
-    components: buildMigrationLevelSelectComponents(professionCode, mode)
-  });
-}
-
-async function renderMigrationQuestList(interaction, professionCode, level) {
-  const profession = await findProfessionByCode(professionCode);
-  const quests = await findQuestsByProfessionAndLevel(professionCode, level);
-  const professionLabel = profession?.profession_name_th || professionCode;
-
-  await updateOrReply(interaction, {
-    embeds: [buildMigrationQuestListEmbed(professionLabel, level, quests)],
-    components: buildMigrationQuestSelectComponents(professionCode, level, quests)
-  });
 }
 
 async function renderProfessionPicker(interaction, mode = 'browse') {
@@ -623,10 +575,6 @@ module.exports = {
   renderAdminHome,
   renderPanelManagement,
   renderMasterHome,
-  renderMigrationHome,
-  renderMigrationProfessionPicker,
-  renderMigrationLevelPicker,
-  renderMigrationQuestList,
   renderProfessionPicker,
   renderLevelPicker,
   renderQuestList,

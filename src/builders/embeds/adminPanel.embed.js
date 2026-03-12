@@ -327,60 +327,6 @@ function buildStepDetailEmbed(bundle) {
     .setTimestamp(step.updated_at || new Date());
 }
 
-
-
-function buildMigrationQuestListEmbed(professionLabel, level, quests = []) {
-  return new EmbedBuilder()
-    .setColor(0xfaa61a)
-    .setTitle(`🗂 เลือกเควสสำหรับ Legacy Import · ${professionLabel} · Lv${level}`)
-    .setDescription(
-      quests.length
-        ? `พบเควส ${quests.length} รายการ เลือกเควสที่ต้องการมาร์กย้อนหลัง จากนั้นระบบจะเปิด modal ให้กรอกข้อมูลผู้เล่น`
-        : 'ไม่พบเควสในเงื่อนไขที่เลือก'
-    )
-    .setFooter({ text: 'SCUM Quest System · Legacy Migration' })
-    .setTimestamp();
-}
-
-function buildMigrationHomeEmbed() {
-  return new EmbedBuilder()
-    .setColor(0xfaa61a)
-    .setTitle('🗂 Legacy Quest Migration')
-    .setDescription([
-      'ใช้สำหรับมาร์กประวัติเควสย้อนหลังของผู้เล่นก่อนมีระบบบอท',
-      '',
-      '**แนวทางการใช้งาน**',
-      '• Migrate Single : มาร์กย้อนหลังเฉพาะ 1 เควส และเลือกได้ว่าจะ auto fill เควสก่อนหน้าหรือไม่',
-      '• Migrate Up To Level : มาร์กย้อนหลังตั้งแต่ Lv1 จนถึงเลเวลที่เลือกในสายเดียวกัน',
-      '• View History : ดูว่า player คนนี้ถูกบันทึกเควสอะไรไว้แล้วบ้าง',
-      '',
-      'ระบบนี้จะตอบกลับเฉพาะแอดมินแบบ ephemeral และ **ไม่ส่ง DM ให้ผู้เล่น**'
-    ].join('\n'))
-    .setFooter({ text: 'SCUM Quest System · Legacy Migration' })
-    .setTimestamp();
-}
-
-function buildMigrationProfessionEmbed(mode = 'single') {
-  const titleMap = {
-    single: '🗂 เลือกสายอาชีพสำหรับ Migrate Single',
-    upto: '🗂 เลือกสายอาชีพสำหรับ Migrate Up To Level',
-    history: '🗂 เลือกสายอาชีพสำหรับ View History'
-  };
-
-  const descMap = {
-    single: 'เลือกสายอาชีพก่อน จากนั้นระบบจะให้เลือกเลเวลและเควสที่ต้องการมาร์กย้อนหลัง',
-    upto: 'เลือกสายอาชีพก่อน จากนั้นระบบจะให้เลือกเลเวลสูงสุดที่ผู้เล่นเคยผ่าน',
-    history: 'เลือกสายอาชีพที่ต้องการดูประวัติย้อนหลังของผู้เล่น'
-  };
-
-  return new EmbedBuilder()
-    .setColor(0xfaa61a)
-    .setTitle(titleMap[mode] || titleMap.single)
-    .setDescription(descMap[mode] || descMap.single)
-    .setFooter({ text: 'SCUM Quest System · Legacy Migration' })
-    .setTimestamp();
-}
-
 function buildStepImageEmbeds(bundle, limit = 8) {
   const { step, images = [] } = bundle;
   return images.slice(0, limit).map((item, index) => new EmbedBuilder()
@@ -434,9 +380,6 @@ module.exports = {
   buildPanelStatusEmbed,
   buildDependencyPickerEmbed,
   buildCreateQuestSummaryEmbed,
-  buildMigrationQuestListEmbed,
-  buildMigrationHomeEmbed,
-  buildMigrationProfessionEmbed,
   buildStepManagerEmbed,
   buildStepDetailEmbed,
   buildStepImageEmbeds,

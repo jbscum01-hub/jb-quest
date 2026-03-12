@@ -5,9 +5,6 @@ const {
   renderAdminHome,
   renderPanelManagement,
   renderMasterHome,
-  renderMigrationHome,
-  renderMigrationProfessionPicker,
-  renderMigrationLevelPicker,
   renderProfessionPicker,
   renderLevelPicker,
   renderQuestList,
@@ -34,12 +31,6 @@ const {
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
 const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
-const {
-  buildMigrationUpToModal,
-  buildMigrationSingleModal,
-  buildMigrationHistoryModal
-} = require('../../builders/modals/adminMigration.modal');
-const { findQuestsByProfessionAndLevel } = require('../../db/queries/questMaster.repo');
 
 async function handleAdminButtons(interaction) {
   const { customId } = interaction;
@@ -49,29 +40,6 @@ async function handleAdminButtons(interaction) {
 
   if (action === 'home_panels') return renderPanelManagement(interaction);
   if (action === 'home_master') return renderMasterHome(interaction);
-
-  if (action === 'home_migration') return renderMigrationHome(interaction);
-  if (action === 'migration_single') return renderMigrationProfessionPicker(interaction, 'single');
-  if (action === 'migration_upto') return renderMigrationProfessionPicker(interaction, 'upto');
-  if (action === 'migration_history') return renderMigrationProfessionPicker(interaction, 'history');
-
-  if (action === 'migration_open_upto_modal') {
-    const [professionCode, levelText] = (extra || '').split('|');
-    return interaction.showModal(buildMigrationUpToModal(professionCode, Number(levelText)));
-  }
-
-  if (action === 'migration_open_history_modal') {
-    return interaction.showModal(buildMigrationHistoryModal(extra));
-  }
-
-  if (action === 'migration_open_single_modal') {
-    const quests = await findQuestsByProfessionAndLevel((extra || '').split('|')[0], Number((extra || '').split('|')[1]));
-    if (!quests.length) {
-      await interaction.reply({ content: 'ไม่พบเควสในเงื่อนไขที่เลือก', ephemeral: true });
-      return;
-    }
-    return interaction.showModal(buildMigrationSingleModal(quests[0].quest_id));
-  }
 
   if (action === 'home_refresh') {
     await refreshAdminPanel(interaction.message);
