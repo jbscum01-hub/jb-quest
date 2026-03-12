@@ -1,28 +1,29 @@
 const { EmbedBuilder } = require('discord.js');
 
-function clampText(text, limit = 1024, fallback = '-') {
-  const value = String(text || '').trim();
-  if (!value) return fallback;
-  return value.length > limit ? `${value.slice(0, limit - 3)}...` : value;
+function formatQuestType(quest = {}) {
+  if (quest.is_step_quest) return 'Step Quest';
+  if (quest.is_repeatable) return 'ทำซ้ำได้';
+  if (quest.category_code) return quest.category_code;
+  return 'MAIN';
 }
 
-function formatQuestType(quest) {
-  if (quest.is_repeatable) return 'REPEATABLE';
-  if (quest.is_step_quest) return 'STEP QUEST';
-  return 'MAIN';
+function clampText(text, max = 1024) {
+  if (!text) return '-';
+  const value = String(text);
+  return value.length > max ? `${value.slice(0, max - 3)}...` : value;
 }
 
 function buildAdminHomeEmbed() {
   return new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle('🛠️ แผงควบคุมระบบเควสแอดมิน')
+    .setColor(0x2b2d31)
+    .setTitle('⚙️ ระบบจัดการเควสแอดมิน')
     .setDescription([
-      'ใช้สำหรับจัดการพาเนลผู้เล่นและมาสเตอร์เควสในระบบ Discord',
+      'ใช้สำหรับจัดการพาเนลผู้เล่น และจัดการข้อมูล Master Quest',
       '',
-      '**คำอธิบายปุ่ม**',
-      '• **จัดการพาเนลผู้เล่น** : ไปยังเมนูสร้าง รีเฟรช และตรวจสอบพาเนลผู้เล่น',
-      '• **จัดการมาสเตอร์เควส** : ไปยังเมนูค้นหาและแก้ไขข้อมูลเควส',
-      '• **รีเฟรชแผงนี้** : โหลดข้อความและปุ่มของแผงแอดมินใหม่'
+      '**เมนูหลัก**',
+      '• **จัดการพาเนลผู้เล่น** : สร้าง รีเฟรช ซ่อม และตรวจสอบพาเนลของผู้เล่น',
+      '• **จัดการมาสเตอร์เควส** : ค้นหาและเปิดหน้ารายละเอียดของเควส เพื่อแก้ไขแบบไม่หลงเควส',
+      '• **รีเฟรชแผงนี้** : โหลดหน้าปัจจุบันใหม่อีกครั้ง'
     ].join('\n'))
     .setFooter({ text: 'SCUM Quest System · Admin Home' })
     .setTimestamp();
@@ -31,7 +32,7 @@ function buildAdminHomeEmbed() {
 function buildPanelManagementEmbed() {
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle('🧰 จัดการพาเนลระบบเควส')
+    .setTitle('🧩 จัดการพาเนลผู้เล่น')
     .setDescription([
       'ใช้สำหรับสร้าง รีเฟรช ซ่อม และตรวจสอบพาเนลของผู้เล่นในแต่ละสายอาชีพ',
       '',
@@ -100,42 +101,31 @@ function formatRequirementLine(item, index) {
 }
 
 function formatRewardLine(item, index) {
-  const title = item.reward_display_text
-    || (item.reward_item_name && item.reward_quantity ? `${item.reward_item_name} x${item.reward_quantity}` : null)
-    || (item.reward_type === 'SCUM_MONEY' && item.reward_value_number != null ? `เงิน ${item.reward_value_number}` : null)
-    || (item.reward_type === 'FAME_POINT' && item.reward_value_number != null ? `Fame ${item.reward_value_number}` : null)
-    || (item.reward_type === 'DISCORD_ROLE' && item.discord_role_name ? `ยศ ${item.discord_role_name}` : null)
-    || item.reward_type
-    || 'ไม่ระบุรางวัล';
-  return `${index + 1}. ${title}`;
+  if (item.reward_display_text) return `${index + 1}. ${item.reward_display_text}`;
+  if (item.reward_type === 'SCUM_ITEM') return `${index + 1}. ${(item.reward_item_name || 'ไอเทม')}${item.reward_quantity ? ` x${item.reward_quantity}` : ''}`;
+  if (item.reward_type === 'SCUM_MONEY') return `${index + 1}. เงิน ${item.reward_value_number || 0}`;
+  if (item.reward_type === 'FAME_POINT') return `${index + 1}. Fame ${item.reward_value_number || 0}`;
+  if (item.reward_type === 'DISCORD_ROLE') return `${index + 1}. ยศ ${item.discord_role_name || item.reward_value_text || '-'}`;
+  return `${index + 1}. ${item.reward_type || 'ไม่ระบุรางวัล'}`;
 }
 
 function buildQuestDetailEmbed(bundle) {
   const { quest, dependencies = [], requirements = [], rewards = [], images = [], steps = [] } = bundle;
   const professionLabel = quest.profession_name_th || quest.profession_code || 'ไม่ระบุสาย';
   const dependencyText = dependencies.length
-    ? dependencies
-        .map((dep, index) => {
-          const depLabel = dep.required_quest_code
-            ? `${dep.required_quest_code}${dep.required_quest_name ? ` · ${dep.required_quest_name}` : ''}`
-            : dep.required_level
-              ? `Main Level ${dep.required_level}`
-              : dep.required_role_name || dep.required_role_id || dep.dependency_type;
-          return `${index + 1}. ${depLabel}`;
-        })
-        .join('\n')
+    ? dependencies.map((dep, index) => {
+        const depLabel = dep.required_quest_code
+          ? `${dep.required_quest_code}${dep.required_quest_name ? ` · ${dep.required_quest_name}` : ''}`
+          : dep.required_level
+            ? `Main Level ${dep.required_level}`
+            : dep.required_role_name || dep.required_role_id || dep.dependency_type;
+        return `${index + 1}. ${depLabel}`;
+      }).join('\n')
     : 'ไม่มี';
-
-  const requirementText = requirements.length
-    ? requirements.map(formatRequirementLine).join('\n')
-    : 'ไม่มีรายการ';
-
-  const rewardText = rewards.length
-    ? rewards.map(formatRewardLine).join('\n')
-    : 'ไม่มีรายการ';
-
+  const requirementText = requirements.length ? requirements.map(formatRequirementLine).join('\n') : 'ไม่มีรายการ';
+  const rewardText = rewards.length ? rewards.map(formatRewardLine).join('\n') : 'ไม่มีรายการ';
   const stepText = steps.length
-    ? steps.map((step) => `${step.step_no}. ${step.step_title}`).join('\n')
+    ? steps.map((step) => `${step.step_no}. ${step.step_title}${step.step_description ? `\n   • ${step.step_description}` : ''}`).join('\n')
     : 'ไม่มีรายการขั้นตอน';
 
   return new EmbedBuilder()
@@ -150,31 +140,12 @@ function buildQuestDetailEmbed(bundle) {
       `**จำนวนรูปตัวอย่าง:** ${images.length} รูป`
     ].join('\n'))
     .addFields(
-      {
-        name: '📝 คำอธิบายเควส',
-        value: clampText(quest.quest_description || quest.panel_description || '-'),
-        inline: false
-      },
-      {
-        name: '🔗 เควสที่ต้องผ่านก่อน',
-        value: clampText(dependencyText),
-        inline: false
-      },
-      {
-        name: '📦 ของที่ต้องส่ง / เงื่อนไข',
-        value: clampText(requirementText),
-        inline: false
-      },
-      {
-        name: '🎁 รางวัล',
-        value: clampText(rewardText),
-        inline: false
-      },
-      {
-        name: '🪜 ขั้นตอน',
-        value: clampText(stepText),
-        inline: false
-      },
+      { name: '📝 คำอธิบายเควส', value: clampText(quest.quest_description || quest.panel_description || '-'), inline: false },
+      { name: '🔗 เควสที่ต้องผ่านก่อน', value: clampText(dependencyText), inline: false },
+      { name: '📦 ของที่ต้องส่ง / เงื่อนไข', value: clampText(requirementText), inline: false },
+      { name: '🎁 รางวัล', value: clampText(rewardText), inline: false },
+      { name: '🖼️ รูปตัวอย่าง', value: images.length ? `แสดงรูปตัวอย่างทั้งหมดด้านล่าง (${images.length} รูป)` : 'ไม่มีรูปตัวอย่าง', inline: false },
+      { name: '🪜 ขั้นตอน', value: clampText(stepText), inline: false },
       {
         name: '🛠️ เมนูการจัดการ',
         value: clampText([
@@ -193,23 +164,23 @@ function buildQuestDetailEmbed(bundle) {
     .setTimestamp(quest.updated_at || new Date());
 }
 
-function buildQuestDetailImageEmbeds(bundle) {
-  const { images = [] } = bundle;
+function buildQuestDetailImageEmbeds(bundle, maxImages = 8) {
+  const { quest, images = [] } = bundle;
   return images
     .filter((item) => item?.media_url)
-    .slice(0, 9)
+    .slice(0, maxImages)
     .map((item, index) => new EmbedBuilder()
       .setColor(0x5865f2)
-      .setTitle(`🖼️ รูปตัวอย่าง ${index + 1}`)
-      .setDescription(clampText(item.media_title || item.media_description || 'รูปตัวอย่างเควส', 4096, 'รูปตัวอย่างเควส'))
+      .setTitle(`🖼️ รูปตัวอย่าง ${index + 1} · ${quest.quest_code}`)
+      .setDescription(item.media_title || item.media_description || quest.quest_name || 'รูปตัวอย่างเควส')
       .setImage(item.media_url)
+      .setFooter({ text: 'SCUM Quest System · Quest Guide Image' })
     );
 }
 
 function buildQuestImageManagerEmbed(bundle, currentIndex = 0) {
   const { quest, images = [] } = bundle;
   const professionLabel = quest.profession_name_th || quest.profession_code || 'ไม่ระบุสาย';
-
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle(`🖼️ จัดการรูปตัวอย่าง · ${quest.quest_code}`)
@@ -224,11 +195,7 @@ function buildQuestImageManagerEmbed(bundle, currentIndex = 0) {
 
   if (!images.length) {
     embed.addFields(
-      {
-        name: 'สถานะ',
-        value: 'ยังไม่มีรูปตัวอย่างสำหรับเควสนี้',
-        inline: false
-      },
+      { name: 'สถานะ', value: 'ยังไม่มีรูปตัวอย่างสำหรับเควสนี้', inline: false },
       {
         name: '🛠️ เมนูการจัดการ',
         value: [
@@ -238,64 +205,59 @@ function buildQuestImageManagerEmbed(bundle, currentIndex = 0) {
         inline: false
       }
     );
-
     return embed;
   }
 
   const safeIndex = Math.min(Math.max(Number(currentIndex) || 0, 0), images.length - 1);
   const currentImage = images[safeIndex];
 
-  embed
-    .addFields(
-      {
-        name: 'รายละเอียดรูปปัจจุบัน',
-        value: clampText([
-          `**ลำดับ:** ${safeIndex + 1}/${images.length}`,
-          `**ชื่อรูป:** ${currentImage.media_title || '-'}`,
-          `**คำอธิบาย:** ${currentImage.media_description || '-'}`,
-          `**URL:** ${currentImage.media_url || '-'}`
-        ].join('\n')),
-        inline: false
-      },
-      {
-        name: '🛠️ เมนูการจัดการ',
-        value: clampText([
-          '• **รูปก่อนหน้า / รูปถัดไป** : เลื่อนดูรูปอื่นของเควสนี้',
-          '• **ลบรูปนี้** : ปิดการใช้งานรูปปัจจุบัน',
-          '• **เพิ่มรูปตัวอย่าง** : เพิ่มรูปใหม่ให้เควสนี้',
-          '• **กลับหน้าเควส** : กลับไปหน้ารายละเอียดเควส'
-        ].join('\n')),
-        inline: false
-      }
-    )
-    .setImage(currentImage.media_url);
+  embed.addFields(
+    {
+      name: 'รายละเอียดรูป',
+      value: [
+        `ลำดับ: ${safeIndex + 1}`,
+        `ชื่อรูป: ${currentImage.media_title || '-'}`,
+        `คำอธิบาย: ${currentImage.media_description || '-'}`
+      ].join('\n'),
+      inline: false
+    },
+    {
+      name: '🛠️ เมนูการจัดการ',
+      value: [
+        '• **รูปก่อนหน้า / รูปถัดไป** : เลื่อนดูรูปอื่นของเควสนี้',
+        '• **ลบรูปนี้** : ปิดการใช้งานรูปปัจจุบัน',
+        '• **เพิ่มรูปตัวอย่าง** : เพิ่มรูปใหม่ให้เควสนี้',
+        '• **กลับหน้าเควส** : กลับไปหน้ารายละเอียดเควส'
+      ].join('\n'),
+      inline: false
+    }
+  );
 
+  if (currentImage.media_url) embed.setImage(currentImage.media_url);
   return embed;
 }
 
 function buildRequirementPickerEmbed(bundle) {
-  const { quest, requirements = [] } = bundle;
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle(`📦 เลือกรายการของที่ต้องส่ง · ${quest.quest_code}`)
+    .setTitle(`📦 เลือกรายการของที่ต้องส่ง · ${bundle.quest.quest_code}`)
     .setDescription([
-      `**ชื่อเควส:** ${quest.quest_name}`,
-      `**จำนวนรายการ:** ${requirements.length} รายการ`,
+      `**ชื่อเควส:** ${bundle.quest.quest_name}`,
+      `**จำนวนรายการ:** ${bundle.requirements.length} รายการ`,
       '',
-      'เลือกรายการที่ต้องการแก้ไข จากนั้นระบบจะเปิดฟอร์มให้แก้ชื่อรายการและจำนวน'
+      'เลือกรายการที่ต้องการแก้ไข จากนั้นระบบจะเปิดฟอร์มให้แก้ข้อมูลของรายการนั้น'
     ].join('\n'))
     .setFooter({ text: 'SCUM Quest System · Edit Requirements' })
     .setTimestamp();
 }
 
 function buildRewardPickerEmbed(bundle) {
-  const { quest, rewards = [] } = bundle;
   return new EmbedBuilder()
     .setColor(0x5865f2)
-    .setTitle(`🎁 เลือกรางวัล · ${quest.quest_code}`)
+    .setTitle(`🎁 เลือกรางวัล · ${bundle.quest.quest_code}`)
     .setDescription([
-      `**ชื่อเควส:** ${quest.quest_name}`,
-      `**จำนวนรายการ:** ${rewards.length} รายการ`,
+      `**ชื่อเควส:** ${bundle.quest.quest_name}`,
+      `**จำนวนรายการ:** ${bundle.rewards.length} รายการ`,
       '',
       'เลือกรางวัลที่ต้องการแก้ไข จากนั้นระบบจะเปิดฟอร์มให้แก้ข้อมูลของรางวัลนั้น'
     ].join('\n'))
@@ -303,11 +265,11 @@ function buildRewardPickerEmbed(bundle) {
     .setTimestamp();
 }
 
-function buildPanelStatusEmbed(statusLines = []) {
+function buildPanelStatusEmbed(lines = []) {
   return new EmbedBuilder()
-    .setColor(0xfee75c)
-    .setTitle('📋 สถานะพาเนลผู้เล่น')
-    .setDescription(statusLines.length ? statusLines.join('\n') : 'ไม่พบข้อมูลพาเนล')
+    .setColor(0x5865f2)
+    .setTitle('📡 ตรวจสอบสถานะพาเนล')
+    .setDescription(lines.length ? lines.join('\n') : 'ไม่พบข้อมูลสถานะพาเนล')
     .setFooter({ text: 'SCUM Quest System · Panel Status' })
     .setTimestamp();
 }

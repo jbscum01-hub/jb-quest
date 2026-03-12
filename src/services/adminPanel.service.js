@@ -297,15 +297,8 @@ function parsePositiveInteger(raw, fieldName) {
 }
 
 async function saveQuestRequirementFromModal(interaction, questId, requirementId) {
-  const targetRequirementId = requirementId || interaction.customId.split(':').slice(-1)[0];
-  const requirement = await findQuestRequirementById(targetRequirementId);
-  if (!requirement) {
-    await interaction.reply({ content: 'ไม่พบรายการของที่ต้องส่งนี้', ephemeral: true });
-    return;
-  }
-
   await updateQuestRequirement(
-    targetRequirementId,
+    requirementId,
     {
       itemName: interaction.fields.getTextInputValue('item_name').trim(),
       requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
@@ -313,7 +306,7 @@ async function saveQuestRequirementFromModal(interaction, questId, requirementId
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(questId || requirement.quest_id);
+  const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ บันทึกรายการของที่ต้องส่งเรียบร้อยแล้ว',
     embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
@@ -323,10 +316,8 @@ async function saveQuestRequirementFromModal(interaction, questId, requirementId
 }
 
 async function addQuestRequirementFromModal(interaction, questId) {
-  const targetQuestId = questId || interaction.customId.split(':').slice(-1)[0];
-
   await addQuestRequirement(
-    targetQuestId,
+    questId,
     {
       itemName: interaction.fields.getTextInputValue('item_name').trim(),
       requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
@@ -334,7 +325,7 @@ async function addQuestRequirementFromModal(interaction, questId) {
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(targetQuestId);
+  const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ เพิ่มรายการของที่ต้องส่งเรียบร้อยแล้ว',
     embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
@@ -353,15 +344,8 @@ function parseRewardType(raw) {
 }
 
 async function saveQuestRewardFromModal(interaction, questId, rewardId) {
-  const targetRewardId = rewardId || interaction.customId.split(':').slice(-1)[0];
-  const reward = await findQuestRewardById(targetRewardId);
-  if (!reward) {
-    await interaction.reply({ content: 'ไม่พบรางวัลนี้', ephemeral: true });
-    return;
-  }
-
   await updateQuestReward(
-    targetRewardId,
+    rewardId,
     {
       rewardType: parseRewardType(interaction.fields.getTextInputValue('reward_type')),
       rewardName: interaction.fields.getTextInputValue('reward_name').trim(),
@@ -371,7 +355,7 @@ async function saveQuestRewardFromModal(interaction, questId, rewardId) {
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(questId || reward.quest_id);
+  const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ บันทึกรางวัลเรียบร้อยแล้ว',
     embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
@@ -381,10 +365,8 @@ async function saveQuestRewardFromModal(interaction, questId, rewardId) {
 }
 
 async function addQuestRewardFromModal(interaction, questId) {
-  const targetQuestId = questId || interaction.customId.split(':').slice(-1)[0];
-
   await addQuestReward(
-    targetQuestId,
+    questId,
     {
       rewardType: parseRewardType(interaction.fields.getTextInputValue('reward_type')),
       rewardName: interaction.fields.getTextInputValue('reward_name').trim(),
@@ -394,7 +376,7 @@ async function addQuestRewardFromModal(interaction, questId) {
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(targetQuestId);
+  const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ เพิ่มรางวัลเรียบร้อยแล้ว',
     embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],

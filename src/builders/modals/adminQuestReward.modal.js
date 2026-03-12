@@ -1,8 +1,9 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
 function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
-  const targetId = mode === 'add' ? questId : reward?.reward_id;
-  const customId = mode === 'add' ? `q:rewa:${targetId}` : `q:rewe:${targetId}`;
+  const customId = mode === 'add'
+    ? `q:rewa:${questId}`
+    : `q:rewe:${reward.reward_id}`;
 
   const rewardName = reward?.reward_item_name || reward?.discord_role_name || reward?.reward_value_text || '';
   const rewardAmount = reward?.reward_quantity || reward?.reward_value_number || 1;
@@ -15,10 +16,10 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
         new TextInputBuilder()
           .setCustomId('reward_type')
           .setLabel('ประเภทรางวัล')
+          .setPlaceholder('SCUM_ITEM / SCUM_MONEY / FAME_POINT / DISCORD_ROLE')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(30)
-          .setPlaceholder('SCUM_ITEM / SCUM_MONEY / FAME_POINT / DISCORD_ROLE')
           .setValue(reward?.reward_type || 'SCUM_ITEM')
       ),
       new ActionRowBuilder().addComponents(

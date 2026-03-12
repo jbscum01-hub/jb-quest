@@ -6,82 +6,40 @@ function getDb(client) {
 
 async function listActiveProfessions(client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT profession_id, profession_code, profession_name_th, profession_name_en, icon_emoji, sort_order
     FROM public.tb_quest_master_profession
     WHERE is_active = TRUE
     ORDER BY sort_order ASC, profession_code ASC
-    `
-  );
-
+  `);
   return result.rows;
 }
 
 async function findProfessionByCode(professionCode, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT profession_id, profession_code, profession_name_th, profession_name_en, icon_emoji, sort_order
     FROM public.tb_quest_master_profession
     WHERE profession_code = $1
     LIMIT 1
-    `,
-    [professionCode]
-  );
-
+  `, [professionCode]);
   return result.rows[0] || null;
-}
-
-async function findActiveMainQuestsByProfession(professionCode, client) {
-  const db = getDb(client);
-  const result = await db.query(
-    `
-    SELECT q.*, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
-    FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p
-      ON p.profession_id = q.profession_id
-    WHERE p.profession_code = $1
-      AND q.is_active = TRUE
-      AND q.tier_type = 'NORMAL'
-      AND COALESCE(q.is_repeatable, FALSE) = FALSE
-    ORDER BY q.quest_level ASC NULLS LAST, q.display_order ASC, q.quest_code ASC
-    `,
-    [professionCode]
-  );
-
-  return result.rows;
-}
-
-async function findRepeatableQuestsByProfession(professionCode, client) {
-  const db = getDb(client);
-  const result = await db.query(
-    `
-    SELECT q.*, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
-    FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p
-      ON p.profession_id = q.profession_id
-    WHERE p.profession_code = $1
-      AND q.is_active = TRUE
-      AND q.tier_type = 'NORMAL'
-      AND COALESCE(q.is_repeatable, FALSE) = TRUE
-    ORDER BY q.quest_level ASC NULLS LAST, q.display_order ASC, q.quest_code ASC
-    `,
-    [professionCode]
-  );
-
-  return result.rows;
 }
 
 async function findQuestsByProfessionAndLevel(professionCode, level, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT q.quest_id,
            q.quest_code,
            q.quest_name,
            q.quest_level,
            q.profession_id,
+           q.is_repeatable,
+           q.is_step_quest,
+           q.requires_ticket,
+           q.requires_admin_approval,
+           q.quest_description,
+           q.panel_description,
            p.profession_code,
            p.profession_name_th,
            p.icon_emoji,
@@ -92,12 +50,36 @@ async function findQuestsByProfessionAndLevel(professionCode, level, client) {
       ON p.profession_id = q.profession_id
     WHERE p.profession_code = $1
       AND q.quest_level = $2
-      AND q.tier_type = 'NORMAL'
     ORDER BY q.display_order ASC, q.quest_code ASC
-    `,
-    [professionCode, level]
-  );
+  `, [professionCode, level]);
+  return result.rows;
+}
 
+async function findActiveMainQuestsByProfession(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(`
+    SELECT q.*, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
+    FROM public.tb_quest_master q
+    JOIN public.tb_quest_master_profession p ON p.profession_id = q.profession_id
+    WHERE p.profession_code = $1
+      AND q.is_active = TRUE
+      AND COALESCE(q.is_repeatable, FALSE) = FALSE
+    ORDER BY q.quest_level ASC, q.display_order ASC, q.quest_code ASC
+  `, [professionCode]);
+  return result.rows;
+}
+
+async function findRepeatableQuestsByProfession(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(`
+    SELECT q.*, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
+    FROM public.tb_quest_master q
+    JOIN public.tb_quest_master_profession p ON p.profession_id = q.profession_id
+    WHERE p.profession_code = $1
+      AND q.is_active = TRUE
+      AND COALESCE(q.is_repeatable, FALSE) = TRUE
+    ORDER BY q.quest_level ASC, q.display_order ASC, q.quest_code ASC
+  `, [professionCode]);
   return result.rows;
 }
 
@@ -105,14 +87,11 @@ async function searchQuests(keyword, client) {
   const db = getDb(client);
   const safeKeyword = String(keyword || '').trim();
   const like = `%${safeKeyword}%`;
-
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT q.quest_id,
            q.quest_code,
            q.quest_name,
            q.quest_level,
-           q.profession_id,
            p.profession_code,
            p.profession_name_th,
            q.is_active
@@ -123,120 +102,89 @@ async function searchQuests(keyword, client) {
        OR q.quest_name ILIKE $1
        OR p.profession_code ILIKE $1
        OR p.profession_name_th ILIKE $1
-    ORDER BY p.sort_order ASC, q.quest_level ASC NULLS LAST, q.display_order ASC, q.quest_code ASC
+    ORDER BY p.sort_order ASC, q.quest_level ASC, q.display_order ASC, q.quest_code ASC
     LIMIT 25
-    `,
-    [like]
-  );
-
+  `, [like]);
   return result.rows;
 }
 
 async function findQuestById(questId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT q.*, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
     FROM public.tb_quest_master q
     JOIN public.tb_quest_master_profession p
       ON p.profession_id = q.profession_id
     WHERE q.quest_id = $1
     LIMIT 1
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   return result.rows[0] || null;
 }
 
 async function findQuestDependencies(questId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
-    SELECT d.*,
-           rq.quest_code AS required_quest_code,
-           rq.quest_name AS required_quest_name
+  const result = await db.query(`
+    SELECT d.*, rq.quest_code AS required_quest_code, rq.quest_name AS required_quest_name
     FROM public.tb_quest_master_dependency d
-    LEFT JOIN public.tb_quest_master rq
-      ON rq.quest_id = d.required_quest_id
+    LEFT JOIN public.tb_quest_master rq ON rq.quest_id = d.required_quest_id
     WHERE d.quest_id = $1
       AND d.is_active = TRUE
     ORDER BY d.sort_order ASC, d.created_at ASC
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   return result.rows;
 }
 
 async function findQuestRequirements(questId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT *
     FROM public.tb_quest_master_requirement
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
     ORDER BY sort_order ASC, created_at ASC
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   return result.rows;
 }
 
 async function findQuestRequirementById(requirementId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT *
     FROM public.tb_quest_master_requirement
     WHERE requirement_id = $1
     LIMIT 1
-    `,
-    [requirementId]
-  );
-
+  `, [requirementId]);
   return result.rows[0] || null;
 }
 
 async function findQuestRewards(questId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT *
     FROM public.tb_quest_master_reward
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
     ORDER BY sort_order ASC, created_at ASC
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   return result.rows;
 }
 
 async function findQuestRewardById(rewardId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT *
     FROM public.tb_quest_master_reward
     WHERE reward_id = $1
     LIMIT 1
-    `,
-    [rewardId]
-  );
-
+  `, [rewardId]);
   return result.rows[0] || null;
 }
 
 async function findQuestGuideImages(questId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT *
     FROM public.tb_quest_master_media
     WHERE quest_id = $1
@@ -244,10 +192,7 @@ async function findQuestGuideImages(questId, client) {
       AND is_active = TRUE
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     ORDER BY display_order ASC, created_at ASC
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   return result.rows;
 }
 
@@ -257,24 +202,19 @@ async function findQuestGuideMedia(questId, client) {
 
 async function findQuestSteps(questId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     SELECT *
     FROM public.tb_quest_master_step
     WHERE quest_id = $1
       AND is_active = TRUE
     ORDER BY step_no ASC, created_at ASC
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   return result.rows;
 }
 
 async function getQuestDetailBundle(questId, client) {
   const quest = await findQuestById(questId, client);
   if (!quest) return null;
-
   const [dependencies, requirements, rewards, images, steps] = await Promise.all([
     findQuestDependencies(questId, client),
     findQuestRequirements(questId, client),
@@ -282,207 +222,137 @@ async function getQuestDetailBundle(questId, client) {
     findQuestGuideImages(questId, client),
     findQuestSteps(questId, client)
   ]);
-
   return { quest, dependencies, requirements, rewards, images, steps };
 }
 
 async function updateQuestActive(questId, isActive, updatedBy, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     UPDATE public.tb_quest_master
     SET is_active = $2,
         updated_by = $3,
         updated_at = NOW()
     WHERE quest_id = $1
     RETURNING *
-    `,
-    [questId, isActive, updatedBy]
-  );
-
+  `, [questId, isActive, updatedBy]);
   return result.rows[0] || null;
 }
 
 async function updateQuestDescription(questId, payload, updatedBy, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     UPDATE public.tb_quest_master
     SET quest_name = $2,
-        quest_description = NULLIF($3, ''),
-        panel_description = NULLIF($4, ''),
+        quest_description = NULLIF($3, '')::text,
+        panel_description = NULLIF($4, '')::text,
         updated_by = $5,
         updated_at = NOW()
     WHERE quest_id = $1
     RETURNING *
-    `,
-    [questId, payload.questName, payload.questDescription, payload.panelDescription, updatedBy]
-  );
-
+  `, [questId, payload.questName, payload.questDescription, payload.panelDescription, updatedBy]);
   return result.rows[0] || null;
 }
 
 async function updateQuestRequirement(requirementId, payload, updatedBy, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     UPDATE public.tb_quest_master_requirement
-    SET item_name = NULLIF($2, ''),
-        input_label = NULLIF($2, ''),
+    SET item_name = NULLIF($2, '')::varchar,
+        input_label = NULLIF($2, '')::varchar,
         required_quantity = $3,
-        display_text = NULL,
-        admin_display_text = NULL,
         updated_by = $4,
         updated_at = NOW()
     WHERE requirement_id = $1
     RETURNING *
-    `,
-    [
-      requirementId,
-      payload.itemName,
-      payload.requiredQuantity,
-      updatedBy
-    ]
-  );
-
+  `, [requirementId, payload.itemName, payload.requiredQuantity, updatedBy]);
   return result.rows[0] || null;
 }
 
 async function addQuestRequirement(questId, payload, updatedBy, client) {
   const db = getDb(client);
-  const orderResult = await db.query(
-    `
+  const orderResult = await db.query(`
     SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
     FROM public.tb_quest_master_requirement
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     INSERT INTO public.tb_quest_master_requirement
     (
-      requirement_id,
-      quest_id,
-      step_id,
-      requirement_type,
-      item_name,
-      input_label,
-      required_quantity,
-      display_text,
-      admin_display_text,
-      is_required,
-      sort_order,
-      is_active,
-      created_at,
-      updated_at,
-      created_by,
-      updated_by
+      requirement_id, quest_id, step_id, requirement_type, item_name, input_label,
+      required_quantity, is_required, sort_order, is_active, created_at, updated_at, created_by, updated_by
     )
     VALUES
     (
-      gen_random_uuid(),
-      $1,
-      NULL,
-      'SCUM_ITEM',
-      NULLIF($2, ''),
-      NULLIF($2, ''),
-      $3,
-      NULL,
-      NULL,
-      TRUE,
-      $4,
-      TRUE,
-      NOW(),
-      NOW(),
-      $5,
-      $5
+      gen_random_uuid(), $1, NULL, 'SCUM_ITEM', NULLIF($2, '')::varchar, NULLIF($2, '')::varchar,
+      $3, TRUE, $4, TRUE, NOW(), NOW(), $5, $5
     )
     RETURNING *
-    `,
-    [questId, payload.itemName, payload.requiredQuantity, nextOrder, updatedBy]
-  );
-
+  `, [questId, payload.itemName, payload.requiredQuantity, nextOrder, updatedBy]);
   return result.rows[0] || null;
 }
 
 async function updateQuestReward(rewardId, payload, updatedBy, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const rewardType = payload.rewardType;
+  const rewardName = payload.rewardName || '';
+  const rewardAmount = Number(payload.rewardAmount || 0);
+  const rewardDisplayText = payload.rewardDisplayText || '';
+
+  const result = await db.query(`
     UPDATE public.tb_quest_master_reward
-    SET reward_type = $2,
-        reward_item_name = CASE WHEN $2 = 'SCUM_ITEM' THEN NULLIF($3, '') ELSE NULL END,
-        reward_display_text = NULLIF($4, ''),
-        reward_quantity = CASE WHEN $2 = 'SCUM_ITEM' THEN $5 ELSE NULL END,
-        reward_value_number = CASE WHEN $2 IN ('SCUM_MONEY', 'FAME_POINT') THEN $5 ELSE NULL END,
-        discord_role_name = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE NULL END,
-        reward_value_text = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE NULL END,
+    SET reward_type = $2::varchar,
+        reward_item_name = CASE WHEN $2::text = 'SCUM_ITEM' THEN NULLIF($3, '')::varchar ELSE NULL END,
+        reward_quantity = CASE WHEN $2::text = 'SCUM_ITEM' THEN $4::integer ELSE NULL END,
+        reward_value_number = CASE WHEN $2::text IN ('SCUM_MONEY', 'FAME_POINT') THEN $4::integer ELSE NULL END,
+        reward_value_text = CASE WHEN $2::text IN ('SCUM_MONEY', 'FAME_POINT', 'DISCORD_ROLE') THEN NULLIF($3, '')::varchar ELSE NULL END,
+        discord_role_name = CASE WHEN $2::text = 'DISCORD_ROLE' THEN NULLIF($3, '')::varchar ELSE NULL END,
+        reward_display_text = NULLIF($5, '')::text,
         updated_by = $6,
         updated_at = NOW()
     WHERE reward_id = $1
     RETURNING *
-    `,
-    [rewardId, payload.rewardType, payload.rewardName, payload.rewardDisplayText, payload.rewardAmount, updatedBy]
-  );
-
+  `, [rewardId, rewardType, rewardName, rewardAmount, rewardDisplayText, updatedBy]);
   return result.rows[0] || null;
 }
 
 async function addQuestReward(questId, payload, updatedBy, client) {
   const db = getDb(client);
-  const orderResult = await db.query(
-    `
+  const orderResult = await db.query(`
     SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
     FROM public.tb_quest_master_reward
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
-  const result = await db.query(
-    `
+  const rewardType = payload.rewardType;
+  const rewardName = payload.rewardName || '';
+  const rewardAmount = Number(payload.rewardAmount || 0);
+  const rewardDisplayText = payload.rewardDisplayText || '';
+
+  const result = await db.query(`
     INSERT INTO public.tb_quest_master_reward
     (
-      reward_id,
-      quest_id,
-      step_id,
-      reward_type,
-      reward_value_text,
-      reward_value_number,
-      reward_item_name,
-      reward_quantity,
-      discord_role_name,
-      reward_cycle_type,
-      reward_display_text,
-      grant_on,
-      sort_order,
-      is_active,
-      created_at,
-      updated_at,
-      created_by,
-      updated_by
+      reward_id, quest_id, step_id, reward_type, reward_value_text, reward_value_number,
+      reward_item_name, reward_quantity, discord_role_name, reward_cycle_type,
+      reward_display_text, grant_on, sort_order, is_active, created_at, updated_at, created_by, updated_by
     )
     VALUES
     (
       gen_random_uuid(),
       $1,
       NULL,
-      $2,
-      CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE NULL END,
-      CASE WHEN $2 IN ('SCUM_MONEY', 'FAME_POINT') THEN $4 ELSE NULL END,
-      CASE WHEN $2 = 'SCUM_ITEM' THEN NULLIF($3, '') ELSE NULL END,
-      CASE WHEN $2 = 'SCUM_ITEM' THEN $4 ELSE NULL END,
-      CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE NULL END,
+      $2::varchar,
+      CASE WHEN $2::text IN ('SCUM_MONEY', 'FAME_POINT', 'DISCORD_ROLE') THEN NULLIF($3, '')::varchar ELSE NULL END,
+      CASE WHEN $2::text IN ('SCUM_MONEY', 'FAME_POINT') THEN $4::integer ELSE NULL END,
+      CASE WHEN $2::text = 'SCUM_ITEM' THEN NULLIF($3, '')::varchar ELSE NULL END,
+      CASE WHEN $2::text = 'SCUM_ITEM' THEN $4::integer ELSE NULL END,
+      CASE WHEN $2::text = 'DISCORD_ROLE' THEN NULLIF($3, '')::varchar ELSE NULL END,
       'ONE_TIME',
-      NULLIF($5, ''),
+      NULLIF($5, '')::text,
       'QUEST_COMPLETE',
       $6,
       TRUE,
@@ -492,137 +362,55 @@ async function addQuestReward(questId, payload, updatedBy, client) {
       $7
     )
     RETURNING *
-    `,
-    [questId, payload.rewardType, payload.rewardName, payload.rewardAmount, payload.rewardDisplayText, nextOrder, updatedBy]
-  );
-
+  `, [questId, rewardType, rewardName, rewardAmount, rewardDisplayText, nextOrder, updatedBy]);
   return result.rows[0] || null;
 }
 
 async function addQuestGuideImage(questId, payload, actorId, client) {
   const db = getDb(client);
-  const orderResult = await db.query(
-    `
+  const orderResult = await db.query(`
     SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
     FROM public.tb_quest_master_media
     WHERE quest_id = $1
-      AND step_id IS NULL
       AND is_active = TRUE
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
-    `,
-    [questId]
-  );
-
+  `, [questId]);
   const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     INSERT INTO public.tb_quest_master_media
     (
-      media_id,
-      quest_id,
-      step_id,
-      media_type,
-      media_url,
-      media_title,
-      media_description,
-      display_order,
-      is_active,
-      created_at,
-      updated_at,
-      created_by,
-      updated_by
+      media_id, quest_id, step_id, media_type, media_url, media_title, media_description,
+      display_order, is_active, created_at, updated_at, created_by, updated_by
     )
     VALUES
     (
-      gen_random_uuid(),
-      $1,
-      NULL,
-      'GUIDE_IMAGE',
-      $2,
-      NULLIF($3, ''),
-      NULLIF($4, ''),
-      $5,
-      TRUE,
-      NOW(),
-      NOW(),
-      $6,
-      $6
+      gen_random_uuid(), $1, NULL, 'GUIDE_IMAGE', $2::text, NULLIF($3, '')::varchar, NULLIF($4, '')::text,
+      $5, TRUE, NOW(), NOW(), $6, $6
     )
     RETURNING *
-    `,
-    [questId, payload.imageUrl, payload.imageTitle, payload.imageDescription, nextOrder, actorId]
-  );
-
+  `, [questId, payload.imageUrl, payload.imageTitle, payload.imageDescription, nextOrder, actorId]);
   return result.rows[0] || null;
 }
 
 async function deactivateQuestGuideImage(mediaId, actorId, client) {
   const db = getDb(client);
-  const result = await db.query(
-    `
+  const result = await db.query(`
     UPDATE public.tb_quest_master_media
     SET is_active = FALSE,
         updated_by = $2,
         updated_at = NOW()
     WHERE media_id = $1
     RETURNING *
-    `,
-    [mediaId, actorId]
-  );
-
+  `, [mediaId, actorId]);
   return result.rows[0] || null;
 }
-
-
-async function createQuest(payload, actorId, client) {
-  const db = getDb(client);
-  const orderResult = await db.query(
-    `
-    SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
-    FROM public.tb_quest_master
-    WHERE profession_id = $1
-      AND quest_level = $2
-    `,
-    [payload.professionId, payload.questLevel]
-  );
-
-  const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
-  const result = await db.query(
-    `
-    INSERT INTO public.tb_quest_master (
-      quest_id, quest_code, quest_name, quest_description, category_id, profession_id, quest_level,
-      display_order, tier_type, is_step_quest, requires_ticket, requires_admin_approval, is_repeatable,
-      panel_title, panel_description, button_label, is_active, created_at, updated_at, created_by, updated_by
-    )
-    VALUES (
-      gen_random_uuid(), $1, $2, NULLIF($3, ''), $4, $5, $6,
-      $7, COALESCE($8, 'NORMAL'), COALESCE($9, FALSE), COALESCE($10, FALSE), COALESCE($11, TRUE), COALESCE($12, FALSE),
-      NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), COALESCE($16, TRUE), NOW(), NOW(), $17, $17
-    )
-    RETURNING *
-    `,
-    [
-      payload.questCode, payload.questName, payload.questDescription, payload.categoryId, payload.professionId, payload.questLevel,
-      nextOrder, payload.tierType, payload.isStepQuest, payload.requiresTicket, payload.requiresAdminApproval, payload.isRepeatable,
-      payload.panelTitle, payload.panelDescription, payload.buttonLabel, payload.isActive, actorId
-    ]
-  );
-
-  return result.rows[0] || null;
-}
-
-const addRequirement = addQuestRequirement;
-const updateRequirement = updateQuestRequirement;
-const addReward = addQuestReward;
-const updateReward = updateQuestReward;
-const addGuideImage = addQuestGuideImage;
 
 module.exports = {
   listActiveProfessions,
   findProfessionByCode,
+  findQuestsByProfessionAndLevel,
   findActiveMainQuestsByProfession,
   findRepeatableQuestsByProfession,
-  findQuestsByProfessionAndLevel,
   searchQuests,
   findQuestById,
   findQuestDependencies,
@@ -635,17 +423,11 @@ module.exports = {
   findQuestSteps,
   getQuestDetailBundle,
   updateQuestActive,
-  createQuest,
   updateQuestDescription,
   updateQuestRequirement,
   addQuestRequirement,
   updateQuestReward,
   addQuestReward,
   addQuestGuideImage,
-  deactivateQuestGuideImage,
-  addRequirement,
-  updateRequirement,
-  addReward,
-  updateReward,
-  addGuideImage
+  deactivateQuestGuideImage
 };
