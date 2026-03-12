@@ -1,5 +1,5 @@
 const { ChannelType, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { withTransaction } = require('../db/pool');
+const { withTransaction, getPool } = require('../db/pool');
 const { findProfessionByCode } = require('../db/queries/questMaster.repo');
 const {
   findPlayerByDiscordId,
@@ -32,7 +32,6 @@ const {
   buildTicketCloseComponents
 } = require('../builders/components/ticketStep.components');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
-const { getPool } = require('../db/pool');
 
 function makeTicketCode(professionCode) {
   const stamp = Date.now().toString().slice(-8);
@@ -500,7 +499,6 @@ async function approveCurrentStep({
   if (result.completed && result.rewardGrantPayload) {
     await grantQuestRewards({
       client,
-      guildId: ticket.discord_guild_id || null,
       playerId: result.rewardGrantPayload.playerId,
       questId: result.rewardGrantPayload.questId,
       submissionId: result.rewardGrantPayload.submissionId,
