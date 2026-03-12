@@ -3,10 +3,12 @@ const { logger } = require('../config/logger');
 const { handlePanelButton } = require('./buttons/panel.button');
 const { handleReviewButton } = require('./buttons/review.button');
 const { handleAdminButtons } = require('./buttons/admin.button');
+const { handleAdminSelect } = require('./selects/admin.select');
 const { handleTicketButton } = require('./buttons/ticket.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
+const { handleAdminModal } = require('./modals/admin.modal');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -49,7 +51,22 @@ function registerInteractionHandler(client) {
         return;
       }
 
+      if (interaction.isStringSelectMenu()) {
+        if (interaction.customId.startsWith('quest:admin')) {
+          await handleAdminSelect(interaction);
+          return;
+        }
+
+        await interaction.reply({ content: 'ยังไม่รองรับเมนูเลือกนี้', flags: 64 });
+        return;
+      }
+
       if (interaction.isModalSubmit()) {
+        if (interaction.customId.startsWith('quest:admin')) {
+          await handleAdminModal(interaction);
+          return;
+        }
+
         const parsed = parseCustomId(interaction.customId);
 
         if (!parsed) {
@@ -85,7 +102,7 @@ function registerInteractionHandler(client) {
 
       if (interaction.deferred || interaction.replied) {
         await interaction.followUp({
-          content: 'เกิดข้อผิดพลาดระหว่างประมวลผล',
+          content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`,
           flags: 64
         });
         return;

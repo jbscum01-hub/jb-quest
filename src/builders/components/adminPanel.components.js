@@ -4,21 +4,31 @@ function buildAdminPanelButtons() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('quest:admin:deploy_panels')
-        .setLabel('Deploy Panels')
+        .setCustomId('quest:admin:create_panels')
+        .setLabel('สร้างพาเนลผู้เล่น')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('quest:admin:refresh_panels')
-        .setLabel('Refresh Panels')
+        .setLabel('รีเฟรชพาเนลผู้เล่น')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId('quest:admin:sync_quests')
-        .setLabel('Sync Quest')
+        .setCustomId('quest:admin:repair_panels')
+        .setLabel('ซ่อมพาเนลที่หาย')
+        .setStyle(ButtonStyle.Secondary)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('quest:admin:refresh_current_quest')
+        .setLabel('รีเฟรชเควสปัจจุบัน')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('quest:admin:system_status')
-        .setLabel('System Status')
-        .setStyle(ButtonStyle.Secondary)
+        .setCustomId('quest:admin:panel_status')
+        .setLabel('ตรวจสอบสถานะพาเนล')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('quest:admin:master_home')
+        .setLabel('จัดการข้อมูลเควส')
+        .setStyle(ButtonStyle.Primary)
     )
   ];
 }
