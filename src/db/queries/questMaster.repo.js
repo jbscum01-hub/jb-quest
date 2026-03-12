@@ -1,7 +1,7 @@
-const { pool } = require('../pool');
+const { getPool } = require('../pool');
 
 function getDb(client) {
-  return client || pool;
+  return client || getPool();
 }
 
 async function listActiveProfessions(client) {
@@ -62,7 +62,8 @@ async function findQuestsByProfessionAndLevel(professionCode, level, client) {
 
 async function searchQuests(keyword, client) {
   const db = getDb(client);
-  const like = `%${keyword}%`;
+  const safeKeyword = String(keyword || '').trim();
+  const like = `%${safeKeyword}%`;
   const result = await db.query(
     `
     SELECT q.quest_id,
