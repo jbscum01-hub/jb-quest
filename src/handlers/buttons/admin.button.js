@@ -1,4 +1,5 @@
 const { buildQuestSearchModal } = require('../../builders/modals/adminQuestSearch.modal');
+const { buildQuestImageModal } = require('../../builders/modals/adminQuestImage.modal');
 const {
   refreshAdminPanel,
   renderAdminHome,
@@ -8,8 +9,10 @@ const {
   renderLevelPicker,
   renderQuestList,
   renderQuestDetail,
+  renderQuestImageManager,
   renderPanelStatus,
-  toggleQuestActiveAndRender
+  toggleQuestActiveAndRender,
+  removeQuestImageAndRender
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
 const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
@@ -106,7 +109,30 @@ async function handleAdminButtons(interaction) {
     return;
   }
 
-  if (['edit_description', 'edit_requirements', 'edit_rewards', 'edit_dependency', 'manage_images', 'add_requirement', 'add_reward', 'add_image'].includes(action)) {
+  if (action === 'manage_images') {
+    const [questId, indexText] = (extra || '').split('|');
+    await renderQuestImageManager(interaction, questId, Number(indexText || 0));
+    return;
+  }
+
+  if (action === 'image_prev' || action === 'image_next') {
+    const [questId, indexText] = (extra || '').split('|');
+    await renderQuestImageManager(interaction, questId, Number(indexText || 0));
+    return;
+  }
+
+  if (action === 'image_remove') {
+    const [questId, indexText] = (extra || '').split('|');
+    await removeQuestImageAndRender(interaction, questId, Number(indexText || 0));
+    return;
+  }
+
+  if (action === 'add_image') {
+    await interaction.showModal(buildQuestImageModal(extra));
+    return;
+  }
+
+  if (['edit_description', 'edit_requirements', 'edit_rewards', 'edit_dependency', 'add_requirement', 'add_reward'].includes(action)) {
     await interaction.reply({
       content: `🛠️ ปุ่ม "${interaction.component.label}" ผูกกับเควสนี้แล้ว แต่รอบนี้ยังเป็นโครงหน้าจัดการและแสดงข้อมูลรวมก่อน`,
       ephemeral: true

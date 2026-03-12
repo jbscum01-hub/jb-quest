@@ -6,6 +6,7 @@ const {
   buildBrowseLevelEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
+  buildQuestImageManagerEmbed,
   buildPanelStatusEmbed
 } = require('../builders/embeds/adminPanel.embed');
 const {
@@ -16,7 +17,8 @@ const {
   buildLevelSelectComponents,
   buildQuestSelectComponents,
   buildQuestSearchResultComponents,
-  buildQuestDetailButtons
+  buildQuestDetailButtons,
+  buildQuestImageManagerButtons
 } = require('../builders/components/adminPanel.components');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const { findProfessionConfig } = require('../db/queries/discordConfig.repo');
@@ -26,7 +28,9 @@ const {
   findQuestsByProfessionAndLevel,
   searchQuests,
   getQuestDetailBundle,
-  updateQuestActive
+  updateQuestActive,
+  addQuestGuideImage,
+  deactivateQuestGuideImage
 } = require('../db/queries/questMaster.repo');
 
 async function updateOrReply(interaction, payload) {
@@ -131,6 +135,20 @@ async function renderQuestDetail(interaction, questId) {
   });
 }
 
+async function renderQuestImageManager(interaction, questId, index = 0) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) {
+    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
+    return;
+  }
+
+  const safeIndex = Math.min(Math.max(Number(index) || 0, 0), Math.max(bundle.images.length - 1, 0));
+  await updateOrReply(interaction, {
+    embeds: [buildQuestImageManagerEmbed(bundle, safeIndex)],
+    components: buildQuestImageManagerButtons(questId, safeIndex, bundle.images.length)
+  });
+}
+
 async function renderPanelStatus(interaction) {
   const professions = await listActiveProfessions();
   const statusLines = [];
@@ -174,6 +192,53 @@ async function toggleQuestActiveAndRender(interaction, questId) {
   });
 }
 
+async function addQuestImageFromModal(interaction, questId) {
+  const imageUrl = interaction.fields.getTextInputValue('image_url').trim();
+  const imageTitle = interaction.fields.getTextInputValue('image_title')?.trim();
+  const imageDescription = interaction.fields.getTextInputValue('image_description')?.trim();
+
+  await addQuestGuideImage(
+    questId,
+    { imageUrl, imageTitle, imageDescription },
+    interaction.user.id
+  );
+
+  const refreshed = await getQuestDetailBundle(questId);
+  await interaction.reply({
+    content: '✅ เพิ่มรูปตัวอย่างเรียบร้อยแล้ว',
+    embeds: [buildQuestImageManagerEmbed(refreshed, Math.max(refreshed.images.length - 1, 0))],
+    components: [
+      ...buildQuestImageManagerButtons(questId, Math.max(refreshed.images.length - 1, 0), refreshed.images.length)
+    ],
+    ephemeral: true
+  });
+}
+
+async function removeQuestImageAndRender(interaction, questId, index = 0) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle || !bundle.images.length) {
+    await interaction.reply({ content: 'ไม่พบรูปตัวอย่างให้ลบ', ephemeral: true });
+    return;
+  }
+
+  const safeIndex = Math.min(Math.max(Number(index) || 0, 0), bundle.images.length - 1);
+  const currentImage = bundle.images[safeIndex];
+
+  await deactivateQuestGuideImage(currentImage.media_id, interaction.user.id);
+  const refreshed = await getQuestDetailBundle(questId);
+  const nextIndex = Math.min(safeIndex, Math.max(refreshed.images.length - 1, 0));
+
+  await interaction.update({
+    embeds: [buildQuestImageManagerEmbed(refreshed, nextIndex)],
+    components: buildQuestImageManagerButtons(questId, nextIndex, refreshed.images.length)
+  });
+
+  await interaction.followUp({
+    content: '🗑️ ลบรูปตัวอย่างนี้เรียบร้อยแล้ว',
+    ephemeral: true
+  });
+}
+
 module.exports = {
   refreshAdminPanel,
   renderAdminHome,
@@ -183,7 +248,10 @@ module.exports = {
   renderLevelPicker,
   renderQuestList,
   renderQuestDetail,
+  renderQuestImageManager,
   renderQuestSearchResults,
   renderPanelStatus,
-  toggleQuestActiveAndRender
+  toggleQuestActiveAndRender,
+  addQuestImageFromModal,
+  removeQuestImageAndRender
 };

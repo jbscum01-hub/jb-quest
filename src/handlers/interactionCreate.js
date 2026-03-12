@@ -8,6 +8,7 @@ const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal')
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
 const { handleAdminQuestSearchModal } = require('./modals/adminQuestSearch.modal');
+const { handleAdminQuestImageModal } = require('./modals/adminQuestImage.modal');
 const { handleAdminSelect } = require('./selects/admin.select');
 
 function registerInteractionHandler(client) {
@@ -67,6 +68,11 @@ function registerInteractionHandler(client) {
       if (interaction.isModalSubmit()) {
         if (interaction.customId === 'quest:admin_modal:quest_search') {
           await handleAdminQuestSearchModal(interaction);
+          return;
+        }
+
+        if (interaction.customId.startsWith('quest:admin_modal:add_image:')) {
+          await handleAdminQuestImageModal(interaction);
           return;
         }
 

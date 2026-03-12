@@ -7,6 +7,12 @@ function formatQuestType(quest = {}) {
   return 'ปกติ';
 }
 
+function clampText(text, max = 1024) {
+  if (!text) return '-';
+  const value = String(text);
+  return value.length > max ? `${value.slice(0, max - 3)}...` : value;
+}
+
 function buildAdminHomeEmbed() {
   return new EmbedBuilder()
     .setColor(0x2b2d31)
@@ -107,10 +113,10 @@ function buildQuestDetailEmbed(bundle) {
   const requirementText = requirements.length
     ? requirements
         .map((item, index) => {
-          const title = item.item_name || item.input_label || item.requirement_type;
+          const title = item.item_name || item.input_label || item.requirement_type || 'ไม่ระบุรายการ';
           const qty = item.required_quantity ? ` x${item.required_quantity}` : '';
-          const detail = item.display_text || item.admin_display_text || '-';
-          return `${index + 1}. ${title}${qty}\n   - ${detail}`;
+          const detail = item.display_text || item.admin_display_text || item.requirement_value_text || '-';
+          return `${index + 1}. ${title}${qty}${detail && detail !== title + qty ? `\n   • ${detail}` : ''}`;
         })
         .join('\n')
     : 'ไม่มีรายการ';
@@ -122,27 +128,29 @@ function buildQuestDetailEmbed(bundle) {
             || item.reward_item_name
             || item.discord_role_name
             || item.reward_value_text
-            || item.reward_type;
-          const qty = item.reward_quantity || item.reward_value_number ? ` (${item.reward_quantity || item.reward_value_number})` : '';
+            || item.reward_type
+            || 'ไม่ระบุรางวัล';
+          const amountValue = item.reward_quantity || item.reward_value_number;
+          const qty = amountValue ? ` (${amountValue})` : '';
           return `${index + 1}. ${title}${qty}`;
         })
         .join('\n')
     : 'ไม่มีรายการ';
 
-  const imageText = images.length
+  const imageSummaryText = images.length
     ? images
         .slice(0, 3)
-        .map((item, index) => `${index + 1}. ${item.media_title || item.media_description || item.media_url}`)
+        .map((item, index) => `${index + 1}. ${item.media_title || item.media_description || 'รูปตัวอย่างไม่มีชื่อ'}`)
         .join('\n') + (images.length > 3 ? `\n...และอีก ${images.length - 3} รูป` : '')
     : 'ไม่มีรูปตัวอย่าง';
 
   const stepText = steps.length
     ? steps
-        .map((step) => `${step.step_no}. ${step.step_title}${step.step_description ? `\n   - ${step.step_description}` : ''}`)
+        .map((step) => `${step.step_no}. ${step.step_title}${step.step_description ? `\n   • ${step.step_description}` : ''}`)
         .join('\n')
     : 'ไม่มีรายการขั้นตอน';
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(quest.is_active ? 0x57f287 : 0xed4245)
     .setTitle(`${quest.profession_code || 'QUEST'} · Lv${quest.quest_level || '-'} · ${quest.quest_code}`)
     .setDescription([
@@ -156,50 +164,124 @@ function buildQuestDetailEmbed(bundle) {
     .addFields(
       {
         name: '📝 คำอธิบายเควส',
-        value: quest.quest_description || quest.panel_description || '-',
+        value: clampText(quest.quest_description || quest.panel_description || '-'),
         inline: false
       },
       {
         name: '🔗 เควสที่ต้องผ่านก่อน',
-        value: dependencyText,
+        value: clampText(dependencyText),
         inline: false
       },
       {
         name: '📦 ของที่ต้องส่ง / เงื่อนไข',
-        value: requirementText.slice(0, 1024),
+        value: clampText(requirementText),
         inline: false
       },
       {
         name: '🎁 รางวัล',
-        value: rewardText.slice(0, 1024),
+        value: clampText(rewardText),
         inline: false
       },
       {
         name: '🖼️ รูปตัวอย่าง',
-        value: imageText.slice(0, 1024),
+        value: clampText(imageSummaryText),
         inline: false
       },
       {
         name: '🪜 ขั้นตอน',
-        value: stepText.slice(0, 1024),
+        value: clampText(stepText),
         inline: false
       },
       {
         name: '🛠️ เมนูการจัดการ',
-        value: [
+        value: clampText([
           '• **แก้คำอธิบาย** : แก้ชื่อและรายละเอียดหลักของเควส',
           '• **แก้ของที่ต้องส่ง** : เลือกรายการ requirement เดิมเพื่อแก้ไข',
           '• **แก้รางวัล** : เลือกรายการ reward เดิมเพื่อแก้ไข',
           '• **แก้เควสก่อนหน้า** : ตั้งหรือเปลี่ยน dependency ของเควสนี้',
-          '• **จัดการรูปตัวอย่าง** : ดูและลบรูปตัวอย่างของเควสนี้',
+          '• **จัดการรูปตัวอย่าง** : เลื่อนดู ลบ และเพิ่มรูปตัวอย่างของเควสนี้',
           '• **เปลี่ยนสถานะเควส** : เปิดหรือปิดการใช้งานเควส',
           '• **เพิ่มของที่ต้องส่ง / เพิ่มรางวัล / เพิ่มรูปตัวอย่าง** : เพิ่มข้อมูลใหม่ให้เควสนี้'
-        ].join('\n'),
+        ].join('\n')),
         inline: false
       }
     )
     .setFooter({ text: `SCUM Quest System · ${professionLabel}` })
     .setTimestamp(quest.updated_at || new Date());
+
+  const firstImage = images.find((item) => item.media_url);
+  if (firstImage?.media_url) {
+    embed.setImage(firstImage.media_url);
+  }
+
+  return embed;
+}
+
+function buildQuestImageManagerEmbed(bundle, currentIndex = 0) {
+  const { quest, images = [] } = bundle;
+  const professionLabel = quest.profession_name_th || quest.profession_code || 'ไม่ระบุสาย';
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`🖼️ จัดการรูปตัวอย่าง · ${quest.quest_code}`)
+    .setDescription([
+      `**ชื่อเควส:** ${quest.quest_name}`,
+      `**สาย:** ${professionLabel}`,
+      `**เลเวล:** Lv${quest.quest_level || '-'}`,
+      `**จำนวนรูปทั้งหมด:** ${images.length} รูป`
+    ].join('\n'))
+    .setFooter({ text: `SCUM Quest System · Image Manager · ${currentIndex + 1}/${Math.max(images.length, 1)}` })
+    .setTimestamp();
+
+  if (!images.length) {
+    embed.addFields(
+      {
+        name: 'สถานะ',
+        value: 'ยังไม่มีรูปตัวอย่างสำหรับเควสนี้',
+        inline: false
+      },
+      {
+        name: '🛠️ เมนูการจัดการ',
+        value: [
+          '• **เพิ่มรูปตัวอย่าง** : เพิ่มรูปใหม่ให้เควสนี้',
+          '• **กลับหน้าเควส** : กลับไปหน้ารายละเอียดเควส'
+        ].join('\n'),
+        inline: false
+      }
+    );
+
+    return embed;
+  }
+
+  const safeIndex = Math.min(Math.max(Number(currentIndex) || 0, 0), images.length - 1);
+  const currentImage = images[safeIndex];
+
+  embed
+    .addFields(
+      {
+        name: 'รายละเอียดรูปปัจจุบัน',
+        value: clampText([
+          `**ลำดับ:** ${safeIndex + 1}/${images.length}`,
+          `**ชื่อรูป:** ${currentImage.media_title || '-'}`,
+          `**คำอธิบาย:** ${currentImage.media_description || '-'}`,
+          `**URL:** ${currentImage.media_url || '-'}`
+        ].join('\n')),
+        inline: false
+      },
+      {
+        name: '🛠️ เมนูการจัดการ',
+        value: clampText([
+          '• **รูปก่อนหน้า / รูปถัดไป** : เลื่อนดูรูปอื่นของเควสนี้',
+          '• **ลบรูปนี้** : ปิดการใช้งานรูปปัจจุบัน',
+          '• **เพิ่มรูปตัวอย่าง** : เพิ่มรูปใหม่ให้เควสนี้',
+          '• **กลับหน้าเควส** : กลับไปหน้ารายละเอียดเควส'
+        ].join('\n')),
+        inline: false
+      }
+    )
+    .setImage(currentImage.media_url);
+
+  return embed;
 }
 
 function buildPanelStatusEmbed(statusLines = []) {
@@ -219,5 +301,6 @@ module.exports = {
   buildBrowseLevelEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
+  buildQuestImageManagerEmbed,
   buildPanelStatusEmbed
 };

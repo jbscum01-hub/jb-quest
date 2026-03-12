@@ -272,6 +272,79 @@ async function updateQuestActive(questId, isActive, updatedBy, client) {
   return result.rows[0] || null;
 }
 
+async function addQuestGuideImage(questId, payload, actorId, client) {
+  const db = getDb(client);
+  const orderResult = await db.query(
+    `
+    SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
+    FROM public.tb_quest_master_media
+    WHERE quest_id = $1
+      AND is_active = TRUE
+      AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
+    `,
+    [questId]
+  );
+
+  const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
+  const result = await db.query(
+    `
+    INSERT INTO public.tb_quest_master_media
+    (
+      media_id,
+      quest_id,
+      step_id,
+      media_type,
+      media_url,
+      media_title,
+      media_description,
+      display_order,
+      is_active,
+      created_at,
+      updated_at,
+      created_by,
+      updated_by
+    )
+    VALUES
+    (
+      gen_random_uuid(),
+      $1,
+      NULL,
+      'GUIDE_IMAGE',
+      $2,
+      NULLIF($3, ''),
+      NULLIF($4, ''),
+      $5,
+      TRUE,
+      NOW(),
+      NOW(),
+      $6,
+      $6
+    )
+    RETURNING *
+    `,
+    [questId, payload.imageUrl, payload.imageTitle || '', payload.imageDescription || '', nextOrder, actorId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function deactivateQuestGuideImage(mediaId, actorId, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_master_media
+    SET is_active = FALSE,
+        updated_by = $2,
+        updated_at = NOW()
+    WHERE media_id = $1
+    RETURNING *
+    `,
+    [mediaId, actorId]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function getQuestDetailBundle(questId, client) {
   const quest = await findQuestById(questId, client);
   if (!quest) {
@@ -312,5 +385,7 @@ module.exports = {
   findQuestRewards,
   findQuestSteps,
   updateQuestActive,
+  addQuestGuideImage,
+  deactivateQuestGuideImage,
   getQuestDetailBundle
 };

@@ -155,7 +155,6 @@ function buildQuestSelectComponents(professionCode, level, quests = []) {
   ];
 }
 
-
 function buildQuestSearchResultComponents(quests = []) {
   const options = quests.slice(0, 25).map((quest) => ({
     label: `${quest.quest_code}`.slice(0, 100),
@@ -204,7 +203,7 @@ function buildQuestDetailButtons(questId, professionCode, level) {
         .setLabel('แก้เควสก่อนหน้า')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId(buildCustomId('admin', 'manage_images', questId))
+        .setCustomId(buildCustomId('admin', 'manage_images', `${questId}|0`))
         .setLabel('จัดการรูปตัวอย่าง')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
@@ -239,6 +238,41 @@ function buildQuestDetailButtons(questId, professionCode, level) {
   ];
 }
 
+function buildQuestImageManagerButtons(questId, currentIndex = 0, imageCount = 0) {
+  const prevIndex = Math.max(currentIndex - 1, 0);
+  const nextIndex = Math.min(currentIndex + 1, Math.max(imageCount - 1, 0));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'image_prev', `${questId}|${prevIndex}`))
+        .setLabel('รูปก่อนหน้า')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(!imageCount || currentIndex <= 0),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'image_next', `${questId}|${nextIndex}`))
+        .setLabel('รูปถัดไป')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(!imageCount || currentIndex >= imageCount - 1),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'image_remove', `${questId}|${currentIndex}`))
+        .setLabel('ลบรูปนี้')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(!imageCount)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'add_image', questId))
+        .setLabel('เพิ่มรูปตัวอย่าง')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'open_quest', questId))
+        .setLabel('กลับหน้าเควส')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ];
+}
+
 module.exports = {
   buildAdminHomeButtons,
   buildPanelManagementButtons,
@@ -247,5 +281,6 @@ module.exports = {
   buildLevelSelectComponents,
   buildQuestSelectComponents,
   buildQuestSearchResultComponents,
-  buildQuestDetailButtons
+  buildQuestDetailButtons,
+  buildQuestImageManagerButtons
 };
