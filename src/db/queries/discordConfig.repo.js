@@ -1,6 +1,33 @@
 const { getPool } = require('../pool');
 
+let hasCheckedTable = false;
+let hasDiscordConfigTable = true;
+
+async function ensureDiscordConfigTable() {
+  if (hasCheckedTable) {
+    return hasDiscordConfigTable;
+  }
+
+  hasCheckedTable = true;
+
+  try {
+    const result = await getPool().query(
+      `SELECT to_regclass('public.tb_quest_master_discord_config') AS table_name`
+    );
+
+    hasDiscordConfigTable = Boolean(result.rows[0]?.table_name);
+    return hasDiscordConfigTable;
+  } catch (_error) {
+    hasDiscordConfigTable = false;
+    return false;
+  }
+}
+
 async function findGlobalConfig(configKey) {
+  if (!(await ensureDiscordConfigTable())) {
+    return null;
+  }
+
   const result = await getPool().query(
     `
     SELECT *
@@ -18,6 +45,10 @@ async function findGlobalConfig(configKey) {
 }
 
 async function findProfessionConfig(scopeKey, configKey) {
+  if (!(await ensureDiscordConfigTable())) {
+    return null;
+  }
+
   const result = await getPool().query(
     `
     SELECT *
@@ -35,6 +66,10 @@ async function findProfessionConfig(scopeKey, configKey) {
 }
 
 async function upsertGlobalConfig(configKey, configValue, displayName = null) {
+  if (!(await ensureDiscordConfigTable())) {
+    throw new Error('ยังไม่พบตาราง tb_quest_master_discord_config ในฐานข้อมูล');
+  }
+
   const result = await getPool().query(
     `
     INSERT INTO public.tb_quest_master_discord_config
@@ -54,6 +89,10 @@ async function upsertGlobalConfig(configKey, configValue, displayName = null) {
 }
 
 async function upsertProfessionConfig(professionCode, configKey, configValue, displayName = null) {
+  if (!(await ensureDiscordConfigTable())) {
+    throw new Error('ยังไม่พบตาราง tb_quest_master_discord_config ในฐานข้อมูล');
+  }
+
   const result = await getPool().query(
     `
     INSERT INTO public.tb_quest_master_discord_config
@@ -73,6 +112,7 @@ async function upsertProfessionConfig(professionCode, configKey, configValue, di
 }
 
 module.exports = {
+  ensureDiscordConfigTable,
   findGlobalConfig,
   findProfessionConfig,
   upsertGlobalConfig,

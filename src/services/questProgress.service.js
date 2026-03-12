@@ -1,9 +1,4 @@
-const {
-  findActiveMainQuestsByProfession,
-  findProfessionByCode,
-  findQuestDependencies
-} = require('../db/queries/questMaster.repo');
-
+const questMasterRepo = require('../db/queries/questMaster.repo');
 const {
   findPlayerProfession,
   upsertPlayerProfession,
@@ -11,10 +6,7 @@ const {
   markProfessionCompleted,
   findCompletedMainQuestIds
 } = require('../db/queries/mainProgress.repo');
-
-const {
-  findPlayerByDiscordId
-} = require('../db/queries/playerProfile.repo');
+const { findPlayerByDiscordId } = require('../db/queries/playerProfile.repo');
 
 function dependencyPassed(dep, completedQuestIds, currentMainLevel) {
   if (dep.dependency_type === 'PREVIOUS_QUEST') {
@@ -29,7 +21,7 @@ function dependencyPassed(dep, completedQuestIds, currentMainLevel) {
 }
 
 async function isQuestUnlocked(quest, completedQuestIds, client) {
-  const deps = await findQuestDependencies(quest.quest_id, client);
+  const deps = await questMasterRepo.findQuestDependencies(quest.quest_id, client);
 
   if (!deps.length) return true;
 
@@ -42,8 +34,21 @@ async function isQuestUnlocked(quest, completedQuestIds, client) {
   return andPassed && orPassed;
 }
 
+async function getAllMainQuestsByProfession(professionCode, client) {
+  if (typeof questMasterRepo.findActiveMainQuestsByProfession === 'function') {
+    return questMasterRepo.findActiveMainQuestsByProfession(professionCode, client);
+  }
+
+  if (typeof questMasterRepo.findCurrentMainQuestByProfession === 'function') {
+    const singleQuest = await questMasterRepo.findCurrentMainQuestByProfession(professionCode, client);
+    return singleQuest ? [singleQuest] : [];
+  }
+
+  throw new Error('questMaster.repo ไม่มีฟังก์ชัน findActiveMainQuestsByProfession');
+}
+
 async function resolveCurrentMainQuestByPlayer(discordUserId, professionCode, client) {
-  const profession = await findProfessionByCode(professionCode, client);
+  const profession = await questMasterRepo.findProfessionByCode(professionCode, client);
 
   if (!profession) {
     return {
@@ -53,7 +58,7 @@ async function resolveCurrentMainQuestByPlayer(discordUserId, professionCode, cl
     };
   }
 
-  const allMainQuests = await findActiveMainQuestsByProfession(professionCode, client);
+  const allMainQuests = await getAllMainQuestsByProfession(professionCode, client);
 
   if (!allMainQuests.length) {
     return {
