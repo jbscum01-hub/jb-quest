@@ -1,5 +1,5 @@
-const { buildAdminPanelEmbed } = require('../builders/embeds/adminPanel.embed');
-const { buildAdminPanelButtons } = require('../builders/components/adminPanel.components');
+const { buildAdminHomeEmbed } = require('../builders/embeds/adminPanel.embed');
+const { buildAdminHomeButtons } = require('../builders/components/adminPanel.components');
 const { logger } = require('../config/logger');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const {
@@ -23,8 +23,8 @@ async function autoDeployAdminPanel(client) {
   }
 
   const payload = {
-    embeds: [buildAdminPanelEmbed()],
-    components: buildAdminPanelButtons()
+    embeds: [buildAdminHomeEmbed()],
+    components: buildAdminHomeButtons()
   };
 
   const existingMessageId = await getAdminPanelMessageId();

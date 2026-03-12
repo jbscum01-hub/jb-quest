@@ -7,6 +7,8 @@ const { handleTicketButton } = require('./buttons/ticket.button');
 const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
+const { handleAdminQuestSearchModal } = require('./modals/adminQuestSearch.modal');
+const { handleAdminSelect } = require('./selects/admin.select');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -49,7 +51,25 @@ function registerInteractionHandler(client) {
         return;
       }
 
+      if (interaction.isStringSelectMenu()) {
+        if (interaction.customId.startsWith('quest:admin_select')) {
+          await handleAdminSelect(interaction);
+          return;
+        }
+
+        await interaction.reply({
+          content: 'ยังไม่รองรับ select menu นี้',
+          flags: 64
+        });
+        return;
+      }
+
       if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'quest:admin_modal:quest_search') {
+          await handleAdminQuestSearchModal(interaction);
+          return;
+        }
+
         const parsed = parseCustomId(interaction.customId);
 
         if (!parsed) {

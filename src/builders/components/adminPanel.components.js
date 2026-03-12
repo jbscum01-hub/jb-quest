@@ -1,28 +1,251 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder
+} = require('discord.js');
+const { buildCustomId } = require('../../utils/customId');
 
-function buildAdminPanelButtons() {
+function buildAdminHomeButtons() {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('quest:admin:deploy_panels')
-        .setLabel('Deploy Panels')
+        .setCustomId(buildCustomId('admin', 'home_panels'))
+        .setLabel('จัดการพาเนลผู้เล่น')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId('quest:admin:refresh_panels')
-        .setLabel('Refresh Panels')
+        .setCustomId(buildCustomId('admin', 'home_master'))
+        .setLabel('จัดการมาสเตอร์เควส')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId('quest:admin:sync_quests')
-        .setLabel('Sync Quest')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('quest:admin:system_status')
-        .setLabel('System Status')
+        .setCustomId(buildCustomId('admin', 'home_refresh'))
+        .setLabel('รีเฟรชแผงนี้')
         .setStyle(ButtonStyle.Secondary)
     )
   ];
 }
 
+function buildPanelManagementButtons() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'deploy_panels'))
+        .setLabel('สร้างพาเนลผู้เล่น')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'refresh_panels'))
+        .setLabel('รีเฟรชพาเนลผู้เล่น')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'repair_panels'))
+        .setLabel('ซ่อมพาเนลที่หาย')
+        .setStyle(ButtonStyle.Secondary)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'refresh_current_quest'))
+        .setLabel('รีเฟรชเควสปัจจุบัน')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'panel_status'))
+        .setLabel('ตรวจสอบสถานะพาเนล')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'back_home'))
+        .setLabel('กลับหน้าหลัก')
+        .setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+function buildMasterHomeButtons() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'browse_quests'))
+        .setLabel('เรียกดูเควส')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'search_quest'))
+        .setLabel('ค้นหาเควส')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'create_quest'))
+        .setLabel('สร้างเควส')
+        .setStyle(ButtonStyle.Secondary)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'back_home'))
+        .setLabel('กลับหน้าหลัก')
+        .setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+function buildProfessionSelectComponents(options = []) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'profession'))
+        .setPlaceholder('เลือกสายอาชีพ')
+        .addOptions(options)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'home_master'))
+        .setLabel('กลับหน้าจัดการมาสเตอร์เควส')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ];
+}
+
+function buildLevelSelectComponents(professionCode) {
+  const options = [1, 2, 3, 4, 5, 6].map((level) => ({
+    label: `Lv${level}`,
+    value: String(level),
+    description: `ดูรายการเควสเลเวล ${level}`
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'level', professionCode))
+        .setPlaceholder('เลือกเลเวล')
+        .addOptions(options)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'browse_quests'))
+        .setLabel('กลับไปเลือกสาย')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'home_master'))
+        .setLabel('กลับหน้ามาสเตอร์เควส')
+        .setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+function buildQuestSelectComponents(professionCode, level, quests = []) {
+  const options = quests.slice(0, 25).map((quest) => ({
+    label: `${quest.quest_code}`.slice(0, 100),
+    value: quest.quest_id,
+    description: `${quest.quest_name}`.slice(0, 100)
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'quest', `${professionCode}|${level}`))
+        .setPlaceholder(quests.length ? 'เลือกเควส' : 'ไม่พบเควส')
+        .setDisabled(!quests.length)
+        .addOptions(options.length ? options : [{ label: 'ไม่พบเควส', value: 'NO_QUEST', description: 'ไม่มีข้อมูล' }])
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'browse_levels', professionCode))
+        .setLabel('กลับไปเลือกเลเวล')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'home_master'))
+        .setLabel('กลับหน้ามาสเตอร์เควส')
+        .setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+
+function buildQuestSearchResultComponents(quests = []) {
+  const options = quests.slice(0, 25).map((quest) => ({
+    label: `${quest.quest_code}`.slice(0, 100),
+    value: quest.quest_id,
+    description: `${quest.quest_name}`.slice(0, 100)
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'quest', 'SEARCH|0'))
+        .setPlaceholder(quests.length ? 'เลือกเควสจากผลการค้นหา' : 'ไม่พบเควส')
+        .setDisabled(!quests.length)
+        .addOptions(options.length ? options : [{ label: 'ไม่พบเควส', value: 'NO_QUEST', description: 'ไม่มีข้อมูล' }])
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'home_master'))
+        .setLabel('กลับหน้ามาสเตอร์เควส')
+        .setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+function buildQuestDetailButtons(questId, professionCode, level) {
+  const backExtra = `${professionCode}|${level}`;
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'edit_description', questId))
+        .setLabel('แก้คำอธิบาย')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'edit_requirements', questId))
+        .setLabel('แก้ของที่ต้องส่ง')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'edit_rewards', questId))
+        .setLabel('แก้รางวัล')
+        .setStyle(ButtonStyle.Primary)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'edit_dependency', questId))
+        .setLabel('แก้เควสก่อนหน้า')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'manage_images', questId))
+        .setLabel('จัดการรูปตัวอย่าง')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'toggle_active', questId))
+        .setLabel('เปลี่ยนสถานะเควส')
+        .setStyle(ButtonStyle.Secondary)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'add_requirement', questId))
+        .setLabel('เพิ่มของที่ต้องส่ง')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'add_reward', questId))
+        .setLabel('เพิ่มรางวัล')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'add_image', questId))
+        .setLabel('เพิ่มรูปตัวอย่าง')
+        .setStyle(ButtonStyle.Success)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'back_quest_list', backExtra))
+        .setLabel('กลับไปหน้าเควส')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'home_master'))
+        .setLabel('กลับหน้าหลัก')
+        .setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
 module.exports = {
-  buildAdminPanelButtons
+  buildAdminHomeButtons,
+  buildPanelManagementButtons,
+  buildMasterHomeButtons,
+  buildProfessionSelectComponents,
+  buildLevelSelectComponents,
+  buildQuestSelectComponents,
+  buildQuestSearchResultComponents,
+  buildQuestDetailButtons
 };
