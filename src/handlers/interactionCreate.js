@@ -9,6 +9,9 @@ const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
 const { handleAdminQuestSearchModal } = require('./modals/adminQuestSearch.modal');
 const { handleAdminQuestImageModal } = require('./modals/adminQuestImage.modal');
+const { handleAdminQuestDescriptionModal } = require('./modals/adminQuestDescription.modal');
+const { handleAdminQuestRequirementModal } = require('./modals/adminQuestRequirement.modal');
+const { handleAdminQuestRewardModal } = require('./modals/adminQuestReward.modal');
 const { handleAdminSelect } = require('./selects/admin.select');
 
 function registerInteractionHandler(client) {
@@ -23,10 +26,7 @@ function registerInteractionHandler(client) {
         const parsed = parseCustomId(interaction.customId);
 
         if (!parsed) {
-          await interaction.reply({
-            content: 'รูปแบบปุ่มไม่ถูกต้อง',
-            flags: 64
-          });
+          await interaction.reply({ content: 'รูปแบบปุ่มไม่ถูกต้อง', flags: 64 });
           return;
         }
 
@@ -45,10 +45,7 @@ function registerInteractionHandler(client) {
           return;
         }
 
-        await interaction.reply({
-          content: 'ยังไม่รองรับ interaction นี้ในระบบ',
-          flags: 64
-        });
+        await interaction.reply({ content: 'ยังไม่รองรับ interaction นี้ในระบบ', flags: 64 });
         return;
       }
 
@@ -58,10 +55,7 @@ function registerInteractionHandler(client) {
           return;
         }
 
-        await interaction.reply({
-          content: 'ยังไม่รองรับ select menu นี้',
-          flags: 64
-        });
+        await interaction.reply({ content: 'ยังไม่รองรับ select menu นี้', flags: 64 });
         return;
       }
 
@@ -76,13 +70,27 @@ function registerInteractionHandler(client) {
           return;
         }
 
+        if (interaction.customId.startsWith('quest:admin_modal:edit_description:')) {
+          await handleAdminQuestDescriptionModal(interaction);
+          return;
+        }
+
+        if (interaction.customId.startsWith('quest:admin_modal:edit_requirement:')
+          || interaction.customId.startsWith('quest:admin_modal:add_requirement:')) {
+          await handleAdminQuestRequirementModal(interaction);
+          return;
+        }
+
+        if (interaction.customId.startsWith('quest:admin_modal:edit_reward:')
+          || interaction.customId.startsWith('quest:admin_modal:add_reward:')) {
+          await handleAdminQuestRewardModal(interaction);
+          return;
+        }
+
         const parsed = parseCustomId(interaction.customId);
 
         if (!parsed) {
-          await interaction.reply({
-            content: 'รูปแบบฟอร์มไม่ถูกต้อง',
-            flags: 64
-          });
+          await interaction.reply({ content: 'รูปแบบฟอร์มไม่ถูกต้อง', flags: 64 });
           return;
         }
 
@@ -101,26 +109,17 @@ function registerInteractionHandler(client) {
           return;
         }
 
-        await interaction.reply({
-          content: 'ยังไม่รองรับ modal นี้ในระบบ',
-          flags: 64
-        });
+        await interaction.reply({ content: 'ยังไม่รองรับ modal นี้ในระบบ', flags: 64 });
       }
     } catch (error) {
       logger.error('interactionCreate handler failed', error);
 
       if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({
-          content: 'เกิดข้อผิดพลาดระหว่างประมวลผล',
-          flags: 64
-        });
+        await interaction.followUp({ content: 'เกิดข้อผิดพลาดระหว่างประมวลผล', flags: 64 });
         return;
       }
 
-      await interaction.reply({
-        content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`,
-        flags: 64
-      });
+      await interaction.reply({ content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`, flags: 64 });
     }
   });
 }

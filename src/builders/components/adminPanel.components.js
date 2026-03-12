@@ -35,7 +35,7 @@ function buildPanelManagementButtons() {
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'refresh_panels'))
         .setLabel('รีเฟรชพาเนลผู้เล่น')
-        .setStyle(ButtonStyle.Success),
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'repair_panels'))
         .setLabel('ซ่อมพาเนลที่หาย')
@@ -49,7 +49,7 @@ function buildPanelManagementButtons() {
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'panel_status'))
         .setLabel('ตรวจสอบสถานะพาเนล')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'back_home'))
         .setLabel('กลับหน้าหลัก')
@@ -64,15 +64,15 @@ function buildMasterHomeButtons() {
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'browse_quests'))
         .setLabel('เรียกดูเควส')
-        .setStyle(ButtonStyle.Success),
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'search_quest'))
         .setLabel('ค้นหาเควส')
-        .setStyle(ButtonStyle.Primary),
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'create_quest'))
         .setLabel('สร้างเควส')
-        .setStyle(ButtonStyle.Secondary)
+        .setStyle(ButtonStyle.Success)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -94,8 +94,8 @@ function buildProfessionSelectComponents(options = []) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(buildCustomId('admin', 'home_master'))
-        .setLabel('กลับหน้าจัดการมาสเตอร์เควส')
-        .setStyle(ButtonStyle.Secondary)
+        .setLabel('กลับหน้ามาสเตอร์เควส')
+        .setStyle(ButtonStyle.Danger)
     )
   ];
 }
@@ -104,7 +104,7 @@ function buildLevelSelectComponents(professionCode) {
   const options = [1, 2, 3, 4, 5, 6].map((level) => ({
     label: `Lv${level}`,
     value: String(level),
-    description: `ดูรายการเควสเลเวล ${level}`
+    description: `ดูเควสเลเวล ${level}`
   }));
 
   return [
@@ -273,6 +273,54 @@ function buildQuestImageManagerButtons(questId, currentIndex = 0, imageCount = 0
   ];
 }
 
+function buildRequirementEditSelectComponents(questId, requirements = []) {
+  const options = requirements.slice(0, 25).map((item) => ({
+    label: `${item.item_name || item.input_label || item.requirement_type || 'รายการไม่มีชื่อ'}`.slice(0, 100),
+    value: item.requirement_id,
+    description: `${item.display_text || item.admin_display_text || 'ไม่มีรายละเอียด'}`.slice(0, 100)
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'edit_requirement', questId))
+        .setPlaceholder(requirements.length ? 'เลือกรายการที่ต้องการแก้' : 'ไม่พบรายการ')
+        .setDisabled(!requirements.length)
+        .addOptions(options.length ? options : [{ label: 'ไม่พบรายการ', value: 'NO_REQUIREMENT', description: 'ไม่มีข้อมูล' }])
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'open_quest', questId))
+        .setLabel('กลับหน้าเควส')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ];
+}
+
+function buildRewardEditSelectComponents(questId, rewards = []) {
+  const options = rewards.slice(0, 25).map((item) => ({
+    label: `${item.reward_display_text || item.reward_item_name || item.discord_role_name || item.reward_type || 'รางวัลไม่มีชื่อ'}`.slice(0, 100),
+    value: item.reward_id,
+    description: `${item.reward_type || 'ไม่มีประเภท'}`.slice(0, 100)
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'edit_reward', questId))
+        .setPlaceholder(rewards.length ? 'เลือกรางวัลที่ต้องการแก้' : 'ไม่พบรายการ')
+        .setDisabled(!rewards.length)
+        .addOptions(options.length ? options : [{ label: 'ไม่พบรายการ', value: 'NO_REWARD', description: 'ไม่มีข้อมูล' }])
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildCustomId('admin', 'open_quest', questId))
+        .setLabel('กลับหน้าเควส')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ];
+}
+
 module.exports = {
   buildAdminHomeButtons,
   buildPanelManagementButtons,
@@ -282,5 +330,7 @@ module.exports = {
   buildQuestSelectComponents,
   buildQuestSearchResultComponents,
   buildQuestDetailButtons,
-  buildQuestImageManagerButtons
+  buildQuestImageManagerButtons,
+  buildRequirementEditSelectComponents,
+  buildRewardEditSelectComponents
 };

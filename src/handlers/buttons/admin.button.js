@@ -11,7 +11,12 @@ const {
   renderQuestDetail,
   renderQuestImageManager,
   renderPanelStatus,
+  renderRequirementEditor,
+  renderRewardEditor,
   toggleQuestActiveAndRender,
+  showQuestDescriptionModal,
+  showAddRequirementModal,
+  showAddRewardModal,
   removeQuestImageAndRender
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
@@ -23,15 +28,8 @@ async function handleAdminButtons(interaction) {
   const action = parts[2];
   const extra = parts.slice(3).join(':') || null;
 
-  if (action === 'home_panels') {
-    await renderPanelManagement(interaction);
-    return;
-  }
-
-  if (action === 'home_master') {
-    await renderMasterHome(interaction);
-    return;
-  }
+  if (action === 'home_panels') return renderPanelManagement(interaction);
+  if (action === 'home_master') return renderMasterHome(interaction);
 
   if (action === 'home_refresh') {
     await refreshAdminPanel(interaction.message);
@@ -39,10 +37,7 @@ async function handleAdminButtons(interaction) {
     return;
   }
 
-  if (action === 'back_home') {
-    await renderAdminHome(interaction);
-    return;
-  }
+  if (action === 'back_home') return renderAdminHome(interaction);
 
   if (action === 'refresh_panels') {
     await refreshAdminPanel(interaction.message);
@@ -70,80 +65,55 @@ async function handleAdminButtons(interaction) {
     return;
   }
 
-  if (action === 'panel_status') {
-    await renderPanelStatus(interaction);
-    return;
-  }
-
-  if (action === 'browse_quests') {
-    await renderProfessionPicker(interaction);
-    return;
-  }
-
-  if (action === 'browse_levels') {
-    await renderLevelPicker(interaction, extra);
-    return;
-  }
+  if (action === 'panel_status') return renderPanelStatus(interaction);
+  if (action === 'browse_quests') return renderProfessionPicker(interaction);
+  if (action === 'browse_levels') return renderLevelPicker(interaction, extra);
 
   if (action === 'back_quest_list') {
     const [professionCode, levelText] = (extra || '').split('|');
-    await renderQuestList(interaction, professionCode, Number(levelText));
-    return;
+    return renderQuestList(interaction, professionCode, Number(levelText));
   }
 
-  if (action === 'search_quest') {
-    await interaction.showModal(buildQuestSearchModal());
-    return;
-  }
+  if (action === 'search_quest') return interaction.showModal(buildQuestSearchModal());
 
   if (action === 'create_quest') {
     await interaction.reply({
-      content: '🧱 ปุ่มสร้างเควสถูกเตรียมไว้แล้ว แต่รอบนี้ยังไม่ได้ลง flow create จริง เพื่อให้โครงหน้าจัดการเควสเสร็จก่อน',
+      content: '🧱 ปุ่มสร้างเควสถูกเตรียมไว้แล้ว แต่รอบนี้ยังไม่ได้ลง flow create จริง',
       ephemeral: true
     });
     return;
   }
 
-  if (action === 'toggle_active') {
-    await toggleQuestActiveAndRender(interaction, extra);
-    return;
-  }
-
+  if (action === 'toggle_active') return toggleQuestActiveAndRender(interaction, extra);
   if (action === 'manage_images') {
     const [questId, indexText] = (extra || '').split('|');
-    await renderQuestImageManager(interaction, questId, Number(indexText || 0));
-    return;
+    return renderQuestImageManager(interaction, questId, Number(indexText || 0));
   }
-
   if (action === 'image_prev' || action === 'image_next') {
     const [questId, indexText] = (extra || '').split('|');
-    await renderQuestImageManager(interaction, questId, Number(indexText || 0));
-    return;
+    return renderQuestImageManager(interaction, questId, Number(indexText || 0));
   }
-
   if (action === 'image_remove') {
     const [questId, indexText] = (extra || '').split('|');
-    await removeQuestImageAndRender(interaction, questId, Number(indexText || 0));
-    return;
+    return removeQuestImageAndRender(interaction, questId, Number(indexText || 0));
   }
+  if (action === 'add_image') return interaction.showModal(buildQuestImageModal(extra));
 
-  if (action === 'add_image') {
-    await interaction.showModal(buildQuestImageModal(extra));
-    return;
-  }
+  if (action === 'edit_description') return showQuestDescriptionModal(interaction, extra);
+  if (action === 'edit_requirements') return renderRequirementEditor(interaction, extra);
+  if (action === 'edit_rewards') return renderRewardEditor(interaction, extra);
+  if (action === 'add_requirement') return showAddRequirementModal(interaction, extra);
+  if (action === 'add_reward') return showAddRewardModal(interaction, extra);
 
-  if (['edit_description', 'edit_requirements', 'edit_rewards', 'edit_dependency', 'add_requirement', 'add_reward'].includes(action)) {
+  if (action === 'edit_dependency') {
     await interaction.reply({
-      content: `🛠️ ปุ่ม "${interaction.component.label}" ผูกกับเควสนี้แล้ว แต่รอบนี้ยังเป็นโครงหน้าจัดการและแสดงข้อมูลรวมก่อน`,
+      content: '🛠️ ปุ่มแก้เควสก่อนหน้าถูกผูกกับเควสนี้แล้ว แต่รอบนี้ยังไม่ได้ลงหน้าแก้ dependency จริง',
       ephemeral: true
     });
     return;
   }
 
-  if (action === 'open_quest') {
-    await renderQuestDetail(interaction, extra);
-    return;
-  }
+  if (action === 'open_quest') return renderQuestDetail(interaction, extra);
 }
 
 module.exports = {

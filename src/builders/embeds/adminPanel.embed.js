@@ -284,6 +284,37 @@ function buildQuestImageManagerEmbed(bundle, currentIndex = 0) {
   return embed;
 }
 
+
+function buildRequirementPickerEmbed(bundle) {
+  const { quest, requirements = [] } = bundle;
+  return new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`📦 เลือกรายการของที่ต้องส่ง · ${quest.quest_code}`)
+    .setDescription([
+      `**ชื่อเควส:** ${quest.quest_name}`,
+      `**จำนวนรายการ:** ${requirements.length} รายการ`,
+      '',
+      'เลือกรายการที่ต้องการแก้ไข จากนั้นระบบจะเปิดฟอร์มให้แก้ข้อมูลของรายการนั้น'
+    ].join('\n'))
+    .setFooter({ text: 'SCUM Quest System · Edit Requirements' })
+    .setTimestamp();
+}
+
+function buildRewardPickerEmbed(bundle) {
+  const { quest, rewards = [] } = bundle;
+  return new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`🎁 เลือกรางวัล · ${quest.quest_code}`)
+    .setDescription([
+      `**ชื่อเควส:** ${quest.quest_name}`,
+      `**จำนวนรายการ:** ${rewards.length} รายการ`,
+      '',
+      'เลือกรางวัลที่ต้องการแก้ไข จากนั้นระบบจะเปิดฟอร์มให้แก้ข้อมูลของรางวัลนั้น'
+    ].join('\n'))
+    .setFooter({ text: 'SCUM Quest System · Edit Rewards' })
+    .setTimestamp();
+}
+
 function buildPanelStatusEmbed(statusLines = []) {
   return new EmbedBuilder()
     .setColor(0xfee75c)
@@ -302,5 +333,7 @@ module.exports = {
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
   buildQuestImageManagerEmbed,
+  buildRequirementPickerEmbed,
+  buildRewardPickerEmbed,
   buildPanelStatusEmbed
 };
