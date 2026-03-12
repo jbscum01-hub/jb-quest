@@ -1,3 +1,5 @@
+const { pool } = require('../db/pool');
+
 const {
   buildAdminHomeEmbed
 } = require('../builders/embeds/adminPanel.embed');
@@ -6,22 +8,34 @@ const {
   buildAdminHomeComponents
 } = require('../builders/components/adminPanel.components');
 
-const {
-  getQuestDiscordConfig
-} = require('./discordConfig.service');
+async function getAdminPanelChannelId() {
+  const result = await pool.query(`
+    SELECT config_value
+    FROM tb_quest_master_discord_config
+    WHERE config_key = 'QUEST_ADMIN_PANEL_CHANNEL'
+    AND is_active = true
+    LIMIT 1
+  `);
 
-async function ensureAdminPanelMessage(client, logger = console) {
-  const adminPanelChannelId = await getQuestDiscordConfig('QUEST_ADMIN_PANEL_CHANNEL');
-
-  if (!adminPanelChannelId) {
-    logger.warn('QUEST_ADMIN_PANEL_CHANNEL is not configured');
+  if (!result.rows.length) {
     return null;
   }
 
-  const channel = await client.channels.fetch(adminPanelChannelId).catch(() => null);
+  return result.rows[0].config_value;
+}
+
+async function ensureAdminPanelMessage(client, logger = console) {
+  const channelId = await getAdminPanelChannelId();
+
+  if (!channelId) {
+    logger.warn('QUEST_ADMIN_PANEL_CHANNEL not configured');
+    return null;
+  }
+
+  const channel = await client.channels.fetch(channelId).catch(() => null);
 
   if (!channel) {
-    logger.warn(`Admin panel channel not found: ${adminPanelChannelId}`);
+    logger.warn(`Admin panel channel not found: ${channelId}`);
     return null;
   }
 
