@@ -1,5 +1,5 @@
 const { ChannelType, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { withTransaction, getPool } = require('../db/pool');
+const { withTransaction } = require('../db/pool');
 const { findProfessionByCode } = require('../db/queries/questMaster.repo');
 const {
   findPlayerByDiscordId,
@@ -24,7 +24,6 @@ const {
 const { upsertMainProgress } = require('../db/queries/mainProgress.repo');
 const { insertCompletionLog } = require('../db/queries/review.repo');
 const { resolveCurrentMainQuestByPlayer } = require('./questProgress.service');
-const { grantQuestRewards } = require('./reward.service');
 const { getGlobalConfigValue } = require('./discordConfig.service');
 const { buildTicketStepEmbed } = require('../builders/embeds/ticketStep.embed');
 const {
@@ -32,6 +31,7 @@ const {
   buildTicketCloseComponents
 } = require('../builders/components/ticketStep.components');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
+const { getPool } = require('../db/pool');
 
 function makeTicketCode(professionCode) {
   const stamp = Date.now().toString().slice(-8);
@@ -410,8 +410,6 @@ async function approveCurrentStep({
     throw new Error('Step นี้ยังไม่พร้อมอนุมัติ');
   }
 
-  const latestSubmission = await findLatestTicketSubmission(ticket.ticket_id);
-
   const result = await withTransaction(async (db) => {
     await updateTicketStepProgressStatus(
       {
@@ -438,10 +436,7 @@ async function approveCurrentStep({
 
       await updateTicketStatus(ticket.ticket_id, 'IN_PROGRESS', {}, db);
 
-      return {
-        completed: false,
-        rewardGrantPayload: null
-      };
+      return { completed: false };
     }
 
     await updateTicketStatus(
@@ -471,7 +466,7 @@ async function approveCurrentStep({
         playerId: ticket.player_id,
         professionId: ticket.profession_id,
         questId: ticket.quest_id,
-        submissionId: latestSubmission?.submission_id || null,
+        submissionId: null,
         completedBy: reviewerTag,
         completionType: 'MAIN',
         remark: 'STEP_QUEST_COMPLETED'
@@ -485,27 +480,8 @@ async function approveCurrentStep({
       db
     );
 
-    return {
-      completed: true,
-      rewardGrantPayload: {
-        playerId: ticket.player_id,
-        questId: ticket.quest_id,
-        submissionId: latestSubmission?.submission_id || null,
-        discordUserId: ticket.discord_user_id
-      }
-    };
+    return { completed: true };
   });
-
-  if (result.completed && result.rewardGrantPayload) {
-    await grantQuestRewards({
-      client,
-      playerId: result.rewardGrantPayload.playerId,
-      questId: result.rewardGrantPayload.questId,
-      submissionId: result.rewardGrantPayload.submissionId,
-      discordUserId: result.rewardGrantPayload.discordUserId,
-      grantedBy: reviewerTag
-    });
-  }
 
   await clearOldActionMessage(actionMessage);
 
@@ -549,17 +525,13 @@ async function revisionCurrentStep({
     throw new Error('ไม่พบ Step ปัจจุบัน');
   }
 
-  if (!['SUBMITTED', 'ACTIVE'].includes(currentStep.step_status)) {
-    throw new Error('Step นี้ยังไม่พร้อมส่งกลับแก้ไข');
-  }
-
   await withTransaction(async (db) => {
     await updateTicketStepProgressStatus(
       {
         ticketStepProgressId: currentStep.ticket_step_progress_id,
         status: 'ACTIVE',
         reviewedBy: reviewerTag,
-        reviewRemark: 'REVISION_REQUIRED'
+        reviewRemark: 'REQUEST_REVISION'
       },
       db
     );
@@ -573,13 +545,7 @@ async function revisionCurrentStep({
   const channel = await client.channels.fetch(channelId);
 
   await channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0xfee75c)
-        .setTitle('📝 กรุณาแก้ไข Step')
-        .setDescription(`Step ${currentStep.step_no} ถูกส่งกลับให้แก้ไขแล้ว`)
-        .setTimestamp()
-    ]
+    content: `<@${ticket.discord_user_id}> ขั้นตอน **${currentStep.step_no}** ต้องแก้ไขและส่งใหม่ใน Ticket นี้`
   });
 
   await sendTicketStateMessage(channel, refreshed);

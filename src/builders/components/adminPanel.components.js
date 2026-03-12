@@ -39,7 +39,80 @@ function buildMasterHomeButtons() {
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'create_quest')).setLabel('สร้างเควส').setStyle(ButtonStyle.Success)
     ),
     new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_migration')).setLabel('Legacy Migration').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'back_home')).setLabel('กลับหน้าหลัก').setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+
+
+function buildMigrationQuestSelectComponents(professionCode, level, quests = []) {
+  const options = quests.slice(0, 25).map((quest) => ({
+    label: `${quest.quest_code}`.slice(0, 100),
+    value: quest.quest_id,
+    description: `${quest.quest_name}`.slice(0, 100)
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'migration_quest_single', `${professionCode}|${level}`))
+        .setPlaceholder(quests.length ? 'เลือกเควส' : 'ไม่พบเควส')
+        .setDisabled(!quests.length)
+        .addOptions(options.length ? options : [{ label: 'ไม่พบเควส', value: 'NO_QUEST', description: 'ไม่มีข้อมูล' }])
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'migration_single')).setLabel('กลับไปเลือกสาย').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_migration')).setLabel('กลับหน้า Legacy Migration').setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+function buildMigrationHomeButtons() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'migration_single')).setLabel('Migrate Single').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'migration_upto')).setLabel('Migrate Up To Level').setStyle(ButtonStyle.Success)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'migration_history')).setLabel('View History').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้ามาสเตอร์เควส').setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+function buildMigrationProfessionSelectComponents(options = [], mode = 'single') {
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', `migration_profession_${mode}`))
+        .setPlaceholder('เลือกสายอาชีพ')
+        .addOptions(options)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_migration')).setLabel('กลับหน้า Legacy Migration').setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
+function buildMigrationLevelSelectComponents(professionCode, mode = 'single') {
+  const options = [1, 2, 3, 4, 5, 6].map((level) => ({
+    label: `Lv${level}`,
+    value: String(level),
+    description: mode === 'upto' ? `import ถึง Lv${level}` : `ดูเควส Lv${level}`
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', `migration_level_${mode}`, professionCode))
+        .setPlaceholder('เลือกเลเวล')
+        .addOptions(options)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', mode === 'upto' ? 'migration_upto' : 'migration_single')).setLabel('กลับไปเลือกสาย').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_migration')).setLabel('กลับหน้า Legacy Migration').setStyle(ButtonStyle.Danger)
     )
   ];
 }
@@ -270,6 +343,10 @@ module.exports = {
   buildAdminHomeButtons,
   buildPanelManagementButtons,
   buildMasterHomeButtons,
+  buildMigrationQuestSelectComponents,
+  buildMigrationHomeButtons,
+  buildMigrationProfessionSelectComponents,
+  buildMigrationLevelSelectComponents,
   buildProfessionSelectComponents,
   buildLevelSelectComponents,
   buildQuestSelectComponents,

@@ -14,17 +14,9 @@ async function handleTicketButton(interaction, parsed) {
     const [ticketId, stepNo] = extra.split(':');
 
     const ticket = await findTicketById(ticketId);
-    if (!ticket) {
-      await interaction.reply({
-        content: '❌ ไม่พบ Ticket นี้',
-        flags: 64
-      });
-      return;
-    }
+    const professionCode = ticket?.profession_code || 'QUEST';
 
-    const professionCode = ticket.profession_code || 'QUEST';
     const modal = buildStepSubmissionModal(ticketId, stepNo, professionCode);
-
     await interaction.showModal(modal);
     return;
   }

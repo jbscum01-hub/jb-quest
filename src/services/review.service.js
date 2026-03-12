@@ -1,7 +1,9 @@
 const { withTransaction } = require('../db/pool');
 const { findSubmissionById, updateSubmissionReview } = require('../db/queries/submission.repo');
 const { insertReviewLog, insertCompletionLog } = require('../db/queries/review.repo');
-const { findQuestRewards } = require('../db/queries/questMaster.repo');
+const {
+  findQuestRewards
+} = require('../db/queries/questMaster.repo');
 const {
   upsertMainProgress,
   upsertRepeatableState
@@ -30,7 +32,7 @@ async function reviewSubmission({
   reviewerDiscordTag,
   reviewNote = null
 }) {
-  const outcome = await withTransaction(async (client) => {
+  return withTransaction(async (client) => {
     const submission = await findSubmissionById(submissionId, client);
 
     if (!submission) {
@@ -43,7 +45,6 @@ async function reviewSubmission({
 
     let updatedSubmission;
     let actionType;
-    let questCompleted = false;
 
     if (action === 'approve') {
       updatedSubmission = await updateSubmissionReview({
@@ -81,8 +82,6 @@ async function reviewSubmission({
           submission.profession_code,
           client
         );
-
-        questCompleted = true;
       }
 
       if (submission.submission_type === 'REPEATABLE') {
@@ -123,8 +122,6 @@ async function reviewSubmission({
           completionType: 'REPEATABLE',
           remark: reviewNote
         }, client);
-
-        questCompleted = true;
       }
     } else if (action === 'revision') {
       updatedSubmission = await updateSubmissionReview({
@@ -173,20 +170,9 @@ async function reviewSubmission({
 
     return {
       submission: refreshedSubmission || updatedSubmission,
-      rewardSummary,
-      questCompleted,
-      rewardGrantPayload: questCompleted
-        ? {
-            playerId: submission.player_id,
-            questId: submission.quest_id,
-            submissionId,
-            discordUserId: submission.discord_user_id
-          }
-        : null
+      rewardSummary
     };
   });
-
-  return outcome;
 }
 
 module.exports = {
