@@ -1,10 +1,16 @@
 const { EmbedBuilder } = require('discord.js');
 
+function clamp(text, fallback = '-') {
+  const value = String(text || '').trim();
+  if (!value) return fallback;
+  return value.length > 1024 ? `${value.slice(0, 1021)}...` : value;
+}
+
 function formatRequirement(row) {
-  if (row.admin_display_text) return `• ${row.admin_display_text}`;
-  if (row.display_text) return `• ${row.display_text}`;
   if (row.item_name && row.required_quantity) return `• ${row.item_name} x${row.required_quantity}`;
   if (row.item_name) return `• ${row.item_name}`;
+  if (row.input_label && row.required_quantity) return `• ${row.input_label} x${row.required_quantity}`;
+  if (row.input_label) return `• ${row.input_label}`;
   if (row.requirement_type === 'IMAGE') return '• ส่งภาพหลักฐาน';
   if (row.requirement_type === 'INGAME_NAME') return '• ระบุชื่อตัวละคร';
   return `• ${row.requirement_type}`;
@@ -26,6 +32,7 @@ function buildCurrentQuestEmbed({
   quest,
   requirements = [],
   rewards = [],
+  guideMedia = [],
   isRepeatable = false,
   completedAllMain = false
 }) {
@@ -48,25 +55,26 @@ function buildCurrentQuestEmbed({
   return new EmbedBuilder()
     .setColor(isRepeatable ? 0x57f287 : 0x5865f2)
     .setTitle(`${isRepeatable ? '♻️' : '📜'} ${quest.quest_name}`)
-    .setDescription(quest.quest_description || '-')
+    .setDescription(quest.quest_description || quest.panel_description || '-')
     .addFields(
       {
         name: 'รายละเอียด',
-        value: [
-          `สายอาชีพ: ${quest.profession_code || professionCode}`,
+        value: clamp([
+          `สายอาชีพ: ${quest.profession_name_th || quest.profession_code || professionCode}`,
           `เลเวล: ${quest.quest_level || '-'}${quest.is_step_quest ? ' Step Quest' : ''}`,
-          `Fame ที่แสดง: ${quest.fame_required_display ?? '-'}`
-        ].join('\n'),
+          `Fame ที่แสดง: ${quest.fame_required_display ?? '-'}`,
+          `รูปตัวอย่าง: ${guideMedia.length} รูป`
+        ].join('\n')),
         inline: false
       },
       {
         name: 'เงื่อนไข',
-        value: requirements.length ? requirements.map(formatRequirement).join('\n') : '-',
+        value: clamp(requirements.length ? requirements.map(formatRequirement).join('\n') : '-'),
         inline: false
       },
       {
         name: 'รางวัล',
-        value: rewards.length ? rewards.map(formatReward).join('\n') : '-',
+        value: clamp(rewards.length ? rewards.map(formatReward).join('\n') : '-'),
         inline: false
       }
     )
@@ -74,6 +82,19 @@ function buildCurrentQuestEmbed({
     .setTimestamp();
 }
 
+function buildCurrentQuestImageEmbeds(guideMedia = []) {
+  return guideMedia
+    .filter((row) => row?.media_url)
+    .slice(0, 9)
+    .map((row, index) => new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(`🖼️ รูปตัวอย่าง ${index + 1}`)
+      .setDescription(clamp(row.media_title || row.media_description || 'รูปตัวอย่างเควส', 'รูปตัวอย่างเควส'))
+      .setImage(row.media_url)
+    );
+}
+
 module.exports = {
-  buildCurrentQuestEmbed
+  buildCurrentQuestEmbed,
+  buildCurrentQuestImageEmbeds
 };

@@ -75,13 +75,17 @@ function registerInteractionHandler(client) {
           return;
         }
 
-        if (interaction.customId.startsWith('q:reqe:')
+        if (interaction.customId.startsWith('quest:admin_modal:edit_requirement:')
+          || interaction.customId.startsWith('quest:admin_modal:add_requirement:')
+          || interaction.customId.startsWith('q:reqe:')
           || interaction.customId.startsWith('q:reqa:')) {
           await handleAdminQuestRequirementModal(interaction);
           return;
         }
 
-        if (interaction.customId.startsWith('q:rewe:')
+        if (interaction.customId.startsWith('quest:admin_modal:edit_reward:')
+          || interaction.customId.startsWith('quest:admin_modal:add_reward:')
+          || interaction.customId.startsWith('q:rewe:')
           || interaction.customId.startsWith('q:rewa:')) {
           await handleAdminQuestRewardModal(interaction);
           return;

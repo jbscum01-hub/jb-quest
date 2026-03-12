@@ -1,9 +1,8 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
 function buildQuestRequirementModal({ questId, requirement = null, mode = 'edit' }) {
-  const customId = mode === 'add'
-    ? `q:reqa:${questId}`
-    : `q:reqe:${requirement.requirement_id}`;
+  const targetId = mode === 'add' ? questId : requirement?.requirement_id;
+  const customId = mode === 'add' ? `q:reqa:${targetId}` : `q:reqe:${targetId}`;
 
   return new ModalBuilder()
     .setCustomId(customId)
@@ -21,7 +20,7 @@ function buildQuestRequirementModal({ questId, requirement = null, mode = 'edit'
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('required_quantity')
-          .setLabel('จำนวนที่ต้องส่ง')
+          .setLabel('จำนวน')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(10)

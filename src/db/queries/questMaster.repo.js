@@ -33,6 +33,46 @@ async function findProfessionByCode(professionCode, client) {
   return result.rows[0] || null;
 }
 
+async function findActiveMainQuestsByProfession(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT q.*, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
+    FROM public.tb_quest_master q
+    JOIN public.tb_quest_master_profession p
+      ON p.profession_id = q.profession_id
+    WHERE p.profession_code = $1
+      AND q.is_active = TRUE
+      AND q.tier_type = 'NORMAL'
+      AND COALESCE(q.is_repeatable, FALSE) = FALSE
+    ORDER BY q.quest_level ASC NULLS LAST, q.display_order ASC, q.quest_code ASC
+    `,
+    [professionCode]
+  );
+
+  return result.rows;
+}
+
+async function findRepeatableQuestsByProfession(professionCode, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT q.*, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
+    FROM public.tb_quest_master q
+    JOIN public.tb_quest_master_profession p
+      ON p.profession_id = q.profession_id
+    WHERE p.profession_code = $1
+      AND q.is_active = TRUE
+      AND q.tier_type = 'NORMAL'
+      AND COALESCE(q.is_repeatable, FALSE) = TRUE
+    ORDER BY q.quest_level ASC NULLS LAST, q.display_order ASC, q.quest_code ASC
+    `,
+    [professionCode]
+  );
+
+  return result.rows;
+}
+
 async function findQuestsByProfessionAndLevel(professionCode, level, client) {
   const db = getDb(client);
   const result = await db.query(
@@ -52,6 +92,7 @@ async function findQuestsByProfessionAndLevel(professionCode, level, client) {
       ON p.profession_id = q.profession_id
     WHERE p.profession_code = $1
       AND q.quest_level = $2
+      AND q.tier_type = 'NORMAL'
     ORDER BY q.display_order ASC, q.quest_code ASC
     `,
     [professionCode, level]
@@ -64,12 +105,14 @@ async function searchQuests(keyword, client) {
   const db = getDb(client);
   const safeKeyword = String(keyword || '').trim();
   const like = `%${safeKeyword}%`;
+
   const result = await db.query(
     `
     SELECT q.quest_id,
            q.quest_code,
            q.quest_name,
            q.quest_level,
+           q.profession_id,
            p.profession_code,
            p.profession_name_th,
            q.is_active
@@ -80,7 +123,7 @@ async function searchQuests(keyword, client) {
        OR q.quest_name ILIKE $1
        OR p.profession_code ILIKE $1
        OR p.profession_name_th ILIKE $1
-    ORDER BY p.sort_order ASC, q.quest_level ASC, q.display_order ASC, q.quest_code ASC
+    ORDER BY p.sort_order ASC, q.quest_level ASC NULLS LAST, q.display_order ASC, q.quest_code ASC
     LIMIT 25
     `,
     [like]
@@ -208,6 +251,10 @@ async function findQuestGuideImages(questId, client) {
   return result.rows;
 }
 
+async function findQuestGuideMedia(questId, client) {
+  return findQuestGuideImages(questId, client);
+}
+
 async function findQuestSteps(questId, client) {
   const db = getDb(client);
   const result = await db.query(
@@ -281,10 +328,11 @@ async function updateQuestRequirement(requirementId, payload, updatedBy, client)
     `
     UPDATE public.tb_quest_master_requirement
     SET item_name = NULLIF($2, ''),
+        input_label = NULLIF($2, ''),
         required_quantity = $3,
-        display_text = NULLIF($4, ''),
-        admin_display_text = NULLIF($5, ''),
-        updated_by = $6,
+        display_text = NULL,
+        admin_display_text = NULL,
+        updated_by = $4,
         updated_at = NOW()
     WHERE requirement_id = $1
     RETURNING *
@@ -293,8 +341,6 @@ async function updateQuestRequirement(requirementId, payload, updatedBy, client)
       requirementId,
       payload.itemName,
       payload.requiredQuantity,
-      payload.displayText,
-      payload.adminDisplayText,
       updatedBy
     ]
   );
@@ -325,6 +371,7 @@ async function addQuestRequirement(questId, payload, updatedBy, client) {
       step_id,
       requirement_type,
       item_name,
+      input_label,
       required_quantity,
       display_text,
       admin_display_text,
@@ -343,28 +390,21 @@ async function addQuestRequirement(questId, payload, updatedBy, client) {
       NULL,
       'SCUM_ITEM',
       NULLIF($2, ''),
+      NULLIF($2, ''),
       $3,
-      NULLIF($4, ''),
-      NULLIF($5, ''),
+      NULL,
+      NULL,
       TRUE,
-      $6,
+      $4,
       TRUE,
       NOW(),
       NOW(),
-      $7,
-      $7
+      $5,
+      $5
     )
     RETURNING *
     `,
-    [
-      questId,
-      payload.itemName,
-      payload.requiredQuantity,
-      payload.displayText ?? payload.itemName,
-      payload.adminDisplayText ?? payload.itemName,
-      nextOrder,
-      updatedBy
-    ]
+    [questId, payload.itemName, payload.requiredQuantity, nextOrder, updatedBy]
   );
 
   return result.rows[0] || null;
@@ -376,12 +416,12 @@ async function updateQuestReward(rewardId, payload, updatedBy, client) {
     `
     UPDATE public.tb_quest_master_reward
     SET reward_type = $2,
-        reward_item_name = CASE WHEN $2 = 'SCUM_ITEM' THEN NULLIF($3, '') ELSE reward_item_name END,
+        reward_item_name = CASE WHEN $2 = 'SCUM_ITEM' THEN NULLIF($3, '') ELSE NULL END,
         reward_display_text = NULLIF($4, ''),
-        reward_quantity = CASE WHEN $2 = 'SCUM_ITEM' THEN $5 ELSE reward_quantity END,
-        reward_value_number = CASE WHEN $2 IN ('SCUM_MONEY', 'FAME_POINT') THEN $5 ELSE reward_value_number END,
-        discord_role_name = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE discord_role_name END,
-        reward_value_text = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE reward_value_text END,
+        reward_quantity = CASE WHEN $2 = 'SCUM_ITEM' THEN $5 ELSE NULL END,
+        reward_value_number = CASE WHEN $2 IN ('SCUM_MONEY', 'FAME_POINT') THEN $5 ELSE NULL END,
+        discord_role_name = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE NULL END,
+        reward_value_text = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3, '') ELSE NULL END,
         updated_by = $6,
         updated_at = NOW()
     WHERE reward_id = $1
@@ -466,6 +506,7 @@ async function addQuestGuideImage(questId, payload, actorId, client) {
     SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
     FROM public.tb_quest_master_media
     WHERE quest_id = $1
+      AND step_id IS NULL
       AND is_active = TRUE
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     `,
@@ -532,9 +573,55 @@ async function deactivateQuestGuideImage(mediaId, actorId, client) {
   return result.rows[0] || null;
 }
 
+
+async function createQuest(payload, actorId, client) {
+  const db = getDb(client);
+  const orderResult = await db.query(
+    `
+    SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
+    FROM public.tb_quest_master
+    WHERE profession_id = $1
+      AND quest_level = $2
+    `,
+    [payload.professionId, payload.questLevel]
+  );
+
+  const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
+  const result = await db.query(
+    `
+    INSERT INTO public.tb_quest_master (
+      quest_id, quest_code, quest_name, quest_description, category_id, profession_id, quest_level,
+      display_order, tier_type, is_step_quest, requires_ticket, requires_admin_approval, is_repeatable,
+      panel_title, panel_description, button_label, is_active, created_at, updated_at, created_by, updated_by
+    )
+    VALUES (
+      gen_random_uuid(), $1, $2, NULLIF($3, ''), $4, $5, $6,
+      $7, COALESCE($8, 'NORMAL'), COALESCE($9, FALSE), COALESCE($10, FALSE), COALESCE($11, TRUE), COALESCE($12, FALSE),
+      NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), COALESCE($16, TRUE), NOW(), NOW(), $17, $17
+    )
+    RETURNING *
+    `,
+    [
+      payload.questCode, payload.questName, payload.questDescription, payload.categoryId, payload.professionId, payload.questLevel,
+      nextOrder, payload.tierType, payload.isStepQuest, payload.requiresTicket, payload.requiresAdminApproval, payload.isRepeatable,
+      payload.panelTitle, payload.panelDescription, payload.buttonLabel, payload.isActive, actorId
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
+const addRequirement = addQuestRequirement;
+const updateRequirement = updateQuestRequirement;
+const addReward = addQuestReward;
+const updateReward = updateQuestReward;
+const addGuideImage = addQuestGuideImage;
+
 module.exports = {
   listActiveProfessions,
   findProfessionByCode,
+  findActiveMainQuestsByProfession,
+  findRepeatableQuestsByProfession,
   findQuestsByProfessionAndLevel,
   searchQuests,
   findQuestById,
@@ -544,14 +631,21 @@ module.exports = {
   findQuestRewards,
   findQuestRewardById,
   findQuestGuideImages,
+  findQuestGuideMedia,
   findQuestSteps,
   getQuestDetailBundle,
   updateQuestActive,
+  createQuest,
   updateQuestDescription,
   updateQuestRequirement,
   addQuestRequirement,
   updateQuestReward,
   addQuestReward,
   addQuestGuideImage,
-  deactivateQuestGuideImage
+  deactivateQuestGuideImage,
+  addRequirement,
+  updateRequirement,
+  addReward,
+  updateReward,
+  addGuideImage
 };

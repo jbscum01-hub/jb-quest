@@ -1,5 +1,5 @@
 const { buildQuestSubmissionModal } = require('../../builders/modals/questSubmission.modal');
-const { buildCurrentQuestEmbed } = require('../../builders/embeds/currentQuest.embed');
+const { buildCurrentQuestEmbed, buildCurrentQuestImageEmbeds } = require('../../builders/embeds/currentQuest.embed');
 const { getCurrentQuestSummary, getFirstRepeatableQuest } = require('../../services/panel.service');
 const { openStepQuestTicket } = require('../../services/stepTicket.service');
 
@@ -18,11 +18,12 @@ async function handlePanelButton(interaction, parsedCustomId) {
       quest: summary.quest,
       requirements: summary.requirements,
       rewards: summary.rewards,
+      guideMedia: summary.guideMedia,
       completedAllMain: summary.completedAllMain
     });
 
     await interaction.editReply({
-      embeds: [embed]
+      embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia)]
     });
     return;
   }

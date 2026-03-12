@@ -6,7 +6,7 @@ const {
   buildBrowseLevelEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
-  buildQuestImageEmbeds,
+  buildQuestDetailImageEmbeds,
   buildQuestImageManagerEmbed,
   buildRequirementPickerEmbed,
   buildRewardPickerEmbed,
@@ -143,9 +143,8 @@ async function renderQuestDetail(interaction, questId) {
   }
 
   const quest = bundle.quest;
-  const embeds = [buildQuestDetailEmbed(bundle), ...buildQuestImageEmbeds(bundle)];
   await updateOrReply(interaction, {
-    embeds,
+    embeds: [buildQuestDetailEmbed(bundle), ...buildQuestDetailImageEmbeds(bundle)],
     components: buildQuestDetailButtons(quest.quest_id, quest.profession_code, quest.quest_level)
   });
 }
@@ -221,7 +220,7 @@ async function toggleQuestActiveAndRender(interaction, questId) {
   const refreshed = await getQuestDetailBundle(questId);
 
   await interaction.update({
-    embeds: [buildQuestDetailEmbed(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level)
   });
 
@@ -283,7 +282,7 @@ async function saveQuestDescriptionFromModal(interaction, questId) {
   const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ บันทึกคำอธิบายเควสเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
@@ -298,8 +297,15 @@ function parsePositiveInteger(raw, fieldName) {
 }
 
 async function saveQuestRequirementFromModal(interaction, questId, requirementId) {
+  const targetRequirementId = requirementId || interaction.customId.split(':').slice(-1)[0];
+  const requirement = await findQuestRequirementById(targetRequirementId);
+  if (!requirement) {
+    await interaction.reply({ content: 'ไม่พบรายการของที่ต้องส่งนี้', ephemeral: true });
+    return;
+  }
+
   await updateQuestRequirement(
-    requirementId,
+    targetRequirementId,
     {
       itemName: interaction.fields.getTextInputValue('item_name').trim(),
       requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
@@ -307,18 +313,20 @@ async function saveQuestRequirementFromModal(interaction, questId, requirementId
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await getQuestDetailBundle(questId || requirement.quest_id);
   await interaction.reply({
     content: '✅ บันทึกรายการของที่ต้องส่งเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
 }
 
 async function addQuestRequirementFromModal(interaction, questId) {
+  const targetQuestId = questId || interaction.customId.split(':').slice(-1)[0];
+
   await addQuestRequirement(
-    questId,
+    targetQuestId,
     {
       itemName: interaction.fields.getTextInputValue('item_name').trim(),
       requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
@@ -326,10 +334,10 @@ async function addQuestRequirementFromModal(interaction, questId) {
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await getQuestDetailBundle(targetQuestId);
   await interaction.reply({
     content: '✅ เพิ่มรายการของที่ต้องส่งเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
@@ -345,8 +353,15 @@ function parseRewardType(raw) {
 }
 
 async function saveQuestRewardFromModal(interaction, questId, rewardId) {
+  const targetRewardId = rewardId || interaction.customId.split(':').slice(-1)[0];
+  const reward = await findQuestRewardById(targetRewardId);
+  if (!reward) {
+    await interaction.reply({ content: 'ไม่พบรางวัลนี้', ephemeral: true });
+    return;
+  }
+
   await updateQuestReward(
-    rewardId,
+    targetRewardId,
     {
       rewardType: parseRewardType(interaction.fields.getTextInputValue('reward_type')),
       rewardName: interaction.fields.getTextInputValue('reward_name').trim(),
@@ -356,18 +371,20 @@ async function saveQuestRewardFromModal(interaction, questId, rewardId) {
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await getQuestDetailBundle(questId || reward.quest_id);
   await interaction.reply({
     content: '✅ บันทึกรางวัลเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
 }
 
 async function addQuestRewardFromModal(interaction, questId) {
+  const targetQuestId = questId || interaction.customId.split(':').slice(-1)[0];
+
   await addQuestReward(
-    questId,
+    targetQuestId,
     {
       rewardType: parseRewardType(interaction.fields.getTextInputValue('reward_type')),
       rewardName: interaction.fields.getTextInputValue('reward_name').trim(),
@@ -377,10 +394,10 @@ async function addQuestRewardFromModal(interaction, questId) {
     interaction.user.id
   );
 
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await getQuestDetailBundle(targetQuestId);
   await interaction.reply({
     content: '✅ เพิ่มรางวัลเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestDetailImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
