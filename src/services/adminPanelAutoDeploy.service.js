@@ -1,45 +1,52 @@
-const adminRepo = require('../db/queries/adminPanel.repo');
-const adminService = require('./adminPanel.service');
+const {
+  buildAdminHomeEmbed
+} = require('../builders/embeds/adminPanel.embed');
+
+const {
+  buildAdminHomeComponents
+} = require('../builders/components/adminPanel.components');
+
+const {
+  getQuestDiscordConfig
+} = require('./discordConfig.service');
 
 async function ensureAdminPanelMessage(client, logger = console) {
+  const adminPanelChannelId = await getQuestDiscordConfig('QUEST_ADMIN_PANEL_CHANNEL');
+
+  if (!adminPanelChannelId) {
+    logger.warn('QUEST_ADMIN_PANEL_CHANNEL is not configured');
+    return null;
+  }
+
+  const channel = await client.channels.fetch(adminPanelChannelId).catch(() => null);
+
+  if (!channel) {
+    logger.warn(`Admin panel channel not found: ${adminPanelChannelId}`);
+    return null;
+  }
+
+  const embed = buildAdminHomeEmbed();
+  const components = buildAdminHomeComponents();
+
+  const message = await channel.send({
+    embeds: [embed],
+    components
+  });
+
+  logger.info(`Admin panel created: ${message.id}`);
+  return message;
+}
+
+async function autoDeployAdminPanel(client, logger = console) {
   try {
-    const channelId = await adminRepo.getDiscordConfigValue('QUEST_ADMIN_PANEL_CHANNEL');
-    if (!channelId) {
-      logger.warn?.('[ADMIN] Missing QUEST_ADMIN_PANEL_CHANNEL config');
-      return null;
-    }
-
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel) {
-      logger.warn?.(`[ADMIN] Admin panel channel not found: ${channelId}`);
-      return null;
-    }
-
-    const payload = await adminService.buildAdminHomePayload();
-    const storedMessageId = await adminRepo.getDiscordConfigValue('QUEST_ADMIN_PANEL_MESSAGE');
-
-    if (storedMessageId) {
-      const existing = await channel.messages.fetch(storedMessageId).catch(() => null);
-      if (existing) {
-        await existing.edit(payload);
-        logger.info?.('[ADMIN] Admin panel refreshed');
-        return existing;
-      }
-    }
-
-    const message = await channel.send(payload);
-    await adminRepo.upsertDiscordConfigValue({
-      configKey: 'QUEST_ADMIN_PANEL_MESSAGE',
-      configValue: message.id,
-      displayName: 'Quest Admin Panel Message'
-    });
-
-    logger.info?.('[ADMIN] Admin panel created');
-    return message;
+    return await ensureAdminPanelMessage(client, logger);
   } catch (error) {
-    logger.error?.('[ADMIN] Failed to ensure admin panel message', error);
-    throw error;
+    logger.error('Auto deploy admin panel failed', error);
+    return null;
   }
 }
 
-module.exports = { ensureAdminPanelMessage };
+module.exports = {
+  autoDeployAdminPanel,
+  ensureAdminPanelMessage
+};
