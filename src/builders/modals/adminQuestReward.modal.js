@@ -2,8 +2,8 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
   const customId = mode === 'add'
-    ? `quest:admin_modal:add_reward:${questId}`
-    : `quest:admin_modal:edit_reward:${questId}:${reward.reward_id}`;
+    ? `q:rewa:${questId}`
+    : `q:rewe:${reward.reward_id}`;
 
   const rewardName = reward?.reward_item_name || reward?.discord_role_name || reward?.reward_value_text || '';
   const rewardAmount = reward?.reward_quantity || reward?.reward_value_number || 1;

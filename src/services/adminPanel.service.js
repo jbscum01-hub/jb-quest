@@ -6,6 +6,7 @@ const {
   buildBrowseLevelEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
+  buildQuestImageEmbeds,
   buildQuestImageManagerEmbed,
   buildRequirementPickerEmbed,
   buildRewardPickerEmbed,
@@ -142,8 +143,9 @@ async function renderQuestDetail(interaction, questId) {
   }
 
   const quest = bundle.quest;
+  const embeds = [buildQuestDetailEmbed(bundle), ...buildQuestImageEmbeds(bundle)];
   await updateOrReply(interaction, {
-    embeds: [buildQuestDetailEmbed(bundle)],
+    embeds,
     components: buildQuestDetailButtons(quest.quest_id, quest.profession_code, quest.quest_level)
   });
 }
@@ -281,7 +283,7 @@ async function saveQuestDescriptionFromModal(interaction, questId) {
   const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ บันทึกคำอธิบายเควสเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
@@ -300,9 +302,7 @@ async function saveQuestRequirementFromModal(interaction, questId, requirementId
     requirementId,
     {
       itemName: interaction.fields.getTextInputValue('item_name').trim(),
-      requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง'),
-      displayText: interaction.fields.getTextInputValue('display_text').trim(),
-      adminDisplayText: interaction.fields.getTextInputValue('admin_display_text').trim()
+      requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
     },
     interaction.user.id
   );
@@ -310,7 +310,7 @@ async function saveQuestRequirementFromModal(interaction, questId, requirementId
   const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ บันทึกรายการของที่ต้องส่งเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
@@ -321,9 +321,7 @@ async function addQuestRequirementFromModal(interaction, questId) {
     questId,
     {
       itemName: interaction.fields.getTextInputValue('item_name').trim(),
-      requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง'),
-      displayText: interaction.fields.getTextInputValue('display_text').trim(),
-      adminDisplayText: interaction.fields.getTextInputValue('admin_display_text').trim()
+      requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
     },
     interaction.user.id
   );
@@ -331,7 +329,7 @@ async function addQuestRequirementFromModal(interaction, questId) {
   const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ เพิ่มรายการของที่ต้องส่งเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
@@ -361,7 +359,7 @@ async function saveQuestRewardFromModal(interaction, questId, rewardId) {
   const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ บันทึกรางวัลเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });
@@ -382,7 +380,7 @@ async function addQuestRewardFromModal(interaction, questId) {
   const refreshed = await getQuestDetailBundle(questId);
   await interaction.reply({
     content: '✅ เพิ่มรางวัลเรียบร้อยแล้ว',
-    embeds: [buildQuestDetailEmbed(refreshed)],
+    embeds: [buildQuestDetailEmbed(refreshed), ...buildQuestImageEmbeds(refreshed)],
     components: buildQuestDetailButtons(refreshed.quest.quest_id, refreshed.quest.profession_code, refreshed.quest.quest_level),
     ephemeral: true
   });

@@ -277,7 +277,7 @@ function buildRequirementEditSelectComponents(questId, requirements = []) {
   const options = requirements.slice(0, 25).map((item) => ({
     label: `${item.item_name || item.input_label || item.requirement_type || 'รายการไม่มีชื่อ'}`.slice(0, 100),
     value: item.requirement_id,
-    description: `${item.display_text || item.admin_display_text || 'ไม่มีรายละเอียด'}`.slice(0, 100)
+    description: `จำนวน ${Number(item.required_quantity || 0) > 0 ? item.required_quantity : 0}`.slice(0, 100)
   }));
 
   return [

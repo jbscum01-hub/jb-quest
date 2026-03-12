@@ -360,8 +360,8 @@ async function addQuestRequirement(questId, payload, updatedBy, client) {
       questId,
       payload.itemName,
       payload.requiredQuantity,
-      payload.displayText,
-      payload.adminDisplayText,
+      payload.displayText ?? payload.itemName,
+      payload.adminDisplayText ?? payload.itemName,
       nextOrder,
       updatedBy
     ]

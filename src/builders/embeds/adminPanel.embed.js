@@ -184,7 +184,7 @@ function buildQuestDetailEmbed(bundle) {
       },
       {
         name: '🖼️ รูปตัวอย่าง',
-        value: clampText(imageSummaryText),
+        value: images.length ? `แสดงรูปตัวอย่างทั้งหมด ${images.length} รูปด้านล่าง` : 'ไม่มีรูปตัวอย่าง',
         inline: false
       },
       {
@@ -196,10 +196,10 @@ function buildQuestDetailEmbed(bundle) {
         name: '🛠️ เมนูการจัดการ',
         value: clampText([
           '• **แก้คำอธิบาย** : แก้ชื่อและรายละเอียดหลักของเควส',
-          '• **แก้ของที่ต้องส่ง** : เลือกรายการ requirement เดิมเพื่อแก้ไข',
+          '• **แก้ของที่ต้องส่ง** : เลือกรายการ requirement เดิมเพื่อแก้ชื่อและจำนวน',
           '• **แก้รางวัล** : เลือกรายการ reward เดิมเพื่อแก้ไข',
           '• **แก้เควสก่อนหน้า** : ตั้งหรือเปลี่ยน dependency ของเควสนี้',
-          '• **จัดการรูปตัวอย่าง** : เลื่อนดู ลบ และเพิ่มรูปตัวอย่างของเควสนี้',
+          '• **จัดการรูปตัวอย่าง** : ลบและเพิ่มรูปตัวอย่างของเควสนี้',
           '• **เปลี่ยนสถานะเควส** : เปิดหรือปิดการใช้งานเควส',
           '• **เพิ่มของที่ต้องส่ง / เพิ่มรางวัล / เพิ่มรูปตัวอย่าง** : เพิ่มข้อมูลใหม่ให้เควสนี้'
         ].join('\n')),
@@ -209,12 +209,20 @@ function buildQuestDetailEmbed(bundle) {
     .setFooter({ text: `SCUM Quest System · ${professionLabel}` })
     .setTimestamp(quest.updated_at || new Date());
 
-  const firstImage = images.find((item) => item.media_url);
-  if (firstImage?.media_url) {
-    embed.setImage(firstImage.media_url);
-  }
-
   return embed;
+}
+
+function buildQuestImageEmbeds(bundle, limit = 8) {
+  const { quest, images = [] } = bundle;
+  return images
+    .filter((item) => item.media_url)
+    .slice(0, limit)
+    .map((item, index) => new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(`🖼️ รูปตัวอย่าง ${index + 1}${quest.quest_code ? ` · ${quest.quest_code}` : ''}`)
+      .setDescription(item.media_title || item.media_description || 'รูปตัวอย่างเควส')
+      .setImage(item.media_url)
+      .setFooter({ text: `SCUM Quest System · Quest Image ${index + 1}/${Math.min(images.length, limit)}${images.length > limit ? ` · แสดง ${limit} จาก ${images.length} รูป` : ''}` }));
 }
 
 function buildQuestImageManagerEmbed(bundle, currentIndex = 0) {
@@ -332,6 +340,7 @@ module.exports = {
   buildBrowseLevelEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
+  buildQuestImageEmbeds,
   buildQuestImageManagerEmbed,
   buildRequirementPickerEmbed,
   buildRewardPickerEmbed,
