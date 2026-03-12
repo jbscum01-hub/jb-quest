@@ -1,66 +1,48 @@
-const { pool } = require('../db/pool');
-
+const { buildAdminPanelEmbed } = require('../builders/embeds/adminPanel.embed');
+const { buildAdminPanelButtons } = require('../builders/components/adminPanel.components');
+const { logger } = require('../config/logger');
+const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const {
-  buildAdminHomeEmbed
-} = require('../builders/embeds/adminPanel.embed');
+  getGlobalConfigValue,
+  getAdminPanelMessageId,
+  saveAdminPanelMessageId
+} = require('./discordConfig.service');
 
-const {
-  buildAdminHomeComponents
-} = require('../builders/components/adminPanel.components');
-
-async function getAdminPanelChannelId() {
-  const result = await pool.query(`
-    SELECT config_value
-    FROM tb_quest_master_discord_config
-    WHERE config_key = 'QUEST_ADMIN_PANEL_CHANNEL'
-    AND is_active = true
-    LIMIT 1
-  `);
-
-  if (!result.rows.length) {
-    return null;
-  }
-
-  return result.rows[0].config_value;
-}
-
-async function ensureAdminPanelMessage(client, logger = console) {
-  const channelId = await getAdminPanelChannelId();
+async function autoDeployAdminPanel(client) {
+  const channelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_CHANNEL);
 
   if (!channelId) {
     logger.warn('QUEST_ADMIN_PANEL_CHANNEL not configured');
-    return null;
+    return;
   }
 
   const channel = await client.channels.fetch(channelId).catch(() => null);
-
   if (!channel) {
-    logger.warn(`Admin panel channel not found: ${channelId}`);
-    return null;
+    logger.warn('Admin panel channel not found');
+    return;
   }
 
-  const embed = buildAdminHomeEmbed();
-  const components = buildAdminHomeComponents();
+  const payload = {
+    embeds: [buildAdminPanelEmbed()],
+    components: buildAdminPanelButtons()
+  };
 
-  const message = await channel.send({
-    embeds: [embed],
-    components
-  });
+  const existingMessageId = await getAdminPanelMessageId();
 
-  logger.info(`Admin panel created: ${message.id}`);
-  return message;
-}
-
-async function autoDeployAdminPanel(client, logger = console) {
-  try {
-    return await ensureAdminPanelMessage(client, logger);
-  } catch (error) {
-    logger.error('Auto deploy admin panel failed', error);
-    return null;
+  if (existingMessageId) {
+    const existingMessage = await channel.messages.fetch(existingMessageId).catch(() => null);
+    if (existingMessage) {
+      await existingMessage.edit(payload);
+      logger.info('Admin panel refreshed');
+      return;
+    }
   }
+
+  const message = await channel.send(payload);
+  await saveAdminPanelMessageId(message.id);
+  logger.info('Admin panel created');
 }
 
 module.exports = {
-  autoDeployAdminPanel,
-  ensureAdminPanelMessage
+  autoDeployAdminPanel
 };

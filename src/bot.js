@@ -8,6 +8,7 @@ const {
 const { loadEnv } = require('./config/env');
 const { logger } = require('./config/logger');
 const { registerInteractionHandler } = require('./handlers/interactionCreate');
+const { autoDeployPanels } = require('./services/panelAutoDeploy.service');
 const { autoDeployAdminPanel } = require('./services/adminPanelAutoDeploy.service');
 
 async function createBot() {
@@ -28,9 +29,10 @@ async function createBot() {
     try {
       logger.info(`Logged in as ${client.user.tag}`);
       await autoDeployAdminPanel(client);
-      logger.info('Admin panel ready');
+      await autoDeployPanels(client);
+      logger.info('Panel auto deploy completed');
     } catch (error) {
-      logger.error('Auto deploy admin panel failed', error);
+      logger.error('Auto deploy panels failed', error);
     }
   });
 
