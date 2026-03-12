@@ -1,13 +1,15 @@
-const { getPool } = require('../pool');
+const poolModule = require('../pool');
 
 function getDb(client) {
-  return client || getPool();
+  if (client) return client;
+  if (typeof poolModule.getPool === 'function') return poolModule.getPool();
+  return poolModule.pool || poolModule;
 }
 
 async function findActiveProfessions(client) {
   const db = getDb(client);
   const result = await db.query(`
-    SELECT profession_id, profession_code, profession_name_th, profession_name_en
+    SELECT profession_id, profession_code, profession_name_th, profession_name_en, icon_emoji
     FROM public.tb_quest_master_profession
     WHERE is_active = TRUE
     ORDER BY sort_order ASC, created_at ASC
@@ -18,7 +20,7 @@ async function findActiveProfessions(client) {
 async function findProfessionById(professionId, client) {
   const db = getDb(client);
   const result = await db.query(`
-    SELECT profession_id, profession_code, profession_name_th, profession_name_en
+    SELECT profession_id, profession_code, profession_name_th, profession_name_en, icon_emoji
     FROM public.tb_quest_master_profession
     WHERE profession_id = $1
     LIMIT 1
@@ -34,6 +36,7 @@ async function findQuestLevelsByProfession(professionId, client) {
     WHERE profession_id = $1
       AND tier_type = 'NORMAL'
       AND is_active = TRUE
+      AND quest_level IS NOT NULL
     ORDER BY quest_level ASC
   `, [professionId]);
   return result.rows.map((row) => Number(row.quest_level)).filter(Number.isFinite);
@@ -59,6 +62,7 @@ async function findQuestDetailById(questId, client) {
       q.*,
       p.profession_code,
       p.profession_name_th,
+      p.profession_name_en,
       c.category_code,
       c.category_name
     FROM public.tb_quest_master q
@@ -77,6 +81,7 @@ async function findQuestRequirements(questId, client) {
     FROM public.tb_quest_master_requirement
     WHERE quest_id = $1
       AND is_active = TRUE
+      AND step_id IS NULL
     ORDER BY sort_order ASC, created_at ASC
   `, [questId]);
   return result.rows;
@@ -89,6 +94,7 @@ async function findQuestRewards(questId, client) {
     FROM public.tb_quest_master_reward
     WHERE quest_id = $1
       AND is_active = TRUE
+      AND step_id IS NULL
     ORDER BY sort_order ASC, created_at ASC
   `, [questId]);
   return result.rows;
@@ -120,6 +126,18 @@ async function findQuestGuideMedia(questId, client) {
   return result.rows;
 }
 
+async function findQuestSteps(questId, client) {
+  const db = getDb(client);
+  const result = await db.query(`
+    SELECT *
+    FROM public.tb_quest_master_step
+    WHERE quest_id = $1
+      AND is_active = TRUE
+    ORDER BY step_no ASC, created_at ASC
+  `, [questId]);
+  return result.rows;
+}
+
 async function searchQuests(query, client) {
   const db = getDb(client);
   const result = await db.query(`
@@ -128,6 +146,7 @@ async function searchQuests(query, client) {
       q.quest_code,
       q.quest_name,
       q.quest_level,
+      q.profession_id,
       p.profession_code,
       p.profession_name_th
     FROM public.tb_quest_master q
@@ -164,6 +183,36 @@ async function findPanelStatusRows(client) {
   return result.rows;
 }
 
+async function getDiscordConfigValue(configKey, scopeType = 'GLOBAL', scopeKey = 'SYSTEM', client) {
+  const db = getDb(client);
+  const result = await db.query(`
+    SELECT config_value
+    FROM public.tb_quest_master_discord_config
+    WHERE scope_type = $1
+      AND scope_key = $2
+      AND config_key = $3
+      AND is_active = TRUE
+    LIMIT 1
+  `, [scopeType, scopeKey, configKey]);
+  return result.rows[0]?.config_value || null;
+}
+
+async function upsertDiscordConfigValue({ scopeType = 'GLOBAL', scopeKey = 'SYSTEM', configKey, configValue, displayName = null }, client) {
+  const db = getDb(client);
+  await db.query(`
+    INSERT INTO public.tb_quest_master_discord_config (
+      scope_type, scope_key, config_key, config_value, display_name, is_active, created_at, updated_at
+    )
+    VALUES ($1, $2, $3, $4, $5, TRUE, NOW(), NOW())
+    ON CONFLICT (scope_type, scope_key, config_key)
+    DO UPDATE SET
+      config_value = EXCLUDED.config_value,
+      display_name = EXCLUDED.display_name,
+      is_active = TRUE,
+      updated_at = NOW()
+  `, [scopeType, scopeKey, configKey, configValue, displayName]);
+}
+
 module.exports = {
   findActiveProfessions,
   findProfessionById,
@@ -174,6 +223,9 @@ module.exports = {
   findQuestRewards,
   findQuestDependencies,
   findQuestGuideMedia,
+  findQuestSteps,
   searchQuests,
-  findPanelStatusRows
+  findPanelStatusRows,
+  getDiscordConfigValue,
+  upsertDiscordConfigValue
 };

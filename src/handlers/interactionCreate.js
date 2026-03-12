@@ -1,103 +1,22 @@
-const { parseCustomId } = require('../utils/customId');
-const { logger } = require('../config/logger');
-const { handlePanelButton } = require('./buttons/panel.button');
-const { handleReviewButton } = require('./buttons/review.button');
 const { handleAdminButtons } = require('./buttons/admin.button');
-const { handleAdminSelect } = require('./selects/admin.select');
-const { handleTicketButton } = require('./buttons/ticket.button');
-const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal');
-const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
-const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
+const { handleAdminSelects } = require('./selects/admin.select');
 const { handleAdminSearchQuestModal } = require('./modals/adminSearchQuest.modal');
 
-function registerInteractionHandler(client) {
+module.exports = (client, logger = console) => {
   client.on('interactionCreate', async (interaction) => {
     try {
-      if (interaction.isButton()) {
-        if (interaction.customId.startsWith('quest:admin')) {
-          await handleAdminButtons(interaction);
-          return;
-        }
-
-        const parsed = parseCustomId(interaction.customId);
-
-        if (!parsed) {
-          await interaction.reply({ content: 'รูปแบบปุ่มไม่ถูกต้อง', flags: 64 });
-          return;
-        }
-
-        if (parsed.scope === 'panel') {
-          await handlePanelButton(interaction, parsed);
-          return;
-        }
-
-        if (parsed.scope === 'review') {
-          await handleReviewButton(interaction, parsed);
-          return;
-        }
-
-        if (parsed.scope === 'ticket') {
-          await handleTicketButton(interaction, parsed);
-          return;
-        }
-
-        await interaction.reply({ content: 'ยังไม่รองรับ interaction นี้ในระบบ', flags: 64 });
-        return;
-      }
-
-      if (interaction.isStringSelectMenu()) {
-        if (interaction.customId.startsWith('quest:admin')) {
-          await handleAdminSelect(interaction);
-          return;
-        }
-
-        await interaction.reply({ content: 'ยังไม่รองรับ select menu นี้', flags: 64 });
-        return;
-      }
-
-      if (interaction.isModalSubmit()) {
-        if (interaction.customId === 'quest:admin:search_submit') {
-          await handleAdminSearchQuestModal(interaction);
-          return;
-        }
-
-        const parsed = parseCustomId(interaction.customId);
-
-        if (!parsed) {
-          await interaction.reply({ content: 'รูปแบบฟอร์มไม่ถูกต้อง', flags: 64 });
-          return;
-        }
-
-        if (parsed.scope === 'modal_submit' && parsed.action === 'review_revision') {
-          await handleReviewRevisionModal(interaction, parsed);
-          return;
-        }
-
-        if (parsed.scope === 'modal_submit' && parsed.action === 'step_submit') {
-          await handleStepSubmissionModal(interaction, parsed);
-          return;
-        }
-
-        if (parsed.scope === 'modal_submit') {
-          await handleQuestSubmissionModal(interaction, parsed);
-          return;
-        }
-
-        await interaction.reply({ content: 'ยังไม่รองรับ modal นี้ในระบบ', flags: 64 });
-      }
+      if (await handleAdminButtons(interaction)) return;
+      if (await handleAdminSelects(interaction)) return;
+      if (await handleAdminSearchQuestModal(interaction)) return;
     } catch (error) {
-      logger.error('interactionCreate handler failed', error);
+      logger.error?.('[ADMIN] interactionCreate failed', error);
 
+      const payload = { content: 'เกิดข้อผิดพลาดระหว่างจัดการหน้าแอดมิน', ephemeral: true };
       if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: 'เกิดข้อผิดพลาดระหว่างประมวลผล', flags: 64 });
-        return;
+        await interaction.editReply(payload).catch(() => null);
+      } else {
+        await interaction.reply(payload).catch(() => null);
       }
-
-      await interaction.reply({ content: `เกิดข้อผิดพลาดระหว่างประมวลผล: ${error.message}`, flags: 64 });
     }
   });
-}
-
-module.exports = {
-  registerInteractionHandler
 };

@@ -1,35 +1,45 @@
-const { ensureAdmin } = require('../buttons/admin.button');
-const {
-  buildBrowseLevelPayload,
-  buildBrowseQuestPayload,
-  buildQuestDetailPayload
-} = require('../../services/adminPanel.service');
+const adminService = require('../../services/adminPanel.service');
+const adminRepo = require('../../db/queries/adminPanel.repo');
 
-async function handleAdminSelect(interaction) {
-  if (!(await ensureAdmin(interaction))) return;
+async function handleAdminSelects(interaction) {
+  if (!interaction.isStringSelectMenu()) return false;
+  const customId = interaction.customId || '';
+  if (!customId.startsWith('admin:')) return false;
 
-  const { customId, values } = interaction;
-  const selectedValue = values?.[0];
-
-  if (customId === 'quest:admin:select_profession') {
-    await interaction.update(await buildBrowseLevelPayload(selectedValue));
-    return;
+  if (customId === 'admin:master:select_profession') {
+    const professionId = interaction.values[0];
+    await interaction.update(await adminService.buildBrowseLevelPayload(professionId));
+    return true;
   }
 
-  if (customId.startsWith('quest:admin:select_level:')) {
+  if (customId.startsWith('admin:master:select_level:')) {
     const professionId = customId.split(':')[3];
-    await interaction.update(await buildBrowseQuestPayload(professionId, selectedValue));
-    return;
+    const level = Number(interaction.values[0]);
+    await interaction.update(await adminService.buildBrowseQuestPayload(professionId, level));
+    return true;
   }
 
-  if (customId.startsWith('quest:admin:select_quest:')) {
-    await interaction.update(await buildQuestDetailPayload(selectedValue));
-    return;
+  if (customId.startsWith('admin:master:select_quest:')) {
+    const [, , , professionId, levelText] = customId.split(':');
+    const questId = interaction.values[0];
+    await interaction.update(await adminService.buildQuestDetailPayload(questId, {
+      professionId,
+      level: Number(levelText)
+    }));
+    return true;
   }
 
-  await interaction.reply({ content: 'ยังไม่รองรับ select menu นี้', flags: 64 });
+  if (customId === 'admin:master:select_search_result') {
+    const questId = interaction.values[0];
+    const quest = await adminRepo.findQuestDetailById(questId);
+    await interaction.update(await adminService.buildQuestDetailPayload(questId, {
+      professionId: quest?.profession_id,
+      level: quest?.quest_level
+    }));
+    return true;
+  }
+
+  return false;
 }
 
-module.exports = {
-  handleAdminSelect
-};
+module.exports = { handleAdminSelects };
