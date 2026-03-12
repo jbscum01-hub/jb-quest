@@ -46,13 +46,13 @@ async function findQuestsByProfessionAndLevel(professionCode, level, client) {
            p.profession_name_th,
            p.icon_emoji,
            q.is_active,
-           q.sort_order
+           q.display_order
     FROM public.tb_quest_master q
     JOIN public.tb_quest_master_profession p
       ON p.profession_id = q.profession_id
     WHERE p.profession_code = $1
       AND q.quest_level = $2
-    ORDER BY q.sort_order ASC, q.quest_code ASC
+    ORDER BY q.display_order ASC, q.quest_code ASC
     `,
     [professionCode, level]
   );
@@ -80,7 +80,7 @@ async function searchQuests(keyword, client) {
        OR q.quest_name ILIKE $1
        OR p.profession_code ILIKE $1
        OR p.profession_name_th ILIKE $1
-    ORDER BY p.sort_order ASC, q.quest_level ASC, q.sort_order ASC, q.quest_code ASC
+    ORDER BY p.sort_order ASC, q.quest_level ASC, q.display_order ASC, q.quest_code ASC
     LIMIT 25
     `,
     [like]
