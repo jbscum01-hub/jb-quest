@@ -1,167 +1,189 @@
 const { EmbedBuilder } = require('discord.js');
 
-function buildBaseEmbed(title) {
+function baseEmbed(title, description) {
   return new EmbedBuilder()
-    .setColor(0x2b2d31)
+    .setColor(0x5865f2)
     .setTitle(title)
-    .setFooter({ text: 'SCUM Quest Bot • Admin Panel ภาษาไทย' })
+    .setDescription(description)
+    .setFooter({ text: 'SCUM Quest Admin' })
     .setTimestamp();
 }
 
 function buildAdminHomeEmbed() {
-  return buildBaseEmbed('⚙️ หน้าหลักแอดมิน')
-    .setDescription([
-      'ศูนย์ควบคุมระบบ Quest Bot สำหรับแอดมิน',
+  return baseEmbed(
+    '🛠️ หน้าหลักแอดมินเควส',
+    [
+      'ศูนย์ควบคุมระบบ Quest Bot',
       '',
       '**เมนูที่มีในหน้านี้**',
-      '• จัดการพาเนล — ใช้ส่ง / รีเฟรช / ซ่อมพาเนลผู้เล่น',
-      '• จัดการข้อมูลเควส — ใช้เลือกเควสก่อน แล้วค่อยดูหรือแก้ข้อมูลของเควสนั้น',
+      '• จัดการพาเนล — ส่ง/รีเฟรช/ตรวจสถานะพาเนลผู้เล่น',
+      '• จัดการข้อมูลเควส — เลือกเควสแล้วดูหรือแก้ข้อมูลของเควสนั้น',
       '',
-      '**แนวทางการใช้งานที่แนะนำ**',
-      '1. เลือก “จัดการข้อมูลเควส”',
-      '2. เลือกสาย > เลือกเลเวล > เลือกเควส',
-      '3. เข้า Quest Detail แล้วค่อยกดดูหรือแก้ข้อมูล',
-      '',
-      'แบบนี้แอดมินจะไม่หลงว่าอยู่เควสไหน'
-    ].join('\n'));
+      'แนะนำ: ถ้าจะแก้ข้อมูล ให้เข้า `จัดการข้อมูลเควส` แล้วเลือกเควสก่อนทุกครั้ง'
+    ].join('\n')
+  );
 }
 
 function buildPanelManagementEmbed() {
-  return buildBaseEmbed('🧩 จัดการพาเนล')
-    .setDescription([
-      'เมนูนี้ใช้สำหรับจัดการพาเนลฝั่งผู้เล่นและตรวจสถานะข้อความพาเนล',
+  return baseEmbed(
+    '🧩 จัดการพาเนล',
+    [
+      'เมนูนี้ใช้สำหรับจัดการพาเนลฝั่งผู้เล่น',
       '',
-      '**คำอธิบายปุ่ม**',
-      '• ส่งพาเนลผู้เล่นใหม่ — ใช้ตอนเริ่มระบบหรือต้องการส่งพาเนลใหม่ทั้งชุด',
-      '• รีเฟรชพาเนลผู้เล่น — ใช้ตอนแก้ข้อความ / ปุ่ม / layout แล้วอยากอัปเดตของเดิม',
-      '• ซ่อมพาเนลที่หาย — ใช้เมื่อบางสายโดนลบหรือ message id ไม่ตรง',
-      '• รีเฟรช Current Quest — ใช้เมื่อ logic progress เปลี่ยนหรือ panel แสดงไม่ตรง',
-      '• สถานะพาเนล — ใช้เช็กสุขภาพระบบว่าพาเนลสายไหนหายหรือยังอยู่'
-    ].join('\n'));
+      '• ส่งพาเนลผู้เล่นใหม่ — สร้างหรือแทนที่พาเนลตาม config ปัจจุบัน',
+      '• รีเฟรชพาเนลผู้เล่น — อัปเดตข้อความและปุ่มของพาเนลเดิม',
+      '• ซ่อมพาเนลที่หาย — ใช้เมื่อบางสายโดนลบข้อความ',
+      '• รีเฟรชหน้าดูเควสปัจจุบัน — ใช้หลังแก้ logic หรือแก้ master',
+      '• สถานะพาเนล — ใช้ตรวจสอบ config และสถานะการตั้งค่า'
+    ].join('\n')
+  );
 }
 
 function buildMasterHomeEmbed() {
-  return buildBaseEmbed('📚 จัดการข้อมูลเควส')
-    .setDescription([
-      'เมนูนี้ใช้สำหรับดูและแก้ข้อมูล Quest Master',
+  return baseEmbed(
+    '📚 จัดการข้อมูลเควส',
+    [
+      'หลักการของหน้านี้คือ **เลือกเควสก่อน แล้วค่อยแก้**',
       '',
-      '**หลักการสำคัญ**',
-      'เลือกเควสก่อนเสมอ แล้วค่อยดูหรือแก้ข้อมูลของเควสนั้น',
-      '',
-      '**คำอธิบายปุ่ม**',
-      '• เลือกเควสตามสาย — เข้าแบบเรียงตามสายอาชีพและระดับ',
-      '• ค้นหาเควส — พิมพ์ quest code หรือชื่อเควสเพื่อค้นหาเร็ว',
-      '• สร้างเควสใหม่ — ปุ่มเตรียมไว้สำหรับ flow สร้างเควสในรอบถัดไป'
-    ].join('\n'));
+      '• เลือกเควสเพื่อจัดการ — ไล่ตามสายอาชีพและเลเวล',
+      '• ค้นหาเควส — เหมาะเวลารู้ชื่อหรือโค้ดอยู่แล้ว',
+      '• สร้างเควสใหม่ — ปุ่มเตรียมไว้สำหรับ phase ถัดไป'
+    ].join('\n')
+  );
 }
 
-function buildProfessionBrowseEmbed(professions) {
-  return buildBaseEmbed('🗂️ เลือกสายอาชีพ')
-    .setDescription([
-      'เลือกสายอาชีพที่ต้องการจัดการก่อน',
+function buildProfessionPickerEmbed(professions) {
+  return baseEmbed(
+    '🧭 เลือกสายอาชีพ',
+    [
+      `พบสายอาชีพที่เปิดใช้งาน ${professions.length} สาย`,
       '',
-      `ตอนนี้พบทั้งหมด **${professions.length} สาย**`,
-      'เมื่อเลือกแล้ว ระบบจะพาไปเลือกระดับเควส'
-    ].join('\n'));
+      'เลือกสายที่ต้องการ แล้วระบบจะพาไปเลือกเลเวล'
+    ].join('\n')
+  );
 }
 
-function buildLevelBrowseEmbed(profession, levels) {
-  return buildBaseEmbed(`📌 เลือกระดับเควส • ${profession.icon_emoji || '📘'} ${profession.profession_name_th}`)
-    .setDescription([
-      `สาย: **${profession.profession_name_th}** (${profession.profession_code})`,
+function buildLevelPickerEmbed(profession, levels) {
+  return baseEmbed(
+    `🎚️ เลือกเลเวลของสาย ${profession.profession_name_th || profession.profession_code}`,
+    [
+      `สาย: ${profession.profession_code}`,
+      `มีเลเวลที่พบในระบบ: ${levels.join(', ') || '-'}`,
       '',
-      `พบระดับเควสทั้งหมด **${levels.length} ระดับ**`,
-      'เลือกเลเวลก่อน แล้วค่อยเลือกเควสที่ต้องการดูหรือแก้ไข'
-    ].join('\n'));
+      'เลือกเลเวลเพื่อดูรายการเควส'
+    ].join('\n')
+  );
 }
 
-function buildQuestBrowseEmbed(profession, questLevel, quests) {
-  return buildBaseEmbed(`📖 รายการเควส • ${profession.profession_name_th} • Lv.${questLevel}`)
-    .setDescription([
-      `สาย: **${profession.profession_name_th}**`,
-      `ระดับ: **Lv.${questLevel}**`,
+function buildQuestPickerEmbed(profession, level, quests) {
+  return baseEmbed(
+    `📜 เลือกเควส • ${profession.profession_name_th || profession.profession_code} • Lv${level}`,
+    [
+      `พบเควสทั้งหมด ${quests.length} รายการ`,
       '',
-      `พบทั้งหมด **${quests.length} เควส**`,
-      'เลือกเควสด้านล่างเพื่อเข้า Quest Detail'
-    ].join('\n'));
+      'เลือกเควสที่ต้องการจัดการ แล้วระบบจะพาไปหน้า Quest Detail'
+    ].join('\n')
+  );
 }
 
-function buildQuestDetailEmbed(quest, extras = {}) {
-  const requirementCount = extras.requirementCount || 0;
-  const rewardCount = extras.rewardCount || 0;
-  const dependencyCount = extras.dependencyCount || 0;
-  const imageCount = extras.imageCount || 0;
-  const stepCount = extras.stepCount || 0;
+function buildQuestDetailEmbed(payload) {
+  const { quest, requirements = [], rewards = [], dependencies = [], images = [] } = payload;
 
-  return buildBaseEmbed(`🎯 ${quest.quest_name}`)
-    .setDescription([
-      `**สาย:** ${quest.icon_emoji || '📘'} ${quest.profession_name_th || '-'}`,
-      `**Quest Code:** ${quest.quest_code}`,
+  return baseEmbed(
+    `🗂️ ${quest.quest_code || 'ไม่มีโค้ด'} • ${quest.quest_name || 'ไม่มีชื่อเควส'}`,
+    [
+      `**สายอาชีพ:** ${quest.profession_name_th || quest.profession_code || '-'}`,
       `**เลเวล:** ${quest.quest_level ?? '-'}`,
-      `**สถานะ:** ${quest.is_active ? 'ใช้งานอยู่' : 'ปิดใช้งาน'}`,
-      `**ประเภท:** ${quest.is_repeatable ? 'Repeatable' : 'Main Quest'}`,
-      `**Step Quest:** ${quest.is_step_quest ? 'ใช่' : 'ไม่ใช่'}`,
-      `**ต้องเปิด Ticket:** ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
+      `**สถานะ:** ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
+      `**ประเภท:** ${quest.is_repeatable ? 'เควสซ้ำ' : 'เควสหลัก'}${quest.is_step_quest ? ' • Step Quest' : ''}${quest.requires_ticket ? ' • ใช้ Ticket' : ''}`,
       '',
-      '**คำอธิบายเควส**',
-      quest.quest_description || '- ไม่มีคำอธิบาย -',
+      `**ชื่อพาเนล:** ${quest.panel_title || '-'}`,
+      `**ปุ่ม:** ${quest.button_label || '-'}`,
+      `**คำอธิบาย:** ${quest.quest_description || quest.panel_description || '-'}`,
+      `**โน้ตแอดมิน:** ${quest.admin_note || '-'}`,
       '',
-      '**สรุปข้อมูลในเควสนี้**',
-      `• ของที่ต้องส่ง: ${requirementCount} รายการ`,
-      `• รางวัล: ${rewardCount} รายการ`,
-      `• Dependency: ${dependencyCount} รายการ`,
-      `• รูปตัวอย่าง: ${imageCount} รายการ`,
-      `• Step: ${stepCount} รายการ`
-    ].join('\n'));
+      `**ของที่ต้องส่ง:** ${requirements.length} รายการ`,
+      `**รางวัล:** ${rewards.length} รายการ`,
+      `**Dependency:** ${dependencies.length} รายการ`,
+      `**รูปตัวอย่าง:** ${images.length} รูป`,
+      '',
+      'ใช้ปุ่มด้านล่างเพื่อดูหรือแก้ข้อมูลของเควสนี้'
+    ].join('\n')
+  );
 }
 
-function buildSimpleListEmbed(title, quest, rows, formatter) {
+function buildQuestRequirementsEmbed(quest, requirements) {
+  const lines = requirements.length
+    ? requirements.map((r, i) => `${i + 1}. **${r.item_name || r.requirement_type || 'Requirement'}** x${r.required_quantity || 0}\n   - ${r.display_text || r.admin_display_text || '-'}`)
+    : ['ไม่พบ requirement ของเควสนี้'];
+
+  return baseEmbed(`📦 ของที่ต้องส่ง • ${quest.quest_code || ''}`, lines.join('\n\n'));
+}
+
+function buildQuestRewardsEmbed(quest, rewards) {
+  const lines = rewards.length
+    ? rewards.map((r, i) => `${i + 1}. **${r.reward_item_name || r.reward_type || 'Reward'}** x${r.reward_quantity || 0}\n   - ${r.reward_display_text || '-'}`)
+    : ['ไม่พบ reward ของเควสนี้'];
+
+  return baseEmbed(`🎁 รางวัล • ${quest.quest_code || ''}`, lines.join('\n\n'));
+}
+
+function buildQuestDependenciesEmbed(quest, dependencies) {
+  const lines = dependencies.length
+    ? dependencies.map((d, i) => `${i + 1}. ${d.dependency_type || 'QUEST'} -> ${d.required_quest_code || d.required_quest_id || d.required_level || d.required_role_id || '-'}`)
+    : ['ไม่มี dependency ของเควสนี้'];
+
+  return baseEmbed(`🔗 Dependency • ${quest.quest_code || ''}`, lines.join('\n\n'));
+}
+
+function buildQuestImagesEmbed(quest, images, index = 0) {
+  if (!images.length) {
+    return baseEmbed(`🖼️ รูปตัวอย่าง • ${quest.quest_code || ''}`, 'ยังไม่มีรูปตัวอย่างของเควสนี้');
+  }
+
+  const item = images[index];
+  return baseEmbed(
+    `🖼️ รูปตัวอย่าง • ${quest.quest_code || ''} (${index + 1}/${images.length})`,
+    [
+      `**ชื่อรูป:** ${item.media_title || '-'}`,
+      `**คำอธิบาย:** ${item.media_description || '-'}`,
+      `**ลำดับ:** ${item.display_order || 0}`,
+      `**ประเภท:** ${item.media_type || '-'}`,
+      '',
+      item.media_url || '-'
+    ].join('\n')
+  ).setImage(item.media_url || null);
+}
+
+function buildPanelStatusEmbed(rows) {
   const lines = rows.length
-    ? rows.map((row, index) => formatter(row, index + 1))
-    : ['- ไม่พบข้อมูล -'];
+    ? rows.map((row) => `• ${row.profession_code}: channel=${row.panel_channel_id || '-'} / message=${row.panel_message_id || '-'}`)
+    : ['ไม่พบข้อมูล panel config'];
 
-  return buildBaseEmbed(title)
-    .setDescription([
-      `**Quest:** ${quest.quest_code} • ${quest.quest_name}`,
-      `**สาย:** ${quest.profession_name_th || '-'}`,
-      `**เลเวล:** ${quest.quest_level ?? '-'}`,
-      '',
-      ...lines
-    ].join('\n'));
+  return baseEmbed('📡 สถานะพาเนล', lines.join('\n'));
 }
 
-function buildPanelStatusEmbed(items) {
-  const lines = items.length
-    ? items.map((item, index) => {
-        const status = item.status === 'OK' ? '✅' : item.status === 'MISSING_MESSAGE' ? '⚠️' : '❌';
-        return `${index + 1}. ${status} **${item.professionCode}**\n   ห้อง: ${item.channelId || '-'}\n   ข้อความ: ${item.messageId || '-'}\n   สถานะ: ${item.status}`;
-      })
-    : ['- ไม่พบข้อมูลพาเนล -'];
-
-  return buildBaseEmbed('📡 สถานะพาเนล')
-    .setDescription(lines.join('\n\n'));
-}
-
-function buildStubActionEmbed(title, questId = null) {
-  return buildBaseEmbed(`🛠️ ${title}`)
-    .setDescription([
-      questId ? `Quest ID: **${questId}**` : null,
-      'ปุ่มนี้เตรียม flow ภาษาไทยไว้แล้ว',
-      'แต่ logic แก้ฐานข้อมูลจริงจะทำต่อในรอบถัดไป',
-      '',
-      'ตอนนี้ใช้หน้า Admin Panel ชุดนี้เพื่อเทสเส้นทางการใช้งานก่อน'
-    ].filter(Boolean).join('\n'));
+function buildSearchResultsEmbed(query, quests) {
+  return baseEmbed(
+    `🔎 ผลการค้นหา: ${query}`,
+    quests.length
+      ? `พบ ${quests.length} รายการ กรุณาเลือกเควสที่ต้องการ`
+      : 'ไม่พบเควสที่ตรงกับคำค้น'
+  );
 }
 
 module.exports = {
   buildAdminHomeEmbed,
   buildPanelManagementEmbed,
   buildMasterHomeEmbed,
-  buildProfessionBrowseEmbed,
-  buildLevelBrowseEmbed,
-  buildQuestBrowseEmbed,
+  buildProfessionPickerEmbed,
+  buildLevelPickerEmbed,
+  buildQuestPickerEmbed,
   buildQuestDetailEmbed,
-  buildSimpleListEmbed,
+  buildQuestRequirementsEmbed,
+  buildQuestRewardsEmbed,
+  buildQuestDependenciesEmbed,
+  buildQuestImagesEmbed,
   buildPanelStatusEmbed,
-  buildStubActionEmbed
+  buildSearchResultsEmbed
 };

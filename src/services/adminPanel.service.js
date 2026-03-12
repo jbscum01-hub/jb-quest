@@ -2,242 +2,179 @@ const {
   buildAdminHomeEmbed,
   buildPanelManagementEmbed,
   buildMasterHomeEmbed,
-  buildProfessionBrowseEmbed,
-  buildLevelBrowseEmbed,
-  buildQuestBrowseEmbed,
+  buildProfessionPickerEmbed,
+  buildLevelPickerEmbed,
+  buildQuestPickerEmbed,
   buildQuestDetailEmbed,
-  buildSimpleListEmbed,
+  buildQuestRequirementsEmbed,
+  buildQuestRewardsEmbed,
+  buildQuestDependenciesEmbed,
+  buildQuestImagesEmbed,
   buildPanelStatusEmbed,
-  buildStubActionEmbed
+  buildSearchResultsEmbed
 } = require('../builders/embeds/adminPanel.embed');
 const {
   buildAdminHomeComponents,
   buildPanelManagementComponents,
   buildMasterHomeComponents,
-  buildProfessionSelectComponent,
-  buildLevelSelectComponent,
-  buildQuestSelectComponent,
+  buildProfessionSelectComponents,
+  buildLevelSelectComponents,
+  buildQuestSelectComponents,
   buildQuestDetailComponents,
-  buildBackToQuestDetailComponents
+  buildRequirementSelectComponents,
+  buildRewardSelectComponents,
+  buildSearchResultComponents,
+  buildImageViewerComponents
 } = require('../builders/components/adminPanel.components');
 const {
-  listActiveProfessions,
+  findActiveProfessions,
   findProfessionById,
-  listQuestLevelsByProfession,
-  listQuestsByProfessionAndLevel,
+  findQuestLevelsByProfession,
+  findQuestsByProfessionAndLevel,
   findQuestDetailById,
-  listQuestRequirements,
-  listQuestRewards,
-  listQuestDependencies,
-  listQuestGuideMedia,
-  listQuestSteps,
+  findQuestRequirements,
+  findQuestRewards,
+  findQuestDependencies,
+  findQuestGuideMedia,
   searchQuests,
-  listProfessionPanelConfigRows
+  findPanelStatusRows
 } = require('../db/queries/adminPanel.repo');
-const { deployProfessionPanels } = require('./panelAutoDeploy.service');
-const { autoDeployAdminPanel } = require('./adminPanelAutoDeploy.service');
 
-async function renderAdminHome(target) {
-  return target.update({
+async function buildAdminHomePayload() {
+  return {
     embeds: [buildAdminHomeEmbed()],
     components: buildAdminHomeComponents()
-  });
+  };
 }
 
-async function renderPanelManagement(target) {
-  return target.update({
+async function buildPanelManagementPayload() {
+  return {
     embeds: [buildPanelManagementEmbed()],
     components: buildPanelManagementComponents()
-  });
+  };
 }
 
-async function renderMasterHome(target) {
-  return target.update({
+async function buildMasterHomePayload() {
+  return {
     embeds: [buildMasterHomeEmbed()],
     components: buildMasterHomeComponents()
-  });
+  };
 }
 
-async function renderProfessionBrowser(target) {
-  const professions = await listActiveProfessions();
-  return target.update({
-    embeds: [buildProfessionBrowseEmbed(professions)],
-    components: buildProfessionSelectComponent(professions)
-  });
+async function buildProfessionPickerPayload() {
+  const professions = await findActiveProfessions();
+  return {
+    embeds: [buildProfessionPickerEmbed(professions)],
+    components: buildProfessionSelectComponents(professions)
+  };
 }
 
-async function renderLevelBrowser(target, professionId) {
+async function buildLevelPickerPayload(professionId) {
   const profession = await findProfessionById(professionId);
-  const levels = await listQuestLevelsByProfession(professionId);
-
-  return target.update({
-    embeds: [buildLevelBrowseEmbed(profession, levels)],
-    components: buildLevelSelectComponent(professionId, levels)
-  });
+  const levels = await findQuestLevelsByProfession(professionId);
+  return {
+    embeds: [buildLevelPickerEmbed(profession, levels)],
+    components: buildLevelSelectComponents(professionId, levels)
+  };
 }
 
-async function renderQuestBrowser(target, professionId, questLevel) {
+async function buildQuestPickerPayload(professionId, level) {
   const profession = await findProfessionById(professionId);
-  const quests = await listQuestsByProfessionAndLevel(professionId, Number(questLevel));
-
-  return target.update({
-    embeds: [buildQuestBrowseEmbed(profession, questLevel, quests)],
-    components: buildQuestSelectComponent(professionId, Number(questLevel), quests)
-  });
+  const quests = await findQuestsByProfessionAndLevel(professionId, level);
+  return {
+    embeds: [buildQuestPickerEmbed(profession, level, quests)],
+    components: buildQuestSelectComponents(professionId, level, quests)
+  };
 }
 
-async function renderQuestDetail(target, questId, professionId, questLevel) {
-  const quest = await findQuestDetailById(questId);
-  const [requirements, rewards, dependencies, images, steps] = await Promise.all([
-    listQuestRequirements(questId),
-    listQuestRewards(questId),
-    listQuestDependencies(questId),
-    listQuestGuideMedia(questId),
-    listQuestSteps(questId)
+async function buildQuestDetailPayload(questId) {
+  const [quest, requirements, rewards, dependencies, images] = await Promise.all([
+    findQuestDetailById(questId),
+    findQuestRequirements(questId),
+    findQuestRewards(questId),
+    findQuestDependencies(questId),
+    findQuestGuideMedia(questId)
   ]);
 
-  return target.update({
-    embeds: [buildQuestDetailEmbed(quest, {
-      requirementCount: requirements.length,
-      rewardCount: rewards.length,
-      dependencyCount: dependencies.length,
-      imageCount: images.length,
-      stepCount: steps.length
-    })],
-    components: buildQuestDetailComponents(questId, { professionId, questLevel })
-  });
+  return {
+    embeds: [buildQuestDetailEmbed({ quest, requirements, rewards, dependencies, images })],
+    components: buildQuestDetailComponents(questId, { isActive: !!quest.is_active })
+  };
 }
 
-async function renderQuestRequirements(target, questId, professionId, questLevel) {
-  const quest = await findQuestDetailById(questId);
-  const rows = await listQuestRequirements(questId);
-  return target.update({
-    embeds: [buildSimpleListEmbed('📦 ของที่ต้องส่งในเควสนี้', quest, rows, (row, no) => {
-      return `${no}. **${row.item_name || row.input_label || row.requirement_type}**\n   ประเภท: ${row.requirement_type}\n   จำนวน: ${row.required_quantity || '-'}\n   ข้อความแสดง: ${row.display_text || '-'} `;
-    })],
-    components: buildBackToQuestDetailComponents(questId, professionId, questLevel)
-  });
+async function buildQuestRequirementsPayload(questId) {
+  const [quest, requirements] = await Promise.all([
+    findQuestDetailById(questId),
+    findQuestRequirements(questId)
+  ]);
+  return {
+    embeds: [buildQuestRequirementsEmbed(quest, requirements)],
+    components: buildRequirementSelectComponents(questId, requirements)
+  };
 }
 
-async function renderQuestRewards(target, questId, professionId, questLevel) {
-  const quest = await findQuestDetailById(questId);
-  const rows = await listQuestRewards(questId);
-  return target.update({
-    embeds: [buildSimpleListEmbed('🎁 รางวัลของเควสนี้', quest, rows, (row, no) => {
-      return `${no}. **${row.reward_item_name || row.reward_value_text || row.reward_type}**\n   ประเภท: ${row.reward_type}\n   จำนวน: ${row.reward_quantity || row.reward_value_number || '-'}\n   ข้อความแสดง: ${row.reward_display_text || '-'} `;
-    })],
-    components: buildBackToQuestDetailComponents(questId, professionId, questLevel)
-  });
+async function buildQuestRewardsPayload(questId) {
+  const [quest, rewards] = await Promise.all([
+    findQuestDetailById(questId),
+    findQuestRewards(questId)
+  ]);
+  return {
+    embeds: [buildQuestRewardsEmbed(quest, rewards)],
+    components: buildRewardSelectComponents(questId, rewards)
+  };
 }
 
-async function renderQuestDependencies(target, questId, professionId, questLevel) {
-  const quest = await findQuestDetailById(questId);
-  const rows = await listQuestDependencies(questId);
-  return target.update({
-    embeds: [buildSimpleListEmbed('🔗 Dependency ของเควสนี้', quest, rows, (row, no) => {
-      const dependencyValue = row.required_quest_code
-        ? `${row.required_quest_code} • ${row.required_quest_name || ''}`.trim()
-        : row.required_role_name || row.required_role_id || row.required_level || '-';
-      return `${no}. **${row.dependency_type}**\n   เงื่อนไข: ${dependencyValue}\n   Operator: ${row.condition_operator}`;
-    })],
-    components: buildBackToQuestDetailComponents(questId, professionId, questLevel)
-  });
+async function buildQuestDependenciesPayload(questId) {
+  const [quest, dependencies] = await Promise.all([
+    findQuestDetailById(questId),
+    findQuestDependencies(questId)
+  ]);
+  return {
+    embeds: [buildQuestDependenciesEmbed(quest, dependencies)],
+    components: buildQuestDetailComponents(questId, { isActive: !!quest.is_active })
+  };
 }
 
-async function renderQuestImages(target, questId, professionId, questLevel) {
-  const quest = await findQuestDetailById(questId);
-  const rows = await listQuestGuideMedia(questId);
-  return target.update({
-    embeds: [buildSimpleListEmbed('🖼️ รูปตัวอย่างของเควสนี้', quest, rows, (row, no) => {
-      return `${no}. **${row.media_title || 'รูปตัวอย่าง'}**\n   ประเภท: ${row.media_type}\n   URL: ${row.media_url}\n   คำอธิบาย: ${row.media_description || '-'} `;
-    })],
-    components: buildBackToQuestDetailComponents(questId, professionId, questLevel)
-  });
+async function buildQuestImagesPayload(questId, index = 0) {
+  const [quest, images] = await Promise.all([
+    findQuestDetailById(questId),
+    findQuestGuideMedia(questId)
+  ]);
+  const safeIndex = Math.max(0, Math.min(index, Math.max(images.length - 1, 0)));
+  return {
+    embeds: [buildQuestImagesEmbed(quest, images, safeIndex)],
+    components: buildImageViewerComponents(questId, safeIndex, images.length || 1)
+  };
 }
 
-async function renderSearchResults(target, keyword) {
-  const rows = await searchQuests(keyword);
-  const description = rows.length
-    ? rows.map((row, index) => `${index + 1}. **${row.quest_code} • ${row.quest_name}**\n   สาย: ${row.profession_name_th || '-'}\n   เลเวล: ${row.quest_level || '-'}\n   สถานะ: ${row.is_active ? 'ใช้งานอยู่' : 'ปิดใช้งาน'}`).join('\n\n')
-    : '- ไม่พบเควสที่ค้นหา -';
-
-  return target.reply({
-    embeds: [
-      buildStubActionEmbed('ผลการค้นหาเควส')
-        .setDescription([`คำค้นหา: **${keyword}**`, '', description].join('\n'))
-    ],
-    ephemeral: true
-  });
+async function buildPanelStatusPayload() {
+  const rows = await findPanelStatusRows();
+  return {
+    embeds: [buildPanelStatusEmbed(rows)],
+    components: buildPanelManagementComponents()
+  };
 }
 
-async function runPanelDeploy(interaction) {
-  await autoDeployAdminPanel(interaction.client);
-  await deployProfessionPanels(interaction.client);
-  return interaction.reply({ content: '✅ ส่งพาเนลแอดมินและพาเนลผู้เล่นใหม่เรียบร้อยแล้ว', ephemeral: true });
-}
-
-async function runPanelRefresh(interaction) {
-  await autoDeployAdminPanel(interaction.client);
-  await deployProfessionPanels(interaction.client);
-  return interaction.reply({ content: '✅ รีเฟรชพาเนลเรียบร้อยแล้ว', ephemeral: true });
-}
-
-async function runPanelRepair(interaction) {
-  await deployProfessionPanels(interaction.client);
-  return interaction.reply({ content: '🛠️ สั่งซ่อมพาเนลที่หายแล้ว หาก config ครบระบบจะสร้างเฉพาะที่ขาดให้', ephemeral: true });
-}
-
-async function runCurrentQuestRefresh(interaction) {
-  return interaction.reply({ content: '🔄 ฟังก์ชันรีเฟรช Current Quest เตรียม flow ไว้แล้ว รอบถัดไปจะผูกกับ logic progress จริง', ephemeral: true });
-}
-
-async function renderPanelStatus(interaction) {
-  const rows = await listProfessionPanelConfigRows();
-  const statusRows = [];
-
-  for (const row of rows) {
-    let status = 'MISSING_CHANNEL';
-    if (row.channel_id) {
-      const channel = await interaction.client.channels.fetch(row.channel_id).catch(() => null);
-      if (channel && row.message_id) {
-        const message = await channel.messages.fetch(row.message_id).catch(() => null);
-        status = message ? 'OK' : 'MISSING_MESSAGE';
-      } else if (channel) {
-        status = 'MISSING_MESSAGE';
-      }
-    }
-
-    statusRows.push({
-      professionCode: row.profession_code,
-      channelId: row.channel_id,
-      messageId: row.message_id,
-      status
-    });
-  }
-
-  return interaction.reply({
-    embeds: [buildPanelStatusEmbed(statusRows)],
-    ephemeral: true
-  });
+async function buildSearchResultsPayload(query) {
+  const quests = await searchQuests(query);
+  return {
+    embeds: [buildSearchResultsEmbed(query, quests)],
+    components: quests.length ? buildSearchResultComponents(quests) : buildMasterHomeComponents()
+  };
 }
 
 module.exports = {
-  renderAdminHome,
-  renderPanelManagement,
-  renderMasterHome,
-  renderProfessionBrowser,
-  renderLevelBrowser,
-  renderQuestBrowser,
-  renderQuestDetail,
-  renderQuestRequirements,
-  renderQuestRewards,
-  renderQuestDependencies,
-  renderQuestImages,
-  renderSearchResults,
-  runPanelDeploy,
-  runPanelRefresh,
-  runPanelRepair,
-  runCurrentQuestRefresh,
-  renderPanelStatus,
-  buildStubActionEmbed
+  buildAdminHomePayload,
+  buildPanelManagementPayload,
+  buildMasterHomePayload,
+  buildProfessionPickerPayload,
+  buildLevelPickerPayload,
+  buildQuestPickerPayload,
+  buildQuestDetailPayload,
+  buildQuestRequirementsPayload,
+  buildQuestRewardsPayload,
+  buildQuestDependenciesPayload,
+  buildQuestImagesPayload,
+  buildPanelStatusPayload,
+  buildSearchResultsPayload
 };

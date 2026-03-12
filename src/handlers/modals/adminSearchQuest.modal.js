@@ -1,8 +1,8 @@
-const { renderSearchResults } = require('../../services/adminPanel.service');
+const { buildSearchResultsPayload } = require('../../services/adminPanel.service');
 
 async function handleAdminSearchQuestModal(interaction) {
-  const keyword = interaction.fields.getTextInputValue('keyword').trim();
-  await renderSearchResults(interaction, keyword);
+  const query = interaction.fields.getTextInputValue('query')?.trim();
+  await interaction.reply({ ...(await buildSearchResultsPayload(query)), ephemeral: true });
 }
 
 module.exports = {

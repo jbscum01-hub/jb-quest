@@ -6,20 +6,19 @@ const {
 } = require('discord.js');
 
 function buildAdminSearchQuestModal() {
-  const keywordInput = new TextInputBuilder()
-    .setCustomId('keyword')
-    .setLabel('Quest Code หรือชื่อเควส')
-    .setPlaceholder('เช่น MEDIC_LV6 หรือ แพทย์')
+  const modal = new ModalBuilder()
+    .setCustomId('quest:admin_modal:search_quest')
+    .setTitle('ค้นหาเควส');
+
+  const queryInput = new TextInputBuilder()
+    .setCustomId('query')
+    .setLabel('ชื่อเควส หรือ Quest Code')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setMaxLength(100);
+    .setPlaceholder('เช่น MEDIC_LV6 หรือ แพทย์');
 
-  return new ModalBuilder()
-    .setCustomId('quest:admin:modal_search_quest')
-    .setTitle('ค้นหาเควส')
-    .addComponents(
-      new ActionRowBuilder().addComponents(keywordInput)
-    );
+  modal.addComponents(new ActionRowBuilder().addComponents(queryInput));
+  return modal;
 }
 
 module.exports = {

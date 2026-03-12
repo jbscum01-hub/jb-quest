@@ -1,5 +1,3 @@
-const { buildAdminHomeEmbed } = require('../builders/embeds/adminPanel.embed');
-const { buildAdminHomeComponents } = require('../builders/components/adminPanel.components');
 const { logger } = require('../config/logger');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const {
@@ -7,6 +5,7 @@ const {
   getAdminPanelMessageId,
   saveAdminPanelMessageId
 } = require('./discordConfig.service');
+const { buildAdminHomePayload } = require('./adminPanel.service');
 
 async function autoDeployAdminPanel(client) {
   const channelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_CHANNEL);
@@ -22,11 +21,7 @@ async function autoDeployAdminPanel(client) {
     return;
   }
 
-  const payload = {
-    embeds: [buildAdminHomeEmbed()],
-    components: buildAdminHomeComponents()
-  };
-
+  const payload = await buildAdminHomePayload();
   const existingMessageId = await getAdminPanelMessageId();
 
   if (existingMessageId) {
