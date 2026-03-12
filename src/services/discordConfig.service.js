@@ -22,12 +22,7 @@ async function getProfessionPanelMessageId(professionCode) {
 }
 
 async function saveProfessionPanelMessageId(professionCode, messageId) {
-  return upsertProfessionConfig(
-    professionCode,
-    DISCORD_CONFIG_KEYS.QUEST_PANEL_MESSAGE,
-    messageId,
-    `Profession Panel Message ${professionCode}`
-  );
+  return upsertProfessionConfig(professionCode, DISCORD_CONFIG_KEYS.QUEST_PANEL_MESSAGE, messageId, `Profession Panel Message ${professionCode}`);
 }
 
 async function getAdminPanelMessageId() {
@@ -36,11 +31,7 @@ async function getAdminPanelMessageId() {
 }
 
 async function saveAdminPanelMessageId(messageId) {
-  return upsertGlobalConfig(
-    DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_MESSAGE,
-    messageId,
-    'Quest Admin Panel Message'
-  );
+  return upsertGlobalConfig(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_MESSAGE, messageId, 'Quest Admin Panel Message');
 }
 
 module.exports = {

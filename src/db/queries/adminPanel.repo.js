@@ -33,6 +33,7 @@ async function findQuestLevelsByProfession(professionId, client) {
     FROM public.tb_quest_master
     WHERE profession_id = $1
       AND tier_type = 'NORMAL'
+      AND is_active = TRUE
     ORDER BY quest_level ASC
   `, [professionId]);
   return result.rows.map((row) => Number(row.quest_level)).filter(Number.isFinite);
@@ -81,17 +82,6 @@ async function findQuestRequirements(questId, client) {
   return result.rows;
 }
 
-async function findRequirementById(requirementId, client) {
-  const db = getDb(client);
-  const result = await db.query(`
-    SELECT *
-    FROM public.tb_quest_master_requirement
-    WHERE requirement_id = $1
-    LIMIT 1
-  `, [requirementId]);
-  return result.rows[0] || null;
-}
-
 async function findQuestRewards(questId, client) {
   const db = getDb(client);
   const result = await db.query(`
@@ -102,17 +92,6 @@ async function findQuestRewards(questId, client) {
     ORDER BY sort_order ASC, created_at ASC
   `, [questId]);
   return result.rows;
-}
-
-async function findRewardById(rewardId, client) {
-  const db = getDb(client);
-  const result = await db.query(`
-    SELECT *
-    FROM public.tb_quest_master_reward
-    WHERE reward_id = $1
-    LIMIT 1
-  `, [rewardId]);
-  return result.rows[0] || null;
 }
 
 async function findQuestDependencies(questId, client) {
@@ -184,3 +163,17 @@ async function findPanelStatusRows(client) {
   `);
   return result.rows;
 }
+
+module.exports = {
+  findActiveProfessions,
+  findProfessionById,
+  findQuestLevelsByProfession,
+  findQuestsByProfessionAndLevel,
+  findQuestDetailById,
+  findQuestRequirements,
+  findQuestRewards,
+  findQuestDependencies,
+  findQuestGuideMedia,
+  searchQuests,
+  findPanelStatusRows
+};

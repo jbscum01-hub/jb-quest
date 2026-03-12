@@ -9,10 +9,6 @@ const { handleQuestSubmissionModal } = require('./modals/questSubmission.modal')
 const { handleReviewRevisionModal } = require('./modals/reviewRevision.modal');
 const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
 const { handleAdminSearchQuestModal } = require('./modals/adminSearchQuest.modal');
-const { handleAdminEditQuestDescriptionModal } = require('./modals/adminEditQuestDescription.modal');
-const { handleAdminEditRequirementModal } = require('./modals/adminEditRequirement.modal');
-const { handleAdminEditRewardModal } = require('./modals/adminEditReward.modal');
-const { handleAdminAddQuestImageModal } = require('./modals/adminAddQuestImage.modal');
 
 function registerInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
@@ -50,35 +46,18 @@ function registerInteractionHandler(client) {
       }
 
       if (interaction.isStringSelectMenu()) {
-        if (interaction.customId.startsWith('quest:admin_select')) {
+        if (interaction.customId.startsWith('quest:admin')) {
           await handleAdminSelect(interaction);
           return;
         }
+
+        await interaction.reply({ content: 'ยังไม่รองรับ select menu นี้', flags: 64 });
+        return;
       }
 
       if (interaction.isModalSubmit()) {
-        if (interaction.customId.startsWith('quest:admin_modal:search_quest')) {
+        if (interaction.customId === 'quest:admin:search_submit') {
           await handleAdminSearchQuestModal(interaction);
-          return;
-        }
-
-        if (interaction.customId.startsWith('quest:admin_modal:edit_description:')) {
-          await handleAdminEditQuestDescriptionModal(interaction);
-          return;
-        }
-
-        if (interaction.customId.startsWith('quest:admin_modal:edit_requirement:')) {
-          await handleAdminEditRequirementModal(interaction);
-          return;
-        }
-
-        if (interaction.customId.startsWith('quest:admin_modal:edit_reward:')) {
-          await handleAdminEditRewardModal(interaction);
-          return;
-        }
-
-        if (interaction.customId.startsWith('quest:admin_modal:add_image:')) {
-          await handleAdminAddQuestImageModal(interaction);
           return;
         }
 

@@ -2,29 +2,27 @@ const {
   buildAdminHomeEmbed,
   buildPanelManagementEmbed,
   buildMasterHomeEmbed,
-  buildProfessionPickerEmbed,
-  buildLevelPickerEmbed,
-  buildQuestPickerEmbed,
+  buildBrowseProfessionEmbed,
+  buildBrowseLevelEmbed,
+  buildBrowseQuestEmbed,
   buildQuestDetailEmbed,
-  buildQuestRequirementsEmbed,
-  buildQuestRewardsEmbed,
-  buildQuestDependenciesEmbed,
-  buildQuestImagesEmbed,
+  buildRequirementsEmbed,
+  buildRewardsEmbed,
+  buildDependenciesEmbed,
+  buildImagesEmbed,
   buildPanelStatusEmbed,
-  buildSearchResultsEmbed
+  buildSearchResultEmbed,
+  buildPlaceholderEditEmbed
 } = require('../builders/embeds/adminPanel.embed');
 const {
   buildAdminHomeComponents,
   buildPanelManagementComponents,
   buildMasterHomeComponents,
-  buildProfessionSelectComponents,
-  buildLevelSelectComponents,
-  buildQuestSelectComponents,
+  buildProfessionSelectComponent,
+  buildLevelSelectComponent,
+  buildQuestSelectComponent,
   buildQuestDetailComponents,
-  buildRequirementSelectComponents,
-  buildRewardSelectComponents,
-  buildSearchResultComponents,
-  buildImageViewerComponents
+  buildQuestSubViewComponents
 } = require('../builders/components/adminPanel.components');
 const {
   findActiveProfessions,
@@ -40,51 +38,37 @@ const {
   findPanelStatusRows
 } = require('../db/queries/adminPanel.repo');
 
+function buildPayload(embed, components) {
+  return { embeds: [embed], components };
+}
+
 async function buildAdminHomePayload() {
-  return {
-    embeds: [buildAdminHomeEmbed()],
-    components: buildAdminHomeComponents()
-  };
+  return buildPayload(buildAdminHomeEmbed(), buildAdminHomeComponents());
 }
 
 async function buildPanelManagementPayload() {
-  return {
-    embeds: [buildPanelManagementEmbed()],
-    components: buildPanelManagementComponents()
-  };
+  return buildPayload(buildPanelManagementEmbed(), buildPanelManagementComponents());
 }
 
 async function buildMasterHomePayload() {
-  return {
-    embeds: [buildMasterHomeEmbed()],
-    components: buildMasterHomeComponents()
-  };
+  return buildPayload(buildMasterHomeEmbed(), buildMasterHomeComponents());
 }
 
-async function buildProfessionPickerPayload() {
+async function buildBrowseProfessionPayload() {
   const professions = await findActiveProfessions();
-  return {
-    embeds: [buildProfessionPickerEmbed(professions)],
-    components: buildProfessionSelectComponents(professions)
-  };
+  return buildPayload(buildBrowseProfessionEmbed(), buildProfessionSelectComponent(professions));
 }
 
-async function buildLevelPickerPayload(professionId) {
+async function buildBrowseLevelPayload(professionId) {
   const profession = await findProfessionById(professionId);
   const levels = await findQuestLevelsByProfession(professionId);
-  return {
-    embeds: [buildLevelPickerEmbed(profession, levels)],
-    components: buildLevelSelectComponents(professionId, levels)
-  };
+  return buildPayload(buildBrowseLevelEmbed(profession), buildLevelSelectComponent(professionId, levels));
 }
 
-async function buildQuestPickerPayload(professionId, level) {
+async function buildBrowseQuestPayload(professionId, level) {
   const profession = await findProfessionById(professionId);
-  const quests = await findQuestsByProfessionAndLevel(professionId, level);
-  return {
-    embeds: [buildQuestPickerEmbed(profession, level, quests)],
-    components: buildQuestSelectComponents(professionId, level, quests)
-  };
+  const quests = await findQuestsByProfessionAndLevel(professionId, Number(level));
+  return buildPayload(buildBrowseQuestEmbed(profession, level, quests), buildQuestSelectComponent(professionId, level, quests));
 }
 
 async function buildQuestDetailPayload(questId) {
@@ -96,85 +80,87 @@ async function buildQuestDetailPayload(questId) {
     findQuestGuideMedia(questId)
   ]);
 
-  return {
-    embeds: [buildQuestDetailEmbed({ quest, requirements, rewards, dependencies, images })],
-    components: buildQuestDetailComponents(questId, { isActive: !!quest.is_active })
-  };
+  return buildPayload(
+    buildQuestDetailEmbed(quest, {
+      requirementCount: requirements.length,
+      rewardCount: rewards.length,
+      dependencyCount: dependencies.length,
+      imageCount: images.length
+    }),
+    buildQuestDetailComponents(questId)
+  );
 }
 
-async function buildQuestRequirementsPayload(questId) {
+async function buildRequirementsPayload(questId) {
   const [quest, requirements] = await Promise.all([
     findQuestDetailById(questId),
     findQuestRequirements(questId)
   ]);
-  return {
-    embeds: [buildQuestRequirementsEmbed(quest, requirements)],
-    components: buildRequirementSelectComponents(questId, requirements)
-  };
+  return buildPayload(buildRequirementsEmbed(quest, requirements), buildQuestSubViewComponents(questId));
 }
 
-async function buildQuestRewardsPayload(questId) {
+async function buildRewardsPayload(questId) {
   const [quest, rewards] = await Promise.all([
     findQuestDetailById(questId),
     findQuestRewards(questId)
   ]);
-  return {
-    embeds: [buildQuestRewardsEmbed(quest, rewards)],
-    components: buildRewardSelectComponents(questId, rewards)
-  };
+  return buildPayload(buildRewardsEmbed(quest, rewards), buildQuestSubViewComponents(questId));
 }
 
-async function buildQuestDependenciesPayload(questId) {
+async function buildDependenciesPayload(questId) {
   const [quest, dependencies] = await Promise.all([
     findQuestDetailById(questId),
     findQuestDependencies(questId)
   ]);
-  return {
-    embeds: [buildQuestDependenciesEmbed(quest, dependencies)],
-    components: buildQuestDetailComponents(questId, { isActive: !!quest.is_active })
-  };
+  return buildPayload(buildDependenciesEmbed(quest, dependencies), buildQuestSubViewComponents(questId));
 }
 
-async function buildQuestImagesPayload(questId, index = 0) {
+async function buildImagesPayload(questId) {
   const [quest, images] = await Promise.all([
     findQuestDetailById(questId),
     findQuestGuideMedia(questId)
   ]);
-  const safeIndex = Math.max(0, Math.min(index, Math.max(images.length - 1, 0)));
-  return {
-    embeds: [buildQuestImagesEmbed(quest, images, safeIndex)],
-    components: buildImageViewerComponents(questId, safeIndex, images.length || 1)
-  };
+  return buildPayload(buildImagesEmbed(quest, images), buildQuestSubViewComponents(questId));
 }
 
 async function buildPanelStatusPayload() {
   const rows = await findPanelStatusRows();
-  return {
-    embeds: [buildPanelStatusEmbed(rows)],
-    components: buildPanelManagementComponents()
-  };
+  return buildPayload(buildPanelStatusEmbed(rows), buildPanelManagementComponents());
 }
 
-async function buildSearchResultsPayload(query) {
-  const quests = await searchQuests(query);
-  return {
-    embeds: [buildSearchResultsEmbed(query, quests)],
-    components: quests.length ? buildSearchResultComponents(quests) : buildMasterHomeComponents()
-  };
+async function buildSearchResultPayload(query) {
+  const rows = await searchQuests(query);
+
+  if (!rows.length) {
+    return buildPayload(buildSearchResultEmbed(query, rows), buildMasterHomeComponents());
+  }
+
+  if (rows.length === 1) {
+    return buildQuestDetailPayload(rows[0].quest_id);
+  }
+
+  const components = buildQuestSelectComponent('search', 'search', rows);
+  return buildPayload(buildSearchResultEmbed(query, rows), components);
+}
+
+async function buildEditPlaceholderPayload(questId) {
+  const quest = await findQuestDetailById(questId);
+  return buildPayload(buildPlaceholderEditEmbed(quest), buildQuestSubViewComponents(questId));
 }
 
 module.exports = {
   buildAdminHomePayload,
   buildPanelManagementPayload,
   buildMasterHomePayload,
-  buildProfessionPickerPayload,
-  buildLevelPickerPayload,
-  buildQuestPickerPayload,
+  buildBrowseProfessionPayload,
+  buildBrowseLevelPayload,
+  buildBrowseQuestPayload,
   buildQuestDetailPayload,
-  buildQuestRequirementsPayload,
-  buildQuestRewardsPayload,
-  buildQuestDependenciesPayload,
-  buildQuestImagesPayload,
+  buildRequirementsPayload,
+  buildRewardsPayload,
+  buildDependenciesPayload,
+  buildImagesPayload,
   buildPanelStatusPayload,
-  buildSearchResultsPayload
+  buildSearchResultPayload,
+  buildEditPlaceholderPayload
 };

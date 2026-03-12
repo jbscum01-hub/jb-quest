@@ -1,175 +1,135 @@
+const { logger } = require('../../config/logger');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
-const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
+const { isQuestAdmin } = require('../../utils/permission');
 const {
   buildAdminHomePayload,
   buildPanelManagementPayload,
   buildMasterHomePayload,
-  buildProfessionPickerPayload,
-  buildLevelPickerPayload,
-  buildQuestPickerPayload,
+  buildBrowseProfessionPayload,
+  buildBrowseLevelPayload,
   buildQuestDetailPayload,
-  buildQuestRequirementsPayload,
-  buildQuestRewardsPayload,
-  buildQuestDependenciesPayload,
-  buildQuestImagesPayload,
-  buildPanelStatusPayload
+  buildRequirementsPayload,
+  buildRewardsPayload,
+  buildDependenciesPayload,
+  buildImagesPayload,
+  buildPanelStatusPayload,
+  buildEditPlaceholderPayload
 } = require('../../services/adminPanel.service');
-const {
-  findQuestDetailById,
-  findRequirementById,
-  findRewardById,
-  toggleQuestActive
-} = require('../../db/queries/adminPanel.repo');
 const { buildAdminSearchQuestModal } = require('../../builders/modals/adminSearchQuest.modal');
-const { buildAdminEditQuestDescriptionModal } = require('../../builders/modals/adminEditQuestDescription.modal');
-const { buildAdminEditRequirementModal } = require('../../builders/modals/adminEditRequirement.modal');
-const { buildAdminEditRewardModal } = require('../../builders/modals/adminEditReward.modal');
-const { buildAdminAddQuestImageModal } = require('../../builders/modals/adminAddQuestImage.modal');
-const { logAdminAudit } = require('../../services/adminAudit.service');
 
-async function updateWith(interaction, payload) {
-  if (interaction.deferred || interaction.replied) {
-    return interaction.followUp({ ...payload, ephemeral: true });
-  }
-  return interaction.update(payload);
+function getExtra(customId) {
+  return customId.split(':').slice(3);
 }
 
-function parseButton(customId) {
-  const parts = customId.split(':');
-  return {
-    action: parts[2] || null,
-    arg1: parts[3] || null,
-    arg2: parts[4] || null
-  };
+async function ensureAdmin(interaction) {
+  const allowed = await isQuestAdmin(interaction.member);
+  if (allowed) return true;
+
+  const payload = { content: 'คุณไม่มีสิทธิ์ใช้หน้าจัดการแอดมิน', flags: 64 };
+  if (interaction.deferred || interaction.replied) {
+    await interaction.followUp(payload);
+  } else {
+    await interaction.reply(payload);
+  }
+  return false;
 }
 
 async function handleAdminButtons(interaction) {
-  const { customId } = interaction;
-  const { action, arg1, arg2 } = parseButton(customId);
+  if (!(await ensureAdmin(interaction))) return;
 
-  if (action === 'home') {
+  const { customId } = interaction;
+
+  if (customId === 'quest:admin:home') {
     await interaction.update(await buildAdminHomePayload());
     return;
   }
 
-  if (action === 'panel_home') {
+  if (customId === 'quest:admin:panel_home') {
     await interaction.update(await buildPanelManagementPayload());
     return;
   }
 
-  if (action === 'master_home') {
+  if (customId === 'quest:admin:master_home') {
     await interaction.update(await buildMasterHomePayload());
     return;
   }
 
-  if (action === 'deploy_panels') {
-    await autoDeployAdminPanel(interaction.client);
-    await deployProfessionPanels(interaction.client);
-    await interaction.reply({ content: '✅ ส่งและอัปเดตพาเนลผู้เล่นเรียบร้อยแล้ว', ephemeral: true });
+  if (customId === 'quest:admin:master_browse') {
+    await interaction.update(await buildBrowseProfessionPayload());
     return;
   }
 
-  if (action === 'refresh_panels' || action === 'repair_panels' || action === 'refresh_current_view') {
-    await deployProfessionPanels(interaction.client);
-    await interaction.reply({ content: '✅ ดำเนินการเรียบร้อยแล้ว', ephemeral: true });
-    return;
-  }
-
-  if (action === 'panel_status') {
-    await interaction.update(await buildPanelStatusPayload());
-    return;
-  }
-
-  if (action === 'browse_quest') {
-    await interaction.update(await buildProfessionPickerPayload());
-    return;
-  }
-
-  if (action === 'back_levels' && arg1) {
-    await interaction.update(await buildLevelPickerPayload(arg1));
-    return;
-  }
-
-  if (action === 'quest_detail' && arg1) {
-    await interaction.update(await buildQuestDetailPayload(arg1));
-    return;
-  }
-
-  if (action === 'view_requirements' && arg1) {
-    await interaction.update(await buildQuestRequirementsPayload(arg1));
-    return;
-  }
-
-  if (action === 'view_rewards' && arg1) {
-    await interaction.update(await buildQuestRewardsPayload(arg1));
-    return;
-  }
-
-  if (action === 'view_dependency' && arg1) {
-    await interaction.update(await buildQuestDependenciesPayload(arg1));
-    return;
-  }
-
-  if (action === 'view_images' && arg1) {
-    await interaction.update(await buildQuestImagesPayload(arg1, Number(arg2 || 0)));
-    return;
-  }
-
-  if (action === 'search_quest') {
+  if (customId === 'quest:admin:master_search') {
     await interaction.showModal(buildAdminSearchQuestModal());
     return;
   }
 
-  if (action === 'edit_description' && arg1) {
-    const quest = await findQuestDetailById(arg1);
-    await interaction.showModal(buildAdminEditQuestDescriptionModal(quest));
+  if (customId === 'quest:admin:panel_deploy_players') {
+    await interaction.deferReply({ flags: 64 });
+    await deployProfessionPanels(interaction.client);
+    await interaction.editReply({ content: '✅ ส่ง/อัปเดตพาเนลผู้เล่นตาม config เรียบร้อยแล้ว' });
     return;
   }
 
-  if (action === 'pick_requirement' && arg1) {
-    await interaction.update(await buildQuestRequirementsPayload(arg1));
+  if (customId === 'quest:admin:panel_refresh_players') {
+    await interaction.deferReply({ flags: 64 });
+    await deployProfessionPanels(interaction.client);
+    await interaction.editReply({ content: '♻️ รีเฟรชพาเนลผู้เล่นเรียบร้อยแล้ว' });
     return;
   }
 
-  if (action === 'pick_reward' && arg1) {
-    await interaction.update(await buildQuestRewardsPayload(arg1));
+  if (customId === 'quest:admin:panel_status') {
+    await interaction.update(await buildPanelStatusPayload());
     return;
   }
 
-  if (action === 'add_image' && arg1) {
-    await interaction.showModal(buildAdminAddQuestImageModal(arg1));
+  if (customId.startsWith('quest:admin:browse_levels:')) {
+    const [, professionId] = getExtra(customId);
+    await interaction.update(await buildBrowseLevelPayload(professionId));
     return;
   }
 
-  if (action === 'toggle_active' && arg1) {
-    const updated = await toggleQuestActive(arg1);
-    await logAdminAudit({
-      action_type: 'QUEST_ACTIVE_TOGGLED',
-      actor_discord_id: interaction.user.id,
-      actor_discord_tag: interaction.user.tag,
-      quest_id: arg1,
-      target_table: 'tb_quest_master',
-      target_id: arg1,
-      after_json: updated
-    });
-    await interaction.update(await buildQuestDetailPayload(arg1));
-    await interaction.followUp({ content: `✅ เปลี่ยนสถานะเควสเป็น ${updated.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} แล้ว`, ephemeral: true });
+  if (customId.startsWith('quest:admin:quest_detail:')) {
+    const [questId] = getExtra(customId);
+    await interaction.update(await buildQuestDetailPayload(questId));
     return;
   }
 
-  if (action === 'create_quest') {
-    await interaction.reply({ content: '🛠️ ปุ่มสร้างเควสใหม่จะทำต่อใน phase ถัดไป ตอนนี้เน้นแก้ไข quest เดิมก่อน', ephemeral: true });
+  if (customId.startsWith('quest:admin:quest_requirements:')) {
+    const [questId] = getExtra(customId);
+    await interaction.update(await buildRequirementsPayload(questId));
     return;
   }
 
-  if (action === 'edit_dependency') {
-    await interaction.reply({ content: '🧩 ปุ่มแก้ Dependency เตรียมไว้แล้ว แต่ยังไม่ได้เปิดใช้งานในชุดนี้', ephemeral: true });
+  if (customId.startsWith('quest:admin:quest_rewards:')) {
+    const [questId] = getExtra(customId);
+    await interaction.update(await buildRewardsPayload(questId));
     return;
   }
 
-  await interaction.reply({ content: 'ยังไม่รองรับปุ่มนี้ในเวอร์ชันปัจจุบัน', ephemeral: true });
+  if (customId.startsWith('quest:admin:quest_dependency:')) {
+    const [questId] = getExtra(customId);
+    await interaction.update(await buildDependenciesPayload(questId));
+    return;
+  }
+
+  if (customId.startsWith('quest:admin:quest_images:')) {
+    const [questId] = getExtra(customId);
+    await interaction.update(await buildImagesPayload(questId));
+    return;
+  }
+
+  if (customId.startsWith('quest:admin:quest_edit_placeholder:')) {
+    const [questId] = getExtra(customId);
+    await interaction.update(await buildEditPlaceholderPayload(questId));
+    return;
+  }
+
+  logger.warn(`Unhandled admin button: ${customId}`);
+  await interaction.reply({ content: 'ยังไม่รองรับปุ่มนี้', flags: 64 });
 }
 
 module.exports = {
-  handleAdminButtons
+  handleAdminButtons,
+  ensureAdmin
 };

@@ -1,57 +1,33 @@
+const { ensureAdmin } = require('../buttons/admin.button');
 const {
-  buildLevelPickerPayload,
-  buildQuestPickerPayload,
+  buildBrowseLevelPayload,
+  buildBrowseQuestPayload,
   buildQuestDetailPayload
 } = require('../../services/adminPanel.service');
-const {
-  findRequirementById,
-  findRewardById
-} = require('../../db/queries/adminPanel.repo');
-const { buildAdminEditRequirementModal } = require('../../builders/modals/adminEditRequirement.modal');
-const { buildAdminEditRewardModal } = require('../../builders/modals/adminEditReward.modal');
-
-function parseSelect(customId) {
-  const parts = customId.split(':');
-  return {
-    action: parts[2] || null,
-    arg1: parts[3] || null
-  };
-}
 
 async function handleAdminSelect(interaction) {
+  if (!(await ensureAdmin(interaction))) return;
+
   const { customId, values } = interaction;
-  const { action, arg1 } = parseSelect(customId);
-  const value = values[0];
+  const selectedValue = values?.[0];
 
-  if (action === 'profession') {
-    await interaction.update(await buildLevelPickerPayload(value));
+  if (customId === 'quest:admin:select_profession') {
+    await interaction.update(await buildBrowseLevelPayload(selectedValue));
     return;
   }
 
-  if (action === 'level') {
-    const [professionId, level] = value.split('|');
-    await interaction.update(await buildQuestPickerPayload(professionId, Number(level)));
+  if (customId.startsWith('quest:admin:select_level:')) {
+    const professionId = customId.split(':')[3];
+    await interaction.update(await buildBrowseQuestPayload(professionId, selectedValue));
     return;
   }
 
-  if (action === 'quest') {
-    await interaction.update(await buildQuestDetailPayload(value));
+  if (customId.startsWith('quest:admin:select_quest:')) {
+    await interaction.update(await buildQuestDetailPayload(selectedValue));
     return;
   }
 
-  if (action === 'requirement') {
-    const requirement = await findRequirementById(value);
-    await interaction.showModal(buildAdminEditRequirementModal(requirement));
-    return;
-  }
-
-  if (action === 'reward') {
-    const reward = await findRewardById(value);
-    await interaction.showModal(buildAdminEditRewardModal(reward));
-    return;
-  }
-
-  await interaction.reply({ content: 'ยังไม่รองรับ select menu นี้', ephemeral: true });
+  await interaction.reply({ content: 'ยังไม่รองรับ select menu นี้', flags: 64 });
 }
 
 module.exports = {

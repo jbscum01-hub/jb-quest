@@ -25,14 +25,7 @@ async function findProfessionByCode(professionCode, client) {
   const db = getDb(client);
   const result = await db.query(
     `
-    SELECT
-      profession_id,
-      profession_code,
-      profession_name_th,
-      profession_name_en,
-      icon_emoji,
-      sort_order,
-      is_active
+    SELECT *
     FROM public.tb_quest_master_profession
     WHERE profession_code = $1
       AND is_active = TRUE
