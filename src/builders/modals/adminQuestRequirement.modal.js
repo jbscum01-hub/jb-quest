@@ -2,8 +2,8 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 function buildQuestRequirementModal({ questId, requirement = null, mode = 'edit' }) {
   const customId = mode === 'add'
-    ? `q:reqa:${questId}`
-    : `q:reqe:${requirement.requirement_id}`;
+    ? `quest:admin_modal:reqa:${questId}`
+    : `quest:admin_modal:reqe:${requirement.requirement_id}`;
 
   return new ModalBuilder()
     .setCustomId(customId)
@@ -30,6 +30,4 @@ function buildQuestRequirementModal({ questId, requirement = null, mode = 'edit'
     );
 }
 
-module.exports = {
-  buildQuestRequirementModal
-};
+module.exports = { buildQuestRequirementModal };

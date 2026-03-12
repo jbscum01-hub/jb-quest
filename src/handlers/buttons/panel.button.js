@@ -18,11 +18,12 @@ async function handlePanelButton(interaction, parsedCustomId) {
       quest: summary.quest,
       requirements: summary.requirements,
       rewards: summary.rewards,
+      guideMedia: summary.guideMedia,
       completedAllMain: summary.completedAllMain
     });
 
     await interaction.editReply({
-      embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, summary.quest?.quest_name)]
+      embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส')]
     });
     return;
   }

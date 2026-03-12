@@ -5,6 +5,4 @@ async function handleAdminQuestDescriptionModal(interaction) {
   await saveQuestDescriptionFromModal(interaction, questId);
 }
 
-module.exports = {
-  handleAdminQuestDescriptionModal
-};
+module.exports = { handleAdminQuestDescriptionModal };

@@ -3,7 +3,10 @@ const {
   renderQuestList,
   renderQuestDetail,
   showEditRequirementModal,
-  showEditRewardModal
+  showEditRewardModal,
+  showCreateQuestModal,
+  saveDependencySelection,
+  renderStepDetail
 } = require('../../services/adminPanel.service');
 
 async function handleAdminSelect(interaction) {
@@ -12,11 +15,19 @@ async function handleAdminSelect(interaction) {
   const extra = parts.slice(3).join(':') || null;
 
   if (action === 'profession') {
-    return renderLevelPicker(interaction, interaction.values[0]);
+    return renderLevelPicker(interaction, interaction.values[0], 'browse');
+  }
+
+  if (action === 'create_profession') {
+    return renderLevelPicker(interaction, interaction.values[0], 'create');
   }
 
   if (action === 'level') {
     return renderQuestList(interaction, extra, Number(interaction.values[0]));
+  }
+
+  if (action === 'create_level') {
+    return showCreateQuestModal(interaction, extra, Number(interaction.values[0]));
   }
 
   if (action === 'quest') {
@@ -45,8 +56,14 @@ async function handleAdminSelect(interaction) {
     }
     return showEditRewardModal(interaction, extra, rewardId);
   }
+
+  if (action === 'dependency') {
+    return saveDependencySelection(interaction, extra, interaction.values[0]);
+  }
+
+  if (action === 'step') {
+    return renderStepDetail(interaction, interaction.values[0]);
+  }
 }
 
-module.exports = {
-  handleAdminSelect
-};
+module.exports = { handleAdminSelect };

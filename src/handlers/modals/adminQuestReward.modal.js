@@ -2,40 +2,29 @@ const {
   saveQuestRewardFromModal,
   addQuestRewardFromModal
 } = require('../../services/adminPanel.service');
-const { findQuestRewardById } = require('../../db/queries/questMaster.repo');
 
 async function handleAdminQuestRewardModal(interaction) {
-  if (interaction.customId.startsWith('q:rewe:')) {
-    const rewardId = interaction.customId.split(':')[2];
-    const reward = await findQuestRewardById(rewardId);
-    if (!reward) {
-      await interaction.reply({ content: 'ไม่พบรางวัลนี้', ephemeral: true });
-      return;
-    }
-    await saveQuestRewardFromModal(interaction, reward.quest_id, rewardId);
-    return;
-  }
-
-  if (interaction.customId.startsWith('q:rewa:')) {
-    const questId = interaction.customId.split(':')[2];
-    await addQuestRewardFromModal(interaction, questId);
-    return;
-  }
-
   const parts = interaction.customId.split(':');
   const action = parts[2];
+  const targetId = parts[3];
+
+  if (action === 'rewe') {
+    await saveQuestRewardFromModal(interaction, targetId);
+    return;
+  }
+
+  if (action === 'rewa') {
+    await addQuestRewardFromModal(interaction, targetId);
+    return;
+  }
+
   if (action === 'edit_reward') {
-    const questId = parts[3];
-    const rewardId = parts[4];
-    await saveQuestRewardFromModal(interaction, questId, rewardId);
+    await saveQuestRewardFromModal(interaction, parts[4]);
     return;
   }
   if (action === 'add_reward') {
-    const questId = parts[3];
-    await addQuestRewardFromModal(interaction, questId);
+    await addQuestRewardFromModal(interaction, parts[3]);
   }
 }
 
-module.exports = {
-  handleAdminQuestRewardModal
-};
+module.exports = { handleAdminQuestRewardModal };

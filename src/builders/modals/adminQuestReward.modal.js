@@ -2,8 +2,8 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
   const customId = mode === 'add'
-    ? `q:rewa:${questId}`
-    : `q:rewe:${reward.reward_id}`;
+    ? `quest:admin_modal:rewa:${questId}`
+    : `quest:admin_modal:rewe:${reward.reward_id}`;
 
   const rewardName = reward?.reward_item_name || reward?.discord_role_name || reward?.reward_value_text || '';
   const rewardAmount = reward?.reward_quantity || reward?.reward_value_number || 1;
@@ -26,6 +26,7 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
         new TextInputBuilder()
           .setCustomId('reward_name')
           .setLabel('ชื่อรางวัล')
+          .setPlaceholder('ชื่อไอเทม / เงิน / Fame / ชื่อยศ')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(255)
@@ -34,7 +35,7 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('reward_amount')
-          .setLabel('จำนวน / มูลค่า')
+          .setLabel('จำนวนหรือมูลค่า')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(20)
@@ -46,12 +47,10 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
           .setLabel('ข้อความแสดงผล')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
-          .setMaxLength(4000)
+          .setMaxLength(1000)
           .setValue(reward?.reward_display_text || '')
       )
     );
 }
 
-module.exports = {
-  buildQuestRewardModal
-};
+module.exports = { buildQuestRewardModal };
