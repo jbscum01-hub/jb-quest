@@ -1,5 +1,5 @@
-const { buildAdminPanelEmbed } = require('../builders/embeds/adminPanel.embed');
-const { buildAdminPanelButtons } = require('../builders/components/adminPanel.components');
+const { buildAdminHomeEmbed } = require('../builders/embeds/adminPanel.embed');
+const { buildAdminHomeComponents } = require('../builders/components/adminPanel.components');
 const { logger } = require('../config/logger');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const {
@@ -10,6 +10,7 @@ const {
 
 async function autoDeployAdminPanel(client) {
   const channelId = await getGlobalConfigValue(DISCORD_CONFIG_KEYS.QUEST_ADMIN_PANEL_CHANNEL);
+
   if (!channelId) {
     logger.warn('QUEST_ADMIN_PANEL_CHANNEL not configured');
     return;
@@ -22,11 +23,12 @@ async function autoDeployAdminPanel(client) {
   }
 
   const payload = {
-    embeds: [buildAdminPanelEmbed()],
-    components: buildAdminPanelButtons()
+    embeds: [buildAdminHomeEmbed()],
+    components: buildAdminHomeComponents()
   };
 
   const existingMessageId = await getAdminPanelMessageId();
+
   if (existingMessageId) {
     const existingMessage = await channel.messages.fetch(existingMessageId).catch(() => null);
     if (existingMessage) {

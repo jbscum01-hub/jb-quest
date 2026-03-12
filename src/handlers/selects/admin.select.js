@@ -1,29 +1,41 @@
 const {
-  showLevelBrowse,
-  showQuestBrowse,
-  showQuestDetail
+  renderLevelBrowser,
+  renderQuestBrowser,
+  renderQuestDetail
 } = require('../../services/adminPanel.service');
 
-async function handleAdminSelect(interaction) {
+async function handleAdminSelects(interaction) {
   const { customId, values } = interaction;
-  const selected = values[0];
+  const parts = customId.split(':');
+  const action = parts[2];
 
-  if (customId === 'quest:admin:select_profession') {
-    await showLevelBrowse(interaction, selected);
+  if (action === 'select_profession') {
+    const professionId = values[0];
+    await renderLevelBrowser(interaction, professionId);
     return;
   }
 
-  if (customId.startsWith('quest:admin:select_level:')) {
-    const professionId = customId.split(':')[4];
-    await showQuestBrowse(interaction, professionId, Number(selected));
+  if (action === 'select_level') {
+    const professionId = parts[3];
+    const questLevel = values[0];
+    await renderQuestBrowser(interaction, professionId, questLevel);
     return;
   }
 
-  if (customId.startsWith('quest:admin:select_quest:')) {
-    await showQuestDetail(interaction, selected);
+  if (action === 'select_quest') {
+    const professionId = parts[3];
+    const questLevel = parts[4];
+    const questId = values[0];
+    await renderQuestDetail(interaction, questId, professionId, questLevel);
+    return;
   }
+
+  await interaction.reply({
+    content: 'ยังไม่รองรับ select menu นี้ในระบบแอดมิน',
+    ephemeral: true
+  });
 }
 
 module.exports = {
-  handleAdminSelect
+  handleAdminSelects
 };
