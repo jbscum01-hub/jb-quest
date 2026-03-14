@@ -7,21 +7,26 @@ function getDb(dbClient) {
 
 function buildRewardValueText(reward) {
   if (reward.reward_display_text) return reward.reward_display_text;
+
   if (reward.reward_type === 'DISCORD_ROLE') {
     return reward.discord_role_name || reward.discord_role_id || 'DISCORD_ROLE';
   }
+
   if (reward.reward_type === 'SCUM_ITEM') {
     if (reward.reward_item_name && reward.reward_quantity) {
       return `${reward.reward_item_name} x${reward.reward_quantity}`;
     }
     return reward.reward_item_name || reward.reward_item_spawn_name || 'SCUM_ITEM';
   }
+
   if (reward.reward_type === 'SCUM_MONEY') {
     return reward.reward_value_text || `SCUM_MONEY ${reward.reward_value_number || 0}`;
   }
+
   if (reward.reward_type === 'FAME_POINT') {
     return reward.reward_value_text || `FAME_POINT ${reward.reward_value_number || 0}`;
   }
+
   return reward.reward_type;
 }
 
@@ -37,10 +42,7 @@ function buildGeneratedCommandText(reward) {
   return null;
 }
 
-async function hasSuccessfulGrant({
-  playerId,
-  rewardId
-}, db) {
+async function hasSuccessfulGrant({ playerId, rewardId }, db) {
   const result = await db.query(
     `
     SELECT 1
@@ -111,10 +113,31 @@ async function insertGrantLog({
   return result.rows[0];
 }
 
-async function fetchMember(client, guildId, discordUserId) {
-  if (!client || !guildId || !discordUserId) return null;
+async function resolveGuild(client) {
+  if (!client) return null;
 
-  const guild = await client.guilds.fetch(guildId).catch(() => null);
+  if (client.guilds?.cache?.size) {
+    return client.guilds.cache.first() || null;
+  }
+
+  try {
+    const guilds = await client.guilds.fetch();
+    const first = guilds?.first?.();
+    if (!first) return null;
+
+    const guildId = first.id || first.guild?.id;
+    if (!guildId) return null;
+
+    return await client.guilds.fetch(guildId).catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMember(client, discordUserId) {
+  if (!client || !discordUserId) return null;
+
+  const guild = await resolveGuild(client);
   if (!guild) return null;
 
   const member = await guild.members.fetch(discordUserId).catch(() => null);
@@ -123,7 +146,6 @@ async function fetchMember(client, guildId, discordUserId) {
 
 async function grantQuestRewards({
   client = null,
-  guildId = null,
   playerId,
   questId,
   submissionId = null,
@@ -153,7 +175,8 @@ async function grantQuestRewards({
     return {
       granted: [],
       skipped: [],
-      failed: []
+      failed: [],
+      pending: []
     };
   }
 
@@ -161,7 +184,7 @@ async function grantQuestRewards({
   const needDiscordRole = rewards.some((row) => row.reward_type === 'DISCORD_ROLE');
 
   if (needDiscordRole) {
-    member = await fetchMember(client, guildId, discordUserId);
+    member = await fetchMember(client, discordUserId);
   }
 
   for (const reward of rewards) {
@@ -281,8 +304,13 @@ async function grantQuestRewards({
           continue;
         }
 
-        if (!member.roles.cache.has(reward.discord_role_id)) {
-          await member.roles.add(reward.discord_role_id, `Quest reward: ${questId}`).catch((error) => {
+        const alreadyHasRole = member.roles.cache.has(reward.discord_role_id);
+
+        if (!alreadyHasRole) {
+          await member.roles.add(
+            reward.discord_role_id,
+            `Quest reward: ${questId}`
+          ).catch((error) => {
             throw new Error(`DISCORD_ROLE_ADD_FAILED: ${error.message}`);
           });
         }
@@ -298,8 +326,8 @@ async function grantQuestRewards({
             rewardValueNumber: null,
             grantedBy,
             grantStatus: 'SUCCESS',
-            grantRemark: member.roles.cache.has(reward.discord_role_id)
-              ? 'ROLE_GRANTED_OR_ALREADY_PRESENT'
+            grantRemark: alreadyHasRole
+              ? 'ROLE_ALREADY_PRESENT'
               : 'ROLE_GRANTED'
           },
           db
@@ -309,7 +337,7 @@ async function grantQuestRewards({
           rewardId: reward.reward_id,
           rewardType: reward.reward_type,
           status: 'SUCCESS',
-          remark: 'ROLE_GRANTED'
+          remark: alreadyHasRole ? 'ROLE_ALREADY_PRESENT' : 'ROLE_GRANTED'
         });
         continue;
       }
