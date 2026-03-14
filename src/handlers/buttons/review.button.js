@@ -1,5 +1,6 @@
 const { buildReviewRevisionModal } = require('../../builders/modals/reviewRevision.modal');
 const { reviewSubmission } = require('../../services/review.service');
+const { grantQuestRewards } = require('../../services/reward.service');
 const {
   buildRequirementEmbedBySubmissionId,
   buildRewardEmbedBySubmissionId
@@ -37,13 +38,25 @@ async function handleReviewButton(interaction, parsed) {
   if (action === 'approve') {
     await interaction.deferUpdate();
 
-    await reviewSubmission({
+    const result = await reviewSubmission({
       submissionId,
       action: 'approve',
       reviewerDiscordId: interaction.user.id,
       reviewerDiscordTag: interaction.user.tag,
       reviewNote: null
     });
+
+    if (result.questCompleted && result.rewardGrantPayload) {
+      await grantQuestRewards({
+        client: interaction.client,
+        guildId: interaction.guildId,
+        playerId: result.rewardGrantPayload.playerId,
+        questId: result.rewardGrantPayload.questId,
+        submissionId: result.rewardGrantPayload.submissionId,
+        discordUserId: result.rewardGrantPayload.discordUserId,
+        grantedBy: interaction.user.tag
+      });
+    }
 
     await updateSubmissionMirrors({
       client: interaction.client,
