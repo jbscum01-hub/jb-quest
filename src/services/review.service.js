@@ -9,6 +9,7 @@ const {
 const {
   resolveCurrentMainQuestByPlayer
 } = require('./questProgress.service');
+const { activateLegendaryFromApproval, markLegendaryRevisionRequired } = require('./legendary.service');
 
 function buildRewardSummary(rewards) {
   if (!rewards.length) return 'ไม่มี reward ในฐานข้อมูล';
@@ -130,6 +131,16 @@ async function reviewSubmission({
       }
 
       if (submission.submission_type === 'GLOBAL') {
+        if (submission.category_code === 'LEGENDARY') {
+          await activateLegendaryFromApproval({
+            playerId: submission.player_id,
+            questId: submission.quest_id,
+            submissionId,
+            reviewedBy: reviewerDiscordTag,
+            reviewRemark: reviewNote
+          }, client);
+        }
+
         await insertCompletionLog({
           playerId: submission.player_id,
           professionId: submission.profession_id,
@@ -169,6 +180,15 @@ async function reviewSubmission({
           professionId: submission.profession_id,
           questId: submission.quest_id,
           stateStatus: 'REVISION_REQUIRED',
+          reviewedBy: reviewerDiscordTag,
+          reviewRemark: reviewNote
+        }, client);
+      }
+
+      if (submission.submission_type === 'GLOBAL' && submission.category_code === 'LEGENDARY') {
+        await markLegendaryRevisionRequired({
+          playerId: submission.player_id,
+          questId: submission.quest_id,
           reviewedBy: reviewerDiscordTag,
           reviewRemark: reviewNote
         }, client);

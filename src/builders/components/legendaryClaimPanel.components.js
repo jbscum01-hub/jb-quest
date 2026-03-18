@@ -1,16 +1,16 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { buildCustomId } = require('../../utils/customId');
 
-function buildLegendaryClaimPanelComponents(quest) {
+function buildLegendaryClaimPanelComponents(questId) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(buildCustomId('panel', 'legendary_claim_detail', quest.quest_id))
-        .setLabel('ดูรายละเอียด')
+        .setCustomId(buildCustomId('panel', 'legendary_detail', questId))
+        .setLabel('📜 ดูรายละเอียด')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId(buildCustomId('panel', 'legendary_claim', quest.quest_id))
-        .setLabel('เคลม')
+        .setCustomId(buildCustomId('panel', 'legendary_claim', questId))
+        .setLabel('🎁 เคลม')
         .setStyle(ButtonStyle.Success)
     )
   ];

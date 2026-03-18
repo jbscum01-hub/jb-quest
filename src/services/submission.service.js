@@ -21,9 +21,9 @@ const {
   createSubmission,
   insertSubmissionAttachment,
   findPendingSubmissionByPlayer,
-  countApprovedSubmissionsInWindow,
-  countApprovedSubmissionsThisWeek
+  countApprovedSubmissionsInWindow
 } = require('../db/queries/submission.repo');
+const { canSubmitLegendary, markLegendarySubmissionPending } = require('./legendary.service');
 
 const {
   resolveCurrentMainQuestByPlayer
@@ -183,14 +183,13 @@ async function submitQuest({
       }
 
       if (quest.category_code === 'LEGENDARY') {
-        const weeklyClaimLimit = Number(quest.weekly_claim_limit || 1);
-        const approvedThisWeek = await countApprovedSubmissionsThisWeek({
+        const submitCheck = await canSubmitLegendary({
           playerId: playerProfile.player_id,
-          professionId: null,
           questId: quest.quest_id
         }, client);
-        if (approvedThisWeek >= weeklyClaimLimit) {
-          throw new Error(`เควสตำนานนี้รับรางวัลได้สูงสุด ${weeklyClaimLimit} ครั้งต่อสัปดาห์`);
+
+        if (!submitCheck.allowed) {
+          throw new Error(submitCheck.message || 'ยังไม่สามารถส่งเควสตำนานนี้ได้');
         }
       }
     } else {
@@ -232,6 +231,13 @@ async function submitQuest({
         professionId: profession.profession_id,
         questId: quest.quest_id,
         stateStatus: 'PENDING_REVIEW'
+      }, client);
+    }
+
+    if (submissionMode === 'GLOBAL' && quest.category_code === 'LEGENDARY') {
+      await markLegendarySubmissionPending({
+        playerId: playerProfile.player_id,
+        questId: quest.quest_id
       }, client);
     }
 
