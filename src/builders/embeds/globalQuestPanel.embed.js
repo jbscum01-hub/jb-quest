@@ -16,22 +16,48 @@ function formatReward(row) {
   return `• ${row.reward_type}`;
 }
 
-function buildQuestStatusLines(quest, runtime = {}) {
+function formatThaiDateTime(value) {
+  if (!value) return '-';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+function buildTimedStatusLines(quest, runtime = {}) {
   const lines = [];
-  if (quest.category_code === 'TIMED') {
-    lines.push(`สถานะ: ${runtime.acceptingSubmissions ? 'เปิดรับ' : (quest.is_active ? 'หมดเวลา/ปิดรับ' : 'ปิดใช้งาน')}`);
-    lines.push(`ประเภท: TIMED`);
-    if (quest.start_at) lines.push(`เริ่ม: ${new Date(quest.start_at).toLocaleString('th-TH')}`);
-    if (quest.end_at) lines.push(`สิ้นสุด: ${new Date(quest.end_at).toLocaleString('th-TH')}`);
-    if (Number(quest.submission_limit_count || 0) > 0) {
-      lines.push(`ส่งได้: ${quest.submission_limit_count} ครั้ง${Number(quest.submission_limit_period_days || 0) > 0 ? ` / ${quest.submission_limit_period_days} วัน` : ''}`);
-    }
-  } else {
-    lines.push(`สถานะ: ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`);
-    lines.push(`ประเภท: LEGENDARY`);
-    lines.push(`รับรางวัลรายสัปดาห์: ${Number(quest.weekly_claim_limit || 1)} ครั้ง`);
+  lines.push(`สถานะ: ${runtime.acceptingSubmissions ? 'เปิดรับ' : (quest.is_active ? 'หมดเวลา/ปิดรับ' : 'ปิดใช้งาน')}`);
+
+  if (Number(quest.submission_limit_count || 0) > 0) {
+    lines.push(`ส่งได้: ${quest.submission_limit_count} ครั้ง${Number(quest.submission_limit_period_days || 0) > 0 ? ` / ${quest.submission_limit_period_days} วัน` : ''}`);
   }
+
   return lines;
+}
+
+function buildTimedWindowLines(quest) {
+  const startAt = formatThaiDateTime(quest.start_at);
+  const endAt = formatThaiDateTime(quest.end_at);
+
+  return [
+    `เริ่ม: ${startAt}`,
+    `สิ้นสุด: ${endAt}`
+  ].join('\n');
+}
+
+function buildLegendaryStatusLines(quest) {
+  return [
+    `สถานะ: ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
+    `ประเภท: LEGENDARY`,
+    `รับรางวัลรายสัปดาห์: ${Number(quest.weekly_claim_limit || 1)} ครั้ง`
+  ];
 }
 
 function buildGlobalQuestPanelEmbed(bundle, runtime = {}) {
@@ -41,15 +67,25 @@ function buildGlobalQuestPanelEmbed(bundle, runtime = {}) {
   const title = `${icon} ${quest.panel_title || quest.quest_name || quest.quest_code}`;
   const desc = quest.panel_description || quest.quest_description || '-';
 
+  const fields = [];
+
+  if (quest.category_code === 'TIMED') {
+    fields.push({ name: 'รายละเอียด', value: buildTimedStatusLines(quest, runtime).join('\n'), inline: false });
+    fields.push({ name: '🕒 ระยะเวลาเควส', value: buildTimedWindowLines(quest), inline: false });
+  } else {
+    fields.push({ name: 'รายละเอียด', value: buildLegendaryStatusLines(quest).join('\n'), inline: false });
+  }
+
+  fields.push(
+    { name: 'ของที่ต้องส่ง / เงื่อนไข', value: requirements.length ? requirements.map(formatRequirement).join('\n') : 'ไม่มี', inline: false },
+    { name: 'รางวัล', value: rewards.length ? rewards.map(formatReward).join('\n') : 'ไม่มี', inline: false }
+  );
+
   return new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
     .setDescription(desc)
-    .addFields(
-      { name: 'รายละเอียด', value: buildQuestStatusLines(quest, runtime).join('\n'), inline: false },
-      { name: 'ของที่ต้องส่ง / เงื่อนไข', value: requirements.length ? requirements.map(formatRequirement).join('\n') : 'ไม่มี', inline: false },
-      { name: 'รางวัล', value: rewards.length ? rewards.map(formatReward).join('\n') : 'ไม่มี', inline: false }
-    )
+    .addFields(fields)
     .setFooter({ text: `SCUM Quest System • ${quest.quest_code}` })
     .setTimestamp();
 }

@@ -35,6 +35,21 @@ function formatSteps(steps) {
   return steps.map((step) => `${step.step_no}. ${step.step_title}`).join('\n');
 }
 
+function formatThaiDateTime(value) {
+  if (!value) return '-';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
 function formatSubmissionLimit(quest) {
   if (quest.category_code === 'LEGENDARY') {
     return `${Number(quest.weekly_claim_limit || 1)} ครั้ง / สัปดาห์`;
@@ -46,10 +61,14 @@ function formatSubmissionLimit(quest) {
   return `${limitCount} ครั้ง / ${limitPeriodDays} วัน`;
 }
 
-function formatTimedWindow(quest) {
-  if (quest.category_code !== 'TIMED') return '-';
-  if (!quest.start_at || !quest.end_at) return 'ยังไม่ได้ตั้งเวลา';
-  return `${new Date(quest.start_at).toLocaleString('th-TH')}\nถึง ${new Date(quest.end_at).toLocaleString('th-TH')}`;
+function buildTimedWindowAdminBlock(quest) {
+  if (quest.category_code !== 'TIMED') return null;
+
+  return [
+    `เริ่ม: ${formatThaiDateTime(quest.start_at)}`,
+    `ระยะเวลา: ${Number(quest.duration_days || 0) > 0 ? `${quest.duration_days} วัน` : 'ยังไม่ได้ตั้งค่า'}`,
+    `สิ้นสุด: ${formatThaiDateTime(quest.end_at)}`
+  ].join('\n');
 }
 
 function resolveQuestType(quest) {
@@ -69,41 +88,54 @@ function buildQuestDetailEmbed(bundle) {
   ];
   const descriptionText = quest.quest_description || quest.panel_description || '-';
 
+  const infoLines = [
+    `สถานะ: ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
+    `ประเภท: ${resolveQuestType(quest)}`,
+    `ใช้ Ticket: ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
+    `อนุมัติโดยแอดมิน: ${quest.requires_admin_approval ? 'ใช่' : 'ไม่ใช่'}`,
+    `เควสก่อนหน้า: ${formatDependency(primaryDependency)}`,
+    `คูลดาวน์: ${quest.repeat_cooldown_days || 0} วัน`,
+    `ลิมิตส่งเควส: ${formatSubmissionLimit(quest)}`,
+    `Panel Message: ${panelMessageId || 'ยังไม่ deploy'}`,
+    `จำนวนรูปตัวอย่าง: ${images.length} รูป`
+  ];
+
+  const fields = [
+    {
+      name: 'ข้อมูลหลัก',
+      value: infoLines.join('\n')
+    },
+    { name: 'คำอธิบายเควส', value: descriptionText.length > 1024 ? `${descriptionText.slice(0, 1021)}...` : descriptionText }
+  ];
+
+  if (quest.category_code === 'TIMED') {
+    fields.push({
+      name: '🕒 เวลาเควส',
+      value: buildTimedWindowAdminBlock(quest)
+    });
+  }
+
+  fields.push(
+    { name: `ของที่ต้องส่ง / เงื่อนไข (${requirements.length})`, value: requirements.length ? requirements.slice(0, 15).map(formatRequirement).join('\n').slice(0, 1024) : 'ไม่มี' },
+    { name: `รางวัล (${rewards.length})`, value: rewards.length ? rewards.slice(0, 15).map(formatReward).join('\n').slice(0, 1024) : 'ไม่มี' },
+    { name: `ขั้นตอน (${steps.length})`, value: formatSteps(steps).slice(0, 1024) },
+    {
+      name: 'เมนูการจัดการ',
+      value: [
+        '• **แก้คำอธิบาย** : แก้ชื่อเควส รายละเอียดหลัก ป้ายพาเนล และบันทึกแอดมิน',
+        '• **แก้เวลา/ลิมิต** : ตั้งจำนวนครั้ง ช่วงเวลา หรือ weekly limit',
+        '• **Deploy Panel / Refresh Panel** : สร้างหรืออัปเดต panel ของเควสนี้',
+        '• **แก้ของที่ต้องส่ง / แก้รางวัล** : ปรับเงื่อนไขและรางวัล',
+        '• **เปลี่ยนสถานะเควส** : ปิดรับโดยให้ panel คงอยู่แต่ซ่อนปุ่มส่งเควส'
+      ].join('\n').slice(0, 1024)
+    }
+  );
+
   return new EmbedBuilder()
     .setColor(quest.is_active ? 0x57f287 : 0xed4245)
     .setTitle(titleParts.join(' · '))
     .setDescription(`**ชื่อเควส:** ${quest.quest_name}`)
-    .addFields(
-      {
-        name: 'ข้อมูลหลัก',
-        value: [
-          `สถานะ: ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
-          `ประเภท: ${resolveQuestType(quest)}`,
-          `ใช้ Ticket: ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
-          `อนุมัติโดยแอดมิน: ${quest.requires_admin_approval ? 'ใช่' : 'ไม่ใช่'}`,
-          `เควสก่อนหน้า: ${formatDependency(primaryDependency)}`,
-          `คูลดาวน์: ${quest.repeat_cooldown_days || 0} วัน`,
-          `ลิมิตส่งเควส: ${formatSubmissionLimit(quest)}`,
-          `เวลาเปิด-ปิด: ${formatTimedWindow(quest)}`,
-          `Panel Message: ${panelMessageId || 'ยังไม่ deploy'}`,
-          `จำนวนรูปตัวอย่าง: ${images.length} รูป`
-        ].join('\n')
-      },
-      { name: 'คำอธิบายเควส', value: descriptionText.length > 1024 ? `${descriptionText.slice(0, 1021)}...` : descriptionText },
-      { name: `ของที่ต้องส่ง / เงื่อนไข (${requirements.length})`, value: requirements.length ? requirements.slice(0, 15).map(formatRequirement).join('\n').slice(0, 1024) : 'ไม่มี' },
-      { name: `รางวัล (${rewards.length})`, value: rewards.length ? rewards.slice(0, 15).map(formatReward).join('\n').slice(0, 1024) : 'ไม่มี' },
-      { name: `ขั้นตอน (${steps.length})`, value: formatSteps(steps).slice(0, 1024) },
-      {
-        name: 'เมนูการจัดการ',
-        value: [
-          '• **แก้คำอธิบาย** : แก้ชื่อเควส รายละเอียดหลัก ป้ายพาเนล และบันทึกแอดมิน',
-          '• **แก้เวลา/ลิมิต** : ตั้งจำนวนครั้ง ช่วงเวลา หรือ weekly limit',
-          '• **Deploy Panel / Refresh Panel** : สร้างหรืออัปเดต panel ของเควสนี้',
-          '• **แก้ของที่ต้องส่ง / แก้รางวัล** : ปรับเงื่อนไขและรางวัล',
-          '• **เปลี่ยนสถานะเควส** : ปิดรับโดยให้ panel คงอยู่แต่ซ่อนปุ่มส่งเควส'
-        ].join('\n').slice(0, 1024)
-      }
-    )
+    .addFields(fields)
     .setFooter({ text: `Quest ID: ${quest.quest_id}` })
     .setTimestamp(new Date(quest.updated_at || quest.created_at || Date.now()));
 }
