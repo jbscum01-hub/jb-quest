@@ -505,13 +505,13 @@ async function updateQuestReward(rewardId, payload, updatedBy, client) {
   const result = await db.query(
     `
     UPDATE public.tb_quest_master_reward
-    SET reward_type = $2,
-        reward_item_name = CASE WHEN $2 = 'SCUM_ITEM' THEN NULLIF($3::varchar, '') ELSE NULL END,
-        reward_display_text = NULLIF($4::text, ''),
-        reward_quantity = CASE WHEN $2 = 'SCUM_ITEM' THEN $5::integer ELSE NULL END,
-        reward_value_number = CASE WHEN $2 IN ('SCUM_MONEY', 'FAME_POINT') THEN $5::integer ELSE NULL END,
-        discord_role_name = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3::varchar, '') ELSE NULL END,
-        reward_value_text = CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3::varchar, '') ELSE NULL END,
+    SET reward_type = $2::varchar,
+        reward_item_name = CASE WHEN $2::varchar = 'SCUM_ITEM' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
+        reward_display_text = NULLIF($4::text, ''::text),
+        reward_quantity = CASE WHEN $2::varchar = 'SCUM_ITEM' THEN $5::integer ELSE NULL END,
+        reward_value_number = CASE WHEN $2::varchar IN ('SCUM_MONEY', 'FAME_POINT') THEN $5::integer ELSE NULL END,
+        discord_role_name = CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
+        reward_value_text = CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
         updated_by = $6,
         updated_at = NOW()
     WHERE reward_id = $1
@@ -549,13 +549,13 @@ async function addQuestReward(questId, payload, updatedBy, client) {
     )
     VALUES
     (
-      gen_random_uuid(), $1, NULL, $2,
-      CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3::varchar, '') ELSE NULL END,
-      CASE WHEN $2 IN ('SCUM_MONEY', 'FAME_POINT') THEN $4::integer ELSE NULL END,
-      CASE WHEN $2 = 'SCUM_ITEM' THEN NULLIF($3::varchar, '') ELSE NULL END,
-      CASE WHEN $2 = 'SCUM_ITEM' THEN $4::integer ELSE NULL END,
-      CASE WHEN $2 = 'DISCORD_ROLE' THEN NULLIF($3::varchar, '') ELSE NULL END,
-      'ONE_TIME', NULLIF($5::text, ''), 'QUEST_COMPLETE',
+      gen_random_uuid(), $1, NULL, $2::varchar,
+      CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
+      CASE WHEN $2::varchar IN ('SCUM_MONEY', 'FAME_POINT') THEN $4::integer ELSE NULL END,
+      CASE WHEN $2::varchar = 'SCUM_ITEM' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
+      CASE WHEN $2::varchar = 'SCUM_ITEM' THEN $4::integer ELSE NULL END,
+      CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
+      'ONE_TIME', NULLIF($5::text, ''::text), 'QUEST_COMPLETE',
       $6, TRUE, NOW(), NOW()
     )
     RETURNING *
