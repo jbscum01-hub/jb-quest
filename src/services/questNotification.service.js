@@ -32,7 +32,9 @@ async function sendRevisionDm(client, submission, reviewNote) {
 }
 
 async function sendRevisionLog(client, submission, reviewerId, reviewNote, dmResult) {
-  const logChannelId = await getConfig('QUEST_SUBMISSION_LOG_CHANNEL');
+  const logChannelId =
+    (await getConfig('QUEST_REVISION_LOG_CHANNEL')) ||
+    (await getConfig('QUEST_SUBMISSION_LOG_CHANNEL'));
 
   if (!logChannelId) return;
 
