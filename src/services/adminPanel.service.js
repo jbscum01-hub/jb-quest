@@ -76,6 +76,7 @@ const {
   findQuestStepById
 } = require('../db/queries/questMaster.repo');
 const { getQuestPanelMessageId, deployOrRefreshGlobalQuestPanel } = require('./globalPanel.service');
+const { deployOrRefreshLegendaryClaimPanel } = require('./legendaryClaimPanel.service');
 
 async function updateOrReply(interaction, payload) {
   if (interaction.isButton() || interaction.isStringSelectMenu()) {
