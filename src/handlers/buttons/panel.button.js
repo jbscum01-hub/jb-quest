@@ -157,27 +157,32 @@ async function handlePanelButton(interaction, parsedCustomId) {
   if (action === 'legendary_claim') {
     await interaction.deferReply({ flags: 64 });
 
-    const result = await claimLegendaryReward({
-      discordUserId: interaction.user.id,
-      questId: extra
-    });
+    try {
+      const result = await claimLegendaryReward({
+        discordUserId: interaction.user.id,
+        questId: extra
+      });
 
-    await grantQuestRewards({
-      client: interaction.client,
-      playerId: result.playerId,
-      questId: result.quest.quest_id,
-      submissionId: null,
-      discordUserId: interaction.user.id,
-      grantedBy: interaction.user.tag
-    });
+      await grantQuestRewards({
+        client: interaction.client,
+        playerId: result.playerId,
+        questId: result.quest.quest_id,
+        submissionId: null,
+        discordUserId: interaction.user.id,
+        grantedBy: interaction.user.tag
+      });
 
-    await interaction.editReply({
-      content: [
-        `🎁 เคลม **${result.quest.quest_name}** สำเร็จแล้ว`,
-        `เคลมสะสม: ${result.claimCount} ครั้ง`,
-        `เคลมได้อีกครั้ง: ${formatThaiDateTime(result.nextClaimAvailableAt)}`
-      ].join('\n')
-    });
+      await interaction.editReply({
+        content: [
+          `🎁 เคลม **${result.quest.quest_name}** สำเร็จแล้ว`,
+          `เคลมสะสม: ${result.claimCount} ครั้ง`,
+          `เคลมได้อีกครั้ง: ${formatThaiDateTime(result.nextClaimAvailableAt)}`
+        ].join('\n')
+      });
+    } catch (error) {
+      const message = error?.message || 'ไม่สามารถเคลมรางวัลได้ในขณะนี้';
+      await interaction.editReply({ content: `❌ ${message}` });
+    }
     return;
   }
 
