@@ -158,6 +158,25 @@ async function saveSubmissionMessageRefs(
 }
 
 
+async function findLatestSubmissionByPlayerAndQuest({ playerId, questId }, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT s.*, q.quest_name, c.category_code
+    FROM public.tb_quest_submission s
+    JOIN public.tb_quest_master q ON q.quest_id = s.quest_id
+    LEFT JOIN public.tb_quest_master_category c ON c.category_id = q.category_id
+    WHERE s.player_id = $1
+      AND s.quest_id = $2
+    ORDER BY s.submitted_at DESC, s.created_at DESC
+    LIMIT 1
+    `,
+    [playerId, questId]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function countApprovedSubmissionsThisWeek({ playerId, professionId = null, questId }, client) {
   const db = getDb(client);
   const result = await db.query(
@@ -184,5 +203,6 @@ module.exports = {
   insertSubmissionAttachment,
   saveSubmissionMessageRefs,
   countApprovedSubmissionsInWindow,
-  countApprovedSubmissionsThisWeek
+  countApprovedSubmissionsThisWeek,
+  findLatestSubmissionByPlayerAndQuest
 };

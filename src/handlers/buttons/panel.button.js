@@ -3,6 +3,8 @@ const { buildCurrentQuestEmbed, buildCurrentQuestImageEmbeds } = require('../../
 const { getCurrentQuestSummary } = require('../../services/panel.service');
 const { openStepQuestTicket } = require('../../services/stepTicket.service');
 const { findQuestById } = require('../../db/queries/questMaster.repo');
+const { getLegendaryClaimDetail, claimLegendaryReward } = require('../../services/legendary.service');
+const { grantQuestRewards } = require('../../services/reward.service');
 
 const VIEW_CURRENT_COOLDOWN_MS = 4000;
 const lastViewQuestAt = new Map();
@@ -136,6 +138,47 @@ async function handlePanelButton(interaction, parsedCustomId) {
     });
 
     await interaction.showModal(modal);
+    return;
+  }
+
+
+  if (action === 'legendary_detail') {
+    const detail = await getLegendaryClaimDetail({
+      playerId: interaction.user.id,
+      questId: extra
+    });
+
+    await interaction.reply({
+      content: `👑 **${detail.title}**\n\n${detail.lines.join('\n')}`,
+      flags: 64
+    });
+    return;
+  }
+
+  if (action === 'legendary_claim') {
+    await interaction.deferReply({ flags: 64 });
+
+    const result = await claimLegendaryReward({
+      playerId: interaction.user.id,
+      questId: extra
+    });
+
+    await grantQuestRewards({
+      client: interaction.client,
+      playerId: result.state.player_id,
+      questId: result.quest.quest_id,
+      submissionId: null,
+      discordUserId: interaction.user.id,
+      grantedBy: interaction.user.tag
+    });
+
+    await interaction.editReply({
+      content: [
+        `🎁 เคลม **${result.quest.quest_name}** สำเร็จแล้ว`,
+        `เคลมสะสม: ${result.claimCount} ครั้ง`,
+        `เคลมได้อีกครั้ง: ${require('../../services/legendary.service').formatThaiDateTime(result.nextClaimAvailableAt)}`
+      ].join('\n')
+    });
     return;
   }
 
