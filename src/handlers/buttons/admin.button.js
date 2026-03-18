@@ -5,10 +5,10 @@ const {
   renderAdminHome,
   renderPanelManagement,
   renderMasterHome,
-  renderCreateTypePicker,
   renderProfessionPicker,
   renderLevelPicker,
   renderQuestList,
+  renderCategoryQuestList,
   renderQuestDetail,
   renderQuestImageManager,
   renderPanelStatus,
@@ -16,11 +16,11 @@ const {
   renderRewardEditor,
   toggleQuestActiveAndRender,
   showQuestDescriptionModal,
-  showQuestSettingsModal,
   showAddRequirementModal,
   showAddRewardModal,
   removeQuestImageAndRender,
   showCreateQuestModal,
+  showCreateGlobalQuestModal,
   renderDependencyEditor,
   renderStepManager,
   renderStepDetail,
@@ -79,6 +79,8 @@ async function handleAdminButtons(interaction) {
 
   if (action === 'panel_status') return renderPanelStatus(interaction);
   if (action === 'browse_quests') return renderProfessionPicker(interaction, 'browse');
+  if (action === 'browse_timed_quests') return renderCategoryQuestList(interaction, 'TIMED');
+  if (action === 'browse_legendary_quests') return renderCategoryQuestList(interaction, 'LEGENDARY');
   if (action === 'browse_levels') return renderLevelPicker(interaction, extra, 'browse');
 
   if (action === 'back_quest_list') {
@@ -86,10 +88,15 @@ async function handleAdminButtons(interaction) {
     return renderQuestList(interaction, professionCode, Number(levelText));
   }
 
+  if (action === 'back_category_list') {
+    return renderCategoryQuestList(interaction, extra);
+  }
+
   if (action === 'search_quest') return interaction.showModal(buildQuestSearchModal());
-  if (action === 'create_quest') return renderCreateTypePicker(interaction);
+  if (action === 'create_quest') return renderProfessionPicker(interaction, 'create');
+  if (action === 'create_timed_quest') return showCreateGlobalQuestModal(interaction, 'TIMED');
+  if (action === 'create_legendary_quest') return showCreateGlobalQuestModal(interaction, 'LEGENDARY');
   if (action === 'toggle_active') return toggleQuestActiveAndRender(interaction, extra);
-  if (action === 'edit_settings') return showQuestSettingsModal(interaction, extra);
 
   if (action === 'manage_images') {
     const [questId, indexText] = (extra || '').split('|');
@@ -131,13 +138,6 @@ async function handleAdminButtons(interaction) {
     return removeStepImageAndRender(interaction, stepId, Number(indexText || 0));
   }
   if (action === 'add_step_image') return showAddStepImageModal(interaction, extra);
-
-  if (action === 'create_direct') {
-    const [professionCode, levelText, categoryCode] = (extra || '').split('|');
-    return showCreateQuestModal(interaction, professionCode, Number(levelText), categoryCode || 'MAIN');
-  }
-
-  await interaction.reply({ content: 'ยังไม่รองรับปุ่มนี้ในระบบแอดมิน', ephemeral: true });
 }
 
 module.exports = { handleAdminButtons };

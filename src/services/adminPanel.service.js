@@ -2,10 +2,10 @@ const {
   buildAdminHomeEmbed,
   buildPanelManagementEmbed,
   buildMasterHomeEmbed,
-  buildCreateTypeEmbed,
   buildBrowseQuestEmbed,
   buildBrowseLevelEmbed,
   buildBrowseQuestListEmbed,
+  buildGlobalQuestListEmbed,
   buildQuestDetailEmbed,
   buildQuestImageEmbeds,
   buildQuestImageManagerEmbed,
@@ -23,10 +23,10 @@ const {
   buildAdminHomeButtons,
   buildPanelManagementButtons,
   buildMasterHomeButtons,
-  buildCreateTypeComponents,
   buildProfessionSelectComponents,
   buildLevelSelectComponents,
   buildQuestSelectComponents,
+  buildCategoryQuestSelectComponents,
   buildQuestSearchResultComponents,
   buildQuestDetailButtons,
   buildQuestImageManagerButtons,
@@ -38,7 +38,6 @@ const {
   buildStepImageManagerButtons
 } = require('../builders/components/adminPanel.components');
 const { buildQuestDescriptionModal } = require('../builders/modals/adminQuestDescription.modal');
-const { buildQuestSettingsModal } = require('../builders/modals/adminQuestSettings.modal');
 const { buildQuestRequirementModal } = require('../builders/modals/adminQuestRequirement.modal');
 const { buildQuestRewardModal } = require('../builders/modals/adminQuestReward.modal');
 const { buildQuestImageModal, buildStepImageModal } = require('../builders/modals/adminQuestImage.modal');
@@ -50,11 +49,11 @@ const {
   listActiveProfessions,
   findProfessionByCode,
   findQuestsByProfessionAndLevel,
+  findQuestsByCategory,
   searchQuests,
   getQuestDetailBundle,
   updateQuestActive,
   updateQuestDescription,
-  updateQuestSettings,
   findQuestRequirementById,
   updateQuestRequirement,
   addQuestRequirement,
@@ -89,7 +88,7 @@ async function updateOrReply(interaction, payload) {
 function buildQuestDetailResponse(bundle) {
   return {
     embeds: [buildQuestDetailEmbed(bundle), ...buildQuestImageEmbeds(bundle)],
-    components: buildQuestDetailButtons(bundle.quest.quest_id, bundle.quest.profession_code, bundle.quest.quest_level, bundle.quest.is_step_quest)
+    components: buildQuestDetailButtons(bundle.quest, bundle.quest.is_step_quest)
   };
 }
 
@@ -140,46 +139,10 @@ function parseCreateQuestFlags(raw) {
   };
 }
 
-function parseQuestCategory(raw) {
-  const value = String(raw || '').trim().toUpperCase();
-  const allowed = ['MAIN', 'REPEATABLE', 'TIMED', 'LEGENDARY'];
-  if (!allowed.includes(value)) {
-    throw new Error(`ประเภทเควสต้องเป็น ${allowed.join(' / ')}`);
-  }
-  return value;
-}
-
-function parseNullableNonNegativeInteger(raw, fieldName) {
-  const value = String(raw || '').trim();
-  if (!value) return null;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new Error(`${fieldName} ต้องเป็นตัวเลขจำนวนเต็มตั้งแต่ 0 ขึ้นไป`);
-  }
-  return parsed;
-}
-
-function normalizeLimitPair(limitCount, periodDays) {
-  if ((limitCount == null || limitCount === 0) && (periodDays == null || periodDays === 0)) {
-    return { submissionLimitCount: null, submissionLimitPeriodDays: null };
-  }
-  if (limitCount == null || limitCount <= 0) {
-    throw new Error('ถ้าต้องการใช้ลิมิตส่งเควส ต้องระบุจำนวนครั้งมากกว่า 0');
-  }
-  if (periodDays == null || periodDays <= 0) {
-    throw new Error('ถ้าต้องการใช้ลิมิตส่งเควส ต้องระบุจำนวนวันของรอบมากกว่า 0');
-  }
-  return { submissionLimitCount: limitCount, submissionLimitPeriodDays: periodDays };
-}
-
 function splitSuccessFailure(raw) {
   const value = String(raw || '');
   const [successMessage, ...rest] = value.split('|');
   return { successMessage: successMessage?.trim() || '', failureMessage: rest.join('|').trim() || '' };
-}
-
-async function renderCreateTypePicker(interaction) {
-  await updateOrReply(interaction, { embeds: [buildCreateTypeEmbed()], components: buildCreateTypeComponents() });
 }
 
 async function refreshAdminPanel(message) {
@@ -230,6 +193,14 @@ async function renderQuestList(interaction, professionCode, level) {
   await updateOrReply(interaction, {
     embeds: [buildBrowseQuestListEmbed(professionLabel, level, quests)],
     components: buildQuestSelectComponents(professionCode, level, quests)
+  });
+}
+
+async function renderCategoryQuestList(interaction, categoryCode) {
+  const quests = await findQuestsByCategory(categoryCode);
+  await updateOrReply(interaction, {
+    embeds: [buildGlobalQuestListEmbed(categoryCode, quests)],
+    components: buildCategoryQuestSelectComponents(categoryCode, quests)
   });
 }
 
@@ -445,20 +416,16 @@ async function renderCreateQuestSummary(interaction, professionCode, level) {
   });
 }
 
-async function showCreateQuestModal(interaction, professionCode, level, categoryCode = 'MAIN') {
-  await interaction.showModal(buildCreateQuestModal(professionCode, level, categoryCode));
+async function showCreateQuestModal(interaction, professionCode, level) {
+  await interaction.showModal(buildCreateQuestModal({ professionCode, level }));
 }
 
-async function showQuestSettingsModal(interaction, questId) {
-  const bundle = await getQuestDetailBundle(questId);
-  if (!bundle) {
-    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
-    return;
-  }
-  await interaction.showModal(buildQuestSettingsModal(bundle.quest));
+async function showCreateGlobalQuestModal(interaction, categoryCode) {
+  await interaction.showModal(buildCreateQuestModal({ categoryCode }));
 }
 
-async function saveCreateQuestFromModal(interaction, professionCode, level, categoryCode = 'MAIN') {
+async function saveCreateQuestFromModal(interaction, context = {}) {
+  const { professionCode = null, level = null, categoryCode = null } = context;
   const flags = parseCreateQuestFlags(interaction.fields.getTextInputValue('flags'));
   const dependencyCode = interaction.fields.getTextInputValue('dependency_code').trim().toUpperCase();
   let dependencyQuestId = null;
@@ -467,45 +434,22 @@ async function saveCreateQuestFromModal(interaction, professionCode, level, cate
     dependencyQuestId = matches.find((row) => row.quest_code === dependencyCode)?.quest_id || null;
   }
 
-  const normalizedCategory = parseQuestCategory(categoryCode);
-
+  const finalCategoryCode = categoryCode || (flags.isRepeatable ? 'REPEATABLE' : 'MAIN');
   const questId = await createQuest({
     professionCode,
-    questLevel: Number(level),
-    categoryCode: normalizedCategory,
+    questLevel: professionCode ? Number(level) : null,
+    categoryCode: finalCategoryCode,
     questCode: interaction.fields.getTextInputValue('quest_code').trim().toUpperCase(),
     questName: interaction.fields.getTextInputValue('quest_name').trim(),
     questDescription: interaction.fields.getTextInputValue('quest_description').trim(),
     isStepQuest: flags.isStepQuest,
     requiresTicket: flags.requiresTicket,
-    isRepeatable: flags.isRepeatable || normalizedCategory === 'REPEATABLE',
+    isRepeatable: flags.isRepeatable,
     dependencyQuestId
   }, interaction.user.id);
 
   const bundle = await getQuestDetailBundle(questId);
   await interaction.reply({ content: '✅ สร้างเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(bundle), ephemeral: true });
-}
-
-async function saveQuestSettingsFromModal(interaction, questId) {
-  const categoryCode = parseQuestCategory(interaction.fields.getTextInputValue('category_code'));
-  const flags = parseCreateQuestFlags(interaction.fields.getTextInputValue('flags'));
-  const repeatCooldownDays = parseNullableNonNegativeInteger(interaction.fields.getTextInputValue('repeat_cooldown_days'), 'คูลดาวน์');
-  const submissionLimitCount = parseNullableNonNegativeInteger(interaction.fields.getTextInputValue('submission_limit_count'), 'ลิมิตจำนวนครั้ง');
-  const submissionLimitPeriodDays = parseNullableNonNegativeInteger(interaction.fields.getTextInputValue('submission_limit_period_days'), 'จำนวนวันของรอบ');
-  const normalizedLimit = normalizeLimitPair(submissionLimitCount, submissionLimitPeriodDays);
-
-  await updateQuestSettings(questId, {
-    categoryCode,
-    isStepQuest: flags.isStepQuest,
-    requiresTicket: flags.requiresTicket,
-    isRepeatable: flags.isRepeatable || categoryCode === 'REPEATABLE',
-    repeatCooldownDays: repeatCooldownDays == null ? 0 : repeatCooldownDays,
-    submissionLimitCount: normalizedLimit.submissionLimitCount,
-    submissionLimitPeriodDays: normalizedLimit.submissionLimitPeriodDays
-  }, interaction.user.id);
-
-  const bundle = await getQuestDetailBundle(questId);
-  await interaction.reply({ content: '✅ อัปเดตประเภท/ลิมิตเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(bundle), ephemeral: true });
 }
 
 async function renderDependencyEditor(interaction, questId) {
@@ -649,10 +593,10 @@ module.exports = {
   renderAdminHome,
   renderPanelManagement,
   renderMasterHome,
-  renderCreateTypePicker,
   renderProfessionPicker,
   renderLevelPicker,
   renderQuestList,
+  renderCategoryQuestList,
   renderQuestDetail,
   renderQuestImageManager,
   renderRequirementEditor,
@@ -661,13 +605,11 @@ module.exports = {
   renderPanelStatus,
   toggleQuestActiveAndRender,
   showQuestDescriptionModal,
-  showQuestSettingsModal,
   showEditRequirementModal,
   showAddRequirementModal,
   showEditRewardModal,
   showAddRewardModal,
   saveQuestDescriptionFromModal,
-  saveQuestSettingsFromModal,
   saveQuestRequirementFromModal,
   addQuestRequirementFromModal,
   saveQuestRewardFromModal,
@@ -675,6 +617,7 @@ module.exports = {
   addQuestImageFromModal,
   removeQuestImageAndRender,
   showCreateQuestModal,
+  showCreateGlobalQuestModal,
   saveCreateQuestFromModal,
   renderDependencyEditor,
   saveDependencySelection,

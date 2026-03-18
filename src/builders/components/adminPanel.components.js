@@ -6,16 +6,6 @@ const {
 } = require('discord.js');
 const { buildCustomId } = require('../../utils/customId');
 
-function parseMode(mode = 'browse') {
-  const raw = String(mode || 'browse');
-  if (!raw.startsWith('create')) {
-    return { isCreate: false, categoryCode: null };
-  }
-
-  const [, categoryCode] = raw.split(':');
-  return { isCreate: true, categoryCode: String(categoryCode || 'MAIN').toUpperCase() };
-}
-
 function buildAdminHomeButtons() {
   return [
     new ActionRowBuilder().addComponents(
@@ -44,69 +34,50 @@ function buildPanelManagementButtons() {
 function buildMasterHomeButtons() {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'browse_quests')).setLabel('เรียกดูเควส').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'search_quest')).setLabel('ค้นหาเควส').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'create_quest')).setLabel('สร้างเควส').setStyle(ButtonStyle.Success)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'browse_quests')).setLabel('เรียกดูเควสสายอาชีพ').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'browse_timed_quests')).setLabel('เรียกดูเควสพิเศษ').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'browse_legendary_quests')).setLabel('เรียกดูเควสตำนาน').setStyle(ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'search_quest')).setLabel('ค้นหาเควส').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'create_quest')).setLabel('สร้างเควสสายอาชีพ').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'create_timed_quest')).setLabel('สร้างเควสพิเศษ').setStyle(ButtonStyle.Success)
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'create_legendary_quest')).setLabel('สร้างเควสตำนาน').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'back_home')).setLabel('กลับหน้าหลัก').setStyle(ButtonStyle.Danger)
     )
   ];
 }
 
-function buildCreateTypeComponents() {
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(buildCustomId('admin_select', 'create_type'))
-        .setPlaceholder('เลือกประเภทเควสที่จะสร้าง')
-        .addOptions([
-          { label: 'MAIN', value: 'MAIN', description: 'เควสหลักตามเลเวลปกติ' },
-          { label: 'REPEATABLE', value: 'REPEATABLE', description: 'เควสซ้ำที่ทำได้หลายครั้ง' },
-          { label: 'TIMED', value: 'TIMED', description: 'เควสพิเศษหรือเควสกิจกรรม' },
-          { label: 'LEGENDARY', value: 'LEGENDARY', description: 'เควสตำนานหรือเควสหายาก' }
-        ])
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้ามาสเตอร์เควส').setStyle(ButtonStyle.Danger)
-    )
-  ];
-}
-
 function buildProfessionSelectComponents(options = [], mode = 'browse') {
-  const { isCreate, categoryCode } = parseMode(mode);
-  const action = isCreate ? 'create_profession' : 'profession';
-  const customId = isCreate
-    ? buildCustomId('admin_select', action, categoryCode)
-    : buildCustomId('admin_select', action);
-
+  const action = mode === 'create' ? 'create_profession' : 'profession';
+  const backAction = mode === 'create' ? 'create_quest' : 'home_master';
   return [
     new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId(customId)
+        .setCustomId(buildCustomId('admin_select', action))
         .setPlaceholder('เลือกสายอาชีพ')
         .addOptions(options)
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', isCreate ? 'create_quest' : 'home_master')).setLabel(isCreate ? 'กลับไปเลือกประเภท' : 'กลับหน้ามาสเตอร์เควส').setStyle(ButtonStyle.Danger)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', backAction)).setLabel(mode === 'create' ? 'รีโหลดหน้าสร้างเควส' : 'กลับหน้ามาสเตอร์เควส').setStyle(ButtonStyle.Danger)
     )
   ];
 }
 
 function buildLevelSelectComponents(professionCode, mode = 'browse') {
-  const { isCreate, categoryCode } = parseMode(mode);
-  const action = isCreate ? 'create_level' : 'level';
-  const extra = isCreate ? `${professionCode}|${categoryCode}` : professionCode;
-  const options = [1, 2, 3, 4, 5, 6].map((level) => ({ label: `Lv${level}`, value: String(level), description: `${isCreate ? 'สร้าง' : 'ดู'}เควสเลเวล ${level}` }));
+  const action = mode === 'create' ? 'create_level' : 'level';
+  const options = [1, 2, 3, 4, 5, 6].map((level) => ({ label: `Lv${level}`, value: String(level), description: `${mode === 'create' ? 'สร้าง' : 'ดู'}เควสเลเวล ${level}` }));
   return [
     new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId(buildCustomId('admin_select', action, extra))
+        .setCustomId(buildCustomId('admin_select', action, professionCode))
         .setPlaceholder('เลือกเลเวล')
         .addOptions(options)
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', isCreate ? 'create_quest' : 'browse_quests')).setLabel(isCreate ? 'กลับไปเลือกประเภท' : 'กลับไปเลือกสาย').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', mode === 'create' ? 'create_quest' : 'browse_quests')).setLabel('กลับไปเลือกสาย').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้ามาสเตอร์เควส').setStyle(ButtonStyle.Danger)
     )
   ];
@@ -133,6 +104,27 @@ function buildQuestSelectComponents(professionCode, level, quests = []) {
   ];
 }
 
+function buildCategoryQuestSelectComponents(categoryCode, quests = []) {
+  const options = quests.slice(0, 25).map((quest) => ({
+    label: `${quest.quest_code}`.slice(0, 100),
+    value: quest.quest_id,
+    description: `${quest.quest_name}`.slice(0, 100)
+  }));
+  const categoryLabel = categoryCode === 'TIMED' ? 'เควสพิเศษ' : 'เควสตำนาน';
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'quest_category', categoryCode))
+        .setPlaceholder(quests.length ? `เลือก${categoryLabel}` : `ไม่พบ${categoryLabel}`)
+        .setDisabled(!quests.length)
+        .addOptions(options.length ? options : [{ label: 'ไม่พบเควส', value: 'NO_QUEST', description: 'ไม่มีข้อมูล' }])
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้ามาสเตอร์เควส').setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
 function buildQuestSearchResultComponents(quests = []) {
   const options = quests.slice(0, 25).map((quest) => ({ label: `${quest.quest_code}`.slice(0, 100), value: quest.quest_id, description: `${quest.quest_name}`.slice(0, 100) }));
   return [
@@ -149,30 +141,38 @@ function buildQuestSearchResultComponents(quests = []) {
   ];
 }
 
-function buildQuestDetailButtons(questId, professionCode, level, isStepQuest = false) {
-  const backExtra = `${professionCode}|${level}`;
+function buildQuestDetailButtons(quest, isStepQuest = false) {
+  const questId = quest.quest_id;
+  const isGlobal = ['TIMED', 'LEGENDARY'].includes(quest.category_code) && !quest.profession_code;
+  const backButton = isGlobal
+    ? new ButtonBuilder()
+      .setCustomId(buildCustomId('admin', 'back_category_list', quest.category_code))
+      .setLabel(quest.category_code === 'TIMED' ? 'กลับไปหน้าเควสพิเศษ' : 'กลับไปหน้าเควสตำนาน')
+      .setStyle(ButtonStyle.Secondary)
+    : new ButtonBuilder()
+      .setCustomId(buildCustomId('admin', 'back_quest_list', `${quest.profession_code}|${quest.quest_level}`))
+      .setLabel('กลับไปหน้าเควส')
+      .setStyle(ButtonStyle.Secondary);
+
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_description', questId)).setLabel('แก้คำอธิบาย').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_settings', questId)).setLabel('แก้ประเภท/ลิมิต').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_dependency', questId)).setLabel('แก้เควสก่อนหน้า').setStyle(ButtonStyle.Secondary)
-    ),
-    new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_requirements', questId)).setLabel('แก้ของที่ต้องส่ง').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_rewards', questId)).setLabel('แก้รางวัล').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_steps', questId)).setLabel('จัดการ Step').setStyle(ButtonStyle.Secondary).setDisabled(!isStepQuest)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_rewards', questId)).setLabel('แก้รางวัล').setStyle(ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_images', `${questId}|0`)).setLabel('จัดการรูปตัวอย่าง').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_dependency', questId)).setLabel('แก้เควสก่อนหน้า').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_steps', questId)).setLabel('จัดการ Step').setStyle(ButtonStyle.Secondary).setDisabled(!isStepQuest),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_images', `${questId}|0`)).setLabel('จัดการรูปตัวอย่าง').setStyle(ButtonStyle.Secondary)
+    ),
+    new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_requirement', questId)).setLabel('เพิ่มของที่ต้องส่ง').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_reward', questId)).setLabel('เพิ่มรางวัล').setStyle(ButtonStyle.Success)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_reward', questId)).setLabel('เพิ่มรางวัล').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success)
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'toggle_active', questId)).setLabel('เปลี่ยนสถานะเควส').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'back_quest_list', backExtra)).setLabel('กลับไปหน้าเควส').setStyle(ButtonStyle.Secondary)
-    ),
-    new ActionRowBuilder().addComponents(
+      backButton,
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้าหลัก').setStyle(ButtonStyle.Danger)
     )
   ];
@@ -308,10 +308,10 @@ module.exports = {
   buildAdminHomeButtons,
   buildPanelManagementButtons,
   buildMasterHomeButtons,
-  buildCreateTypeComponents,
   buildProfessionSelectComponents,
   buildLevelSelectComponents,
   buildQuestSelectComponents,
+  buildCategoryQuestSelectComponents,
   buildQuestSearchResultComponents,
   buildQuestDetailButtons,
   buildQuestImageManagerButtons,

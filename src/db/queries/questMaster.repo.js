@@ -66,7 +66,7 @@ async function findQuestsByProfessionAndLevel(professionCode, level, client) {
            p.profession_name_th,
            p.icon_emoji
     FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p
+    LEFT JOIN public.tb_quest_master_profession p
       ON p.profession_id = q.profession_id
     JOIN public.tb_quest_master_category c
       ON c.category_id = q.category_id
@@ -85,7 +85,7 @@ async function findActiveMainQuestsByProfession(professionCode, client) {
     `
     SELECT q.*, c.category_code, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
     FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p
+    LEFT JOIN public.tb_quest_master_profession p
       ON p.profession_id = q.profession_id
     JOIN public.tb_quest_master_category c
       ON c.category_id = q.category_id
@@ -106,7 +106,7 @@ async function findRepeatableQuestsByProfession(professionCode, client) {
     `
     SELECT q.*, c.category_code, p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
     FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p
+    LEFT JOIN public.tb_quest_master_profession p
       ON p.profession_id = q.profession_id
     JOIN public.tb_quest_master_category c
       ON c.category_id = q.category_id
@@ -116,6 +116,38 @@ async function findRepeatableQuestsByProfession(professionCode, client) {
     ORDER BY q.quest_level ASC, q.display_order ASC, q.quest_code ASC
     `,
     [professionCode]
+  );
+  return result.rows;
+}
+
+async function findQuestsByCategory(categoryCode, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    SELECT q.quest_id,
+           q.quest_code,
+           q.quest_name,
+           q.quest_level,
+           q.profession_id,
+           q.category_id,
+           q.display_order,
+           q.is_active,
+           q.is_step_quest,
+           q.requires_ticket,
+           q.is_repeatable,
+           c.category_code,
+           p.profession_code,
+           p.profession_name_th,
+           p.icon_emoji
+    FROM public.tb_quest_master q
+    JOIN public.tb_quest_master_category c
+      ON c.category_id = q.category_id
+    LEFT JOIN public.tb_quest_master_profession p
+      ON p.profession_id = q.profession_id
+    WHERE c.category_code = $1
+    ORDER BY COALESCE(q.quest_level, 9999) ASC, q.display_order ASC, q.quest_code ASC
+    `,
+    [categoryCode]
   );
   return result.rows;
 }
@@ -138,7 +170,7 @@ async function searchQuests(keyword, client) {
            p.profession_code,
            p.profession_name_th
     FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p
+    LEFT JOIN public.tb_quest_master_profession p
       ON p.profession_id = q.profession_id
     JOIN public.tb_quest_master_category c
       ON c.category_id = q.category_id
@@ -146,7 +178,7 @@ async function searchQuests(keyword, client) {
        OR q.quest_name ILIKE $1
        OR p.profession_code ILIKE $1
        OR p.profession_name_th ILIKE $1
-    ORDER BY p.sort_order ASC, q.quest_level ASC, q.display_order ASC, q.quest_code ASC
+    ORDER BY COALESCE(p.sort_order, 9999) ASC, COALESCE(q.quest_level, 9999) ASC, q.display_order ASC, q.quest_code ASC
     LIMIT 25
     `,
     [like]
@@ -161,7 +193,7 @@ async function findQuestById(questId, client) {
     SELECT q.*, c.category_code, c.category_name,
            p.profession_code, p.profession_name_th, p.profession_name_en, p.icon_emoji
     FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p
+    LEFT JOIN public.tb_quest_master_profession p
       ON p.profession_id = q.profession_id
     JOIN public.tb_quest_master_category c
       ON c.category_id = q.category_id
@@ -393,49 +425,12 @@ async function updateQuestDescription(questId, payload, updatedBy, client) {
     SET quest_name = $2,
         quest_description = NULLIF($3, ''),
         panel_description = NULLIF($4, ''),
-        panel_title = NULLIF($5, ''),
-        admin_note = NULLIF($6, ''),
-        updated_by = $7,
+        updated_by = $5,
         updated_at = NOW()
     WHERE quest_id = $1
     RETURNING *
     `,
-    [questId, payload.questName, payload.questDescription, payload.panelDescription, payload.panelTitle, payload.adminNote, updatedBy]
-  );
-  return result.rows[0] || null;
-}
-
-async function updateQuestSettings(questId, payload, updatedBy, client) {
-  const db = getDb(client);
-  const category = await findCategoryByCode(payload.categoryCode, client);
-  if (!category) throw new Error(`ไม่พบหมวดเควส ${payload.categoryCode}`);
-
-  const result = await db.query(
-    `
-    UPDATE public.tb_quest_master
-    SET category_id = $2,
-        is_step_quest = $3,
-        requires_ticket = $4,
-        is_repeatable = $5,
-        repeat_cooldown_days = $6,
-        submission_limit_count = $7,
-        submission_limit_period_days = $8,
-        updated_by = $9,
-        updated_at = NOW()
-    WHERE quest_id = $1
-    RETURNING *
-    `,
-    [
-      questId,
-      category.category_id,
-      !!payload.isStepQuest,
-      !!payload.requiresTicket,
-      !!payload.isRepeatable,
-      Number(payload.repeatCooldownDays || 0),
-      payload.submissionLimitCount == null ? null : Number(payload.submissionLimitCount),
-      payload.submissionLimitPeriodDays == null ? null : Number(payload.submissionLimitPeriodDays),
-      updatedBy
-    ]
+    [questId, payload.questName, payload.questDescription, payload.panelDescription, updatedBy]
   );
   return result.rows[0] || null;
 }
@@ -624,20 +619,40 @@ async function findAvailableDependencyQuests(questId, client) {
   const quest = await findQuestById(questId, client);
   if (!quest) return [];
   const db = getDb(client);
+
+  if (quest.profession_id) {
+    const result = await db.query(
+      `
+      SELECT q.quest_id, q.quest_code, q.quest_name, q.quest_level, q.display_order,
+             p.profession_code, p.profession_name_th
+      FROM public.tb_quest_master q
+      JOIN public.tb_quest_master_profession p ON p.profession_id = q.profession_id
+      WHERE q.is_active = TRUE
+        AND q.quest_id <> $1
+        AND q.profession_id = $2
+        AND COALESCE(q.quest_level, 0) <= COALESCE($3, 0)
+      ORDER BY q.quest_level ASC, q.display_order ASC, q.quest_code ASC
+      LIMIT 25
+      `,
+      [questId, quest.profession_id, quest.quest_level]
+    );
+    return result.rows;
+  }
+
   const result = await db.query(
     `
     SELECT q.quest_id, q.quest_code, q.quest_name, q.quest_level, q.display_order,
-           p.profession_code, p.profession_name_th
+           p.profession_code, p.profession_name_th, c.category_code
     FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_profession p ON p.profession_id = q.profession_id
+    JOIN public.tb_quest_master_category c ON c.category_id = q.category_id
+    LEFT JOIN public.tb_quest_master_profession p ON p.profession_id = q.profession_id
     WHERE q.is_active = TRUE
       AND q.quest_id <> $1
-      AND q.profession_id = $2
-      AND COALESCE(q.quest_level, 0) <= COALESCE($3, 0)
-    ORDER BY q.quest_level ASC, q.display_order ASC, q.quest_code ASC
+      AND c.category_code IN ('TIMED', 'LEGENDARY')
+    ORDER BY c.sort_order ASC, COALESCE(q.quest_level, 9999) ASC, q.display_order ASC, q.quest_code ASC
     LIMIT 25
     `,
-    [questId, quest.profession_id, quest.quest_level]
+    [questId]
   );
   return result.rows;
 }
@@ -702,22 +717,41 @@ async function replaceQuestDependency(questId, selectedQuestId, updatedBy, clien
 
 async function createQuest(payload, actorId, client) {
   const db = getDb(client);
-  const profession = await findProfessionByCode(payload.professionCode, client);
-  if (!profession) throw new Error('ไม่พบสายอาชีพที่เลือก');
-
   const categoryCode = payload.categoryCode || (payload.isRepeatable ? 'REPEATABLE' : 'MAIN');
   const category = await findCategoryByCode(categoryCode, client);
   if (!category) throw new Error(`ไม่พบหมวดเควส ${categoryCode}`);
 
-  const orderResult = await db.query(
-    `
-    SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
-    FROM public.tb_quest_master
-    WHERE profession_id = $1
-      AND quest_level = $2
-    `,
-    [profession.profession_id, payload.questLevel]
-  );
+  const isGlobalCategory = ['TIMED', 'LEGENDARY'].includes(categoryCode);
+  let profession = null;
+
+  if (payload.professionCode) {
+    profession = await findProfessionByCode(payload.professionCode, client);
+    if (!profession) throw new Error('ไม่พบสายอาชีพที่เลือก');
+  } else if (!isGlobalCategory) {
+    throw new Error('ไม่พบสายอาชีพที่เลือก');
+  }
+
+  const questLevel = profession ? payload.questLevel : null;
+
+  const orderResult = profession
+    ? await db.query(
+      `
+      SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
+      FROM public.tb_quest_master
+      WHERE profession_id = $1
+        AND quest_level = $2
+      `,
+      [profession.profession_id, questLevel]
+    )
+    : await db.query(
+      `
+      SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order
+      FROM public.tb_quest_master
+      WHERE category_id = $1
+        AND profession_id IS NULL
+      `,
+      [category.category_id]
+    );
   const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
 
   const result = await db.query(
@@ -748,8 +782,8 @@ async function createQuest(payload, actorId, client) {
       payload.questName,
       payload.questDescription,
       category.category_id,
-      profession.profession_id,
-      payload.questLevel,
+      profession?.profession_id || null,
+      questLevel,
       nextOrder,
       !!payload.isStepQuest,
       !!payload.requiresTicket,
@@ -912,6 +946,7 @@ module.exports = {
   findQuestsByProfessionAndLevel,
   findActiveMainQuestsByProfession,
   findRepeatableQuestsByProfession,
+  findQuestsByCategory,
   searchQuests,
   findQuestById,
   findQuestDependencies,
@@ -928,7 +963,6 @@ module.exports = {
   getStepDetailBundle,
   updateQuestActive,
   updateQuestDescription,
-  updateQuestSettings,
   updateQuestRequirement,
   addQuestRequirement,
   updateQuestReward,

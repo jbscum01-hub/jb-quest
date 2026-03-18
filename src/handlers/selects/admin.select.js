@@ -1,13 +1,13 @@
 const {
   renderLevelPicker,
   renderQuestList,
+  renderCategoryQuestList,
   renderQuestDetail,
   showEditRequirementModal,
   showEditRewardModal,
   showCreateQuestModal,
   saveDependencySelection,
-  renderStepDetail,
-  renderProfessionPicker
+  renderStepDetail
 } = require('../../services/adminPanel.service');
 
 async function handleAdminSelect(interaction) {
@@ -19,13 +19,8 @@ async function handleAdminSelect(interaction) {
     return renderLevelPicker(interaction, interaction.values[0], 'browse');
   }
 
-  if (action === 'create_type') {
-    return renderProfessionPicker(interaction, `create:${interaction.values[0]}`);
-  }
-
   if (action === 'create_profession') {
-    const categoryCode = extra || 'MAIN';
-    return renderLevelPicker(interaction, interaction.values[0], `create:${categoryCode}`);
+    return renderLevelPicker(interaction, interaction.values[0], 'create');
   }
 
   if (action === 'level') {
@@ -33,8 +28,17 @@ async function handleAdminSelect(interaction) {
   }
 
   if (action === 'create_level') {
-    const [professionCode, categoryCode] = String(extra || '').split('|');
-    return showCreateQuestModal(interaction, professionCode, Number(interaction.values[0]), categoryCode || 'MAIN');
+    return showCreateQuestModal(interaction, extra, Number(interaction.values[0]));
+  }
+
+
+  if (action === 'quest_category') {
+    const questId = interaction.values[0];
+    if (questId === 'NO_QUEST') {
+      await interaction.reply({ content: 'ไม่พบเควสให้เปิดรายละเอียด', ephemeral: true });
+      return;
+    }
+    return renderQuestDetail(interaction, questId);
   }
 
   if (action === 'quest') {
