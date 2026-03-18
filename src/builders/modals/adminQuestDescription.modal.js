@@ -13,6 +13,12 @@ function buildQuestDescriptionModal(quest) {
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('panel_description').setLabel('คำอธิบายหน้า Panel').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(4000).setValue(quest.panel_description || '')
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('panel_title').setLabel('ชื่อบน Panel').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(255).setValue(quest.panel_title || '')
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('admin_note').setLabel('หมายเหตุแอดมิน').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(255).setValue(quest.admin_note || '')
       )
     );
 }

@@ -1,10 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
 
 function formatQuestType(quest = {}) {
-  if (quest.is_step_quest) return 'Step Quest';
-  if (quest.is_repeatable) return 'ทำซ้ำได้';
-  if (quest.category_code) return quest.category_code;
-  return 'ปกติ';
+  const parts = [];
+  if (quest.category_code) parts.push(quest.category_code);
+  if (quest.is_step_quest) parts.push('STEP');
+  if (quest.requires_ticket) parts.push('TICKET');
+  if (quest.is_repeatable && quest.category_code !== 'REPEATABLE') parts.push('REPEATABLE');
+  return parts.length ? parts.join(' / ') : 'MAIN';
 }
 
 function clampText(text, max = 1024) {
@@ -79,48 +81,41 @@ function buildMasterHomeEmbed() {
       '**คำอธิบายปุ่ม**',
       '• **เรียกดูเควส** : เลือกสายอาชีพ → เลือกเลเวล → เลือกเควส',
       '• **ค้นหาเควส** : ค้นจากชื่อเควสหรือโค้ดเควส',
-      '• **สร้างเควส** : เลือกสาย → เลือกเลเวล → เลือกประเภทเควส → กรอกข้อมูลพื้นฐาน'
+      '• **สร้างเควส** : เลือกประเภทเควส → เลือกสาย → เลือกเลเวล → กรอกข้อมูลพื้นฐาน',
+      '',
+      '**ประเภทที่รองรับ**',
+      '• MAIN',
+      '• REPEATABLE',
+      '• TIMED (เควสพิเศษ)',
+      '• LEGENDARY (เควสตำนาน)'
     ].join('\n'))
     .setFooter({ text: 'SCUM Quest System · Master Data' })
     .setTimestamp();
 }
 
 function buildBrowseQuestEmbed(mode = 'browse') {
+  const isCreate = String(mode || '').startsWith('create');
+  const categoryCode = isCreate ? String(mode).split(':')[1] || 'MAIN' : null;
   return new EmbedBuilder()
     .setColor(0x57f287)
-    .setTitle(mode === 'create' ? '🧱 เลือกสายอาชีพสำหรับสร้างเควส' : '📚 เลือกสายอาชีพ')
-    .setDescription(mode === 'create'
-      ? 'เลือกสายอาชีพก่อน จากนั้นระบบจะให้เลือกเลเวลที่จะสร้างเควสใหม่'
+    .setTitle(isCreate ? `🧱 เลือกสายอาชีพสำหรับสร้าง ${categoryCode}` : '📚 เลือกสายอาชีพ')
+    .setDescription(isCreate
+      ? `เลือกสายอาชีพก่อน จากนั้นระบบจะให้เลือกเลเวลที่จะสร้างเควสประเภท ${categoryCode}`
       : 'เลือกสายอาชีพที่ต้องการ จากนั้นระบบจะให้เลือกเลเวลและเควส')
     .setFooter({ text: 'SCUM Quest System · Browse Quest' })
     .setTimestamp();
 }
 
 function buildBrowseLevelEmbed(professionLabel, mode = 'browse') {
+  const isCreate = String(mode || '').startsWith('create');
+  const categoryCode = isCreate ? String(mode).split(':')[1] || 'MAIN' : null;
   return new EmbedBuilder()
     .setColor(0x57f287)
-    .setTitle(mode === 'create' ? `🧱 เลือกเลเวลสำหรับสร้างเควส · ${professionLabel}` : `📚 เลือกเลเวลของ ${professionLabel}`)
-    .setDescription(mode === 'create'
-      ? 'เลือกเลเวลที่จะสร้างเควสใหม่ในสายนี้'
+    .setTitle(isCreate ? `🧱 เลือกเลเวลสำหรับสร้าง ${categoryCode} · ${professionLabel}` : `📚 เลือกเลเวลของ ${professionLabel}`)
+    .setDescription(isCreate
+      ? `เลือกเลเวลที่จะสร้างเควสประเภท ${categoryCode} ในสายนี้`
       : 'เลือกเลเวลที่ต้องการเพื่อดูรายการเควสในสายนั้น')
     .setFooter({ text: 'SCUM Quest System · Browse Quest Level' })
-    .setTimestamp();
-}
-
-
-function buildCreateQuestCategoryEmbed(professionLabel, level) {
-  return new EmbedBuilder()
-    .setColor(0x57f287)
-    .setTitle(`🧱 เลือกประเภทเควส · ${professionLabel} · Lv${level}`)
-    .setDescription([
-      'เลือกประเภทก่อนสร้างเควสใหม่',
-      '',
-      '• **เควสหลัก** : เควสเลเวลปกติของสายนี้',
-      '• **เควสซ้ำ** : เควสที่ทำซ้ำได้',
-      '• **เควสพิเศษ** : เควสกิจกรรม / เควสช่วงเวลา',
-      '• **เควสตำนาน** : เควสพิเศษระดับสูง'
-    ].join('\n'))
-    .setFooter({ text: 'SCUM Quest System · Create Quest Category' })
     .setTimestamp();
 }
 
@@ -162,6 +157,7 @@ function buildQuestDetailEmbed(bundle) {
     ].join('\n'))
     .addFields(
       { name: '📝 คำอธิบายเควส', value: clampText(quest.quest_description || quest.panel_description || '-'), inline: false },
+      { name: '⚙️ ค่าพิเศษ', value: clampText([`คูลดาวน์: ${quest.repeat_cooldown_days || 0} วัน`, `ลิมิตส่งเควส: ${quest.submission_limit_count || 0} ครั้ง / ${quest.submission_limit_period_days || 0} วัน`, `ชื่อบน Panel: ${quest.panel_title || '-'}`, `หมายเหตุแอดมิน: ${quest.admin_note || '-'}`].join('\n')), inline: false },
       { name: '🔗 เควสที่ต้องผ่านก่อน', value: clampText(dependencyText), inline: false },
       { name: '📦 ของที่ต้องส่ง / เงื่อนไข', value: clampText(requirementText), inline: false },
       { name: '🎁 รางวัล', value: clampText(rewardText), inline: false },
@@ -169,7 +165,8 @@ function buildQuestDetailEmbed(bundle) {
       {
         name: '🛠️ เมนูการจัดการ',
         value: clampText([
-          '• **แก้คำอธิบาย** : แก้ชื่อและรายละเอียดหลักของเควส',
+          '• **แก้คำอธิบาย** : แก้ชื่อ รายละเอียด ชื่อบนพาเนล และหมายเหตุแอดมิน',
+          '• **แก้ประเภท/ลิมิต** : เปลี่ยน MAIN / REPEATABLE / TIMED / LEGENDARY รวมถึง cooldown และจำนวนครั้งที่ส่งได้',
           '• **แก้ของที่ต้องส่ง** : แก้ชื่อและจำนวนของ requirement',
           '• **แก้รางวัล** : แก้รายการ reward เดิมของเควสนี้',
           '• **แก้เควสก่อนหน้า** : ตั้งหรือเปลี่ยน dependency ของเควสนี้',
@@ -382,13 +379,30 @@ function buildStepImageManagerEmbed(bundle, currentIndex = 0) {
     .setImage(currentImage.media_url);
 }
 
+
+function buildCreateTypeEmbed() {
+  return new EmbedBuilder()
+    .setColor(0x57f287)
+    .setTitle('🧱 เลือกประเภทเควสที่จะสร้าง')
+    .setDescription([
+      'เลือกว่าเควสใหม่ที่จะสร้างเป็นประเภทใด',
+      '',
+      '• **MAIN** : เควสหลักตามเลเวล',
+      '• **REPEATABLE** : เควสซ้ำ',
+      '• **TIMED** : เควสพิเศษ / เควสกิจกรรม',
+      '• **LEGENDARY** : เควสตำนาน'
+    ].join('\n'))
+    .setFooter({ text: 'SCUM Quest System · Create Quest Type' })
+    .setTimestamp();
+}
+
 module.exports = {
   buildAdminHomeEmbed,
   buildPanelManagementEmbed,
   buildMasterHomeEmbed,
+  buildCreateTypeEmbed,
   buildBrowseQuestEmbed,
   buildBrowseLevelEmbed,
-  buildCreateQuestCategoryEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
   buildQuestImageEmbeds,
