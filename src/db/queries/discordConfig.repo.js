@@ -17,6 +17,23 @@ async function findGlobalConfig(configKey) {
   return result.rows[0] || null;
 }
 
+async function findScopedConfig(scopeType, scopeKey, configKey) {
+  const result = await getPool().query(
+    `
+    SELECT *
+    FROM public.tb_quest_master_discord_config
+    WHERE scope_type = $1
+      AND scope_key = $2
+      AND config_key = $3
+      AND is_active = TRUE
+    LIMIT 1
+    `,
+    [scopeType, scopeKey, configKey]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function findProfessionConfig(scopeKey, configKey) {
   const result = await getPool().query(
     `
@@ -53,6 +70,25 @@ async function upsertGlobalConfig(configKey, configValue, displayName = null) {
   return result.rows[0];
 }
 
+async function upsertScopedConfig(scopeType, scopeKey, configKey, configValue, displayName = null) {
+  const result = await getPool().query(
+    `
+    INSERT INTO public.tb_quest_master_discord_config
+    (scope_type, scope_key, config_key, config_value, display_name)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (scope_type, scope_key, config_key)
+    DO UPDATE SET
+      config_value = EXCLUDED.config_value,
+      display_name = COALESCE(EXCLUDED.display_name, public.tb_quest_master_discord_config.display_name),
+      updated_at = NOW()
+    RETURNING *
+    `,
+    [scopeType, scopeKey, configKey, String(configValue), displayName]
+  );
+
+  return result.rows[0];
+}
+
 async function upsertProfessionConfig(professionCode, configKey, configValue, displayName = null) {
   const result = await getPool().query(
     `
@@ -74,7 +110,9 @@ async function upsertProfessionConfig(professionCode, configKey, configValue, di
 
 module.exports = {
   findGlobalConfig,
+  findScopedConfig,
   findProfessionConfig,
   upsertGlobalConfig,
+  upsertScopedConfig,
   upsertProfessionConfig
 };

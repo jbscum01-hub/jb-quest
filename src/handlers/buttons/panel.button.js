@@ -2,6 +2,7 @@ const { buildQuestSubmissionModal } = require('../../builders/modals/questSubmis
 const { buildCurrentQuestEmbed, buildCurrentQuestImageEmbeds } = require('../../builders/embeds/currentQuest.embed');
 const { getCurrentQuestSummary } = require('../../services/panel.service');
 const { openStepQuestTicket } = require('../../services/stepTicket.service');
+const { findQuestById } = require('../../db/queries/questMaster.repo');
 
 const VIEW_CURRENT_COOLDOWN_MS = 4000;
 const lastViewQuestAt = new Map();
@@ -109,6 +110,29 @@ async function handlePanelButton(interaction, parsedCustomId) {
     const modal = buildQuestSubmissionModal({
       submissionMode: 'MAIN',
       professionCode
+    });
+
+    await interaction.showModal(modal);
+    return;
+  }
+
+
+  if (action === 'submit_global') {
+    const quest = await findQuestById(extra);
+    if (!quest || !['TIMED', 'LEGENDARY'].includes(quest.category_code)) {
+      await interaction.reply({ content: '❌ ไม่พบเควสนี้', flags: 64 });
+      return;
+    }
+
+    if (!quest.is_active) {
+      await interaction.reply({ content: '❌ เควสนี้ปิดรับอยู่', flags: 64 });
+      return;
+    }
+
+    const modal = buildQuestSubmissionModal({
+      submissionMode: 'GLOBAL',
+      questId: quest.quest_id,
+      title: `ส่งเควส ${quest.quest_name}`
     });
 
     await interaction.showModal(modal);

@@ -21,6 +21,8 @@ const {
   removeQuestImageAndRender,
   showCreateQuestModal,
   showCreateGlobalQuestModal,
+  showQuestScheduleModal,
+  deployQuestPanelAndRender,
   renderDependencyEditor,
   renderStepManager,
   renderStepDetail,
@@ -32,6 +34,7 @@ const {
   showAddStepImageModal
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
+const { deployAllGlobalQuestPanels } = require('../../services/globalPanel.service');
 const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
 
 
@@ -72,6 +75,7 @@ async function handleAdminButtons(interaction) {
       async () => {
         await refreshAdminPanel(interaction.message);
         await deployProfessionPanels(interaction.client);
+        await deployAllGlobalQuestPanels(interaction.client);
       },
       '✅ รีเฟรชพาเนลผู้เล่นเรียบร้อยแล้ว'
     );
@@ -84,6 +88,7 @@ async function handleAdminButtons(interaction) {
       async () => {
         await autoDeployAdminPanel(interaction.client);
         await deployProfessionPanels(interaction.client);
+        await deployAllGlobalQuestPanels(interaction.client);
       },
       '✅ สร้าง/อัปเดตพาเนลผู้เล่นเรียบร้อยแล้ว'
     );
@@ -95,6 +100,7 @@ async function handleAdminButtons(interaction) {
       interaction,
       async () => {
         await deployProfessionPanels(interaction.client);
+        await deployAllGlobalQuestPanels(interaction.client);
       },
       '🛠️ ระบบพยายามซ่อมพาเนลที่หายแล้ว'
     );
@@ -106,6 +112,7 @@ async function handleAdminButtons(interaction) {
       interaction,
       async () => {
         await deployProfessionPanels(interaction.client);
+        await deployAllGlobalQuestPanels(interaction.client);
       },
       '🔄 รีเฟรชข้อมูลเควสปัจจุบันเรียบร้อยแล้ว'
     );
@@ -132,6 +139,8 @@ async function handleAdminButtons(interaction) {
   if (action === 'create_timed_quest') return showCreateGlobalQuestModal(interaction, 'TIMED');
   if (action === 'create_legendary_quest') return showCreateGlobalQuestModal(interaction, 'LEGENDARY');
   if (action === 'toggle_active') return toggleQuestActiveAndRender(interaction, extra);
+  if (action === 'edit_schedule') return showQuestScheduleModal(interaction, extra);
+  if (action === 'deploy_quest_panel' || action === 'refresh_quest_panel') return deployQuestPanelAndRender(interaction, extra);
 
   if (action === 'manage_images') {
     const [questId, indexText] = (extra || '').split('|');

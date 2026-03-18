@@ -4,6 +4,15 @@ function getDb(client) {
   return client || getPool();
 }
 
+
+function parseNullableInteger(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) throw new Error('ค่าที่ส่งมาต้องเป็นตัวเลขจำนวนเต็ม');
+  return parsed;
+}
+
+
 async function listActiveProfessions(client) {
   const db = getDb(client);
   const result = await db.query(
@@ -435,6 +444,41 @@ async function updateQuestDescription(questId, payload, updatedBy, client) {
   return result.rows[0] || null;
 }
 
+
+async function updateQuestScheduleAndLimits(questId, payload, updatedBy, client) {
+  const db = getDb(client);
+  const startAt = payload.startAt || null;
+  const durationDays = parseNullableInteger(payload.durationDays);
+  const submissionLimitCount = parseNullableInteger(payload.submissionLimitCount);
+  const submissionLimitPeriodDays = parseNullableInteger(payload.submissionLimitPeriodDays);
+  const weeklyClaimLimit = parseNullableInteger(payload.weeklyClaimLimit);
+
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_master
+    SET start_at = COALESCE($2::timestamp, start_at),
+        duration_days = $3,
+        end_at = CASE
+          WHEN $2::timestamp IS NOT NULL AND $3::integer IS NOT NULL AND $3::integer > 0
+            THEN ($2::timestamp + (($3::text || ' days')::interval))
+          WHEN $2::timestamp IS NULL OR $3::integer IS NULL OR $3::integer <= 0
+            THEN NULL
+          ELSE end_at
+        END,
+        submission_limit_count = $4,
+        submission_limit_period_days = $5,
+        weekly_claim_limit = COALESCE($6, weekly_claim_limit),
+        updated_at = NOW(),
+        updated_by = $7
+    WHERE quest_id = $1
+    RETURNING *
+    `,
+    [questId, startAt, durationDays, submissionLimitCount, submissionLimitPeriodDays, weeklyClaimLimit, updatedBy]
+  );
+
+  return result.rows[0] || null;
+}
+
 async function updateQuestRequirement(requirementId, payload, updatedBy, client) {
   const db = getDb(client);
   const result = await db.query(
@@ -763,6 +807,7 @@ async function createQuest(payload, actorId, client) {
       is_step_quest, requires_ticket, requires_admin_approval,
       is_repeatable, unlock_mode, panel_title, panel_description,
       button_label, admin_note, is_active,
+      start_at, duration_days, end_at, weekly_claim_limit,
       created_at, updated_at, created_by, updated_by
     )
     VALUES
@@ -773,6 +818,7 @@ async function createQuest(payload, actorId, client) {
       $10, CASE WHEN $11 THEN 'PREVIOUS_QUEST' ELSE 'NONE' END,
       NULLIF($12, ''), NULLIF($13, ''),
       COALESCE(NULLIF($14, ''), 'ส่งเควส'), NULLIF($15, ''), TRUE,
+      NULL, NULL, NULL, CASE WHEN $17 = 'LEGENDARY' THEN 1 ELSE NULL END,
       NOW(), NOW(), $16, $16
     )
     RETURNING quest_id
@@ -793,7 +839,8 @@ async function createQuest(payload, actorId, client) {
       payload.panelDescription || payload.questDescription,
       payload.buttonLabel || 'ส่งเควส',
       payload.adminNote || null,
-      actorId
+      actorId,
+      categoryCode
     ]
   );
 
@@ -963,6 +1010,7 @@ module.exports = {
   getStepDetailBundle,
   updateQuestActive,
   updateQuestDescription,
+  updateQuestScheduleAndLimits,
   updateQuestRequirement,
   addQuestRequirement,
   updateQuestReward,
