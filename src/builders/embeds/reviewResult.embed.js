@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
+const { getReviewColor } = require('../../utils/questColor.util');
 
 function buildReviewResultEmbed({ action, submission, reviewerTag, reviewNote, rewardSummary }) {
   const actionMap = {
@@ -22,7 +23,7 @@ function buildReviewResultEmbed({ action, submission, reviewerTag, reviewNote, r
   }
 
   return new EmbedBuilder()
-    .setColor(action === 'approve' ? 0x57f287 : action === 'reject' ? 0xed4245 : 0xfee75c)
+    .setColor(getReviewColor({ quest: submission, action }))
     .setTitle(`🛠️ ผลการตรวจเควส: ${actionMap[action] || action}`)
     .setDescription(lines.join('\n'))
     .setTimestamp();

@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { getConfig } = require('./config.service');
+const { getReviewColor } = require('../utils/questColor.util');
 
 function replaceLine(description, label, value) {
   const pattern = new RegExp(`${label}:\\s*.*`);
@@ -18,7 +19,7 @@ function buildLogEmbedFromSubmission(submission, action, reviewerId, reviewNote 
       ? '🛠️ ผลการตรวจเควส: อนุมัติ'
       : '🛠️ ผลการตรวจเควส: ขอแก้ไข';
 
-  const color = action === 'approve' ? 0x57f287 : 0xfee75c;
+  const color = getReviewColor({ quest: submission, action });
 
   let description =
 `Submission ID: ${submission.submission_id}

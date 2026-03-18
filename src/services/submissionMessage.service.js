@@ -7,6 +7,7 @@ const {
 
 const { getConfig } = require('./config.service');
 const { findSubmissionById, saveSubmissionMessageRefs } = require('../db/queries/submission.repo');
+const { getReviewColor } = require('../utils/questColor.util');
 
 function buildReviewActionRows(submissionId) {
   const row1 = new ActionRowBuilder().addComponents(
@@ -151,7 +152,7 @@ async function updateSubmissionMirrors({
 
   if (action === 'approve') {
     title = '🛠️ ผลการตรวจเควส: อนุมัติ';
-    color = 0x57f287;
+    color = getReviewColor({ quest: submission, action });
     reviewNote = '-';
   }
 
