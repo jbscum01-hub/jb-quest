@@ -2,9 +2,9 @@ const {
   buildAdminHomeEmbed,
   buildPanelManagementEmbed,
   buildMasterHomeEmbed,
+  buildCreateTypeEmbed,
   buildBrowseQuestEmbed,
   buildBrowseLevelEmbed,
-  buildCreateQuestCategoryEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
   buildQuestImageEmbeds,
@@ -23,9 +23,9 @@ const {
   buildAdminHomeButtons,
   buildPanelManagementButtons,
   buildMasterHomeButtons,
+  buildCreateTypeComponents,
   buildProfessionSelectComponents,
   buildLevelSelectComponents,
-  buildCreateCategoryComponents,
   buildQuestSelectComponents,
   buildQuestSearchResultComponents,
   buildQuestDetailButtons,
@@ -38,6 +38,7 @@ const {
   buildStepImageManagerButtons
 } = require('../builders/components/adminPanel.components');
 const { buildQuestDescriptionModal } = require('../builders/modals/adminQuestDescription.modal');
+const { buildQuestSettingsModal } = require('../builders/modals/adminQuestSettings.modal');
 const { buildQuestRequirementModal } = require('../builders/modals/adminQuestRequirement.modal');
 const { buildQuestRewardModal } = require('../builders/modals/adminQuestReward.modal');
 const { buildQuestImageModal, buildStepImageModal } = require('../builders/modals/adminQuestImage.modal');
@@ -53,6 +54,7 @@ const {
   getQuestDetailBundle,
   updateQuestActive,
   updateQuestDescription,
+  updateQuestSettings,
   findQuestRequirementById,
   updateQuestRequirement,
   addQuestRequirement,
@@ -138,10 +140,46 @@ function parseCreateQuestFlags(raw) {
   };
 }
 
+function parseQuestCategory(raw) {
+  const value = String(raw || '').trim().toUpperCase();
+  const allowed = ['MAIN', 'REPEATABLE', 'TIMED', 'LEGENDARY'];
+  if (!allowed.includes(value)) {
+    throw new Error(`ประเภทเควสต้องเป็น ${allowed.join(' / ')}`);
+  }
+  return value;
+}
+
+function parseNullableNonNegativeInteger(raw, fieldName) {
+  const value = String(raw || '').trim();
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${fieldName} ต้องเป็นตัวเลขจำนวนเต็มตั้งแต่ 0 ขึ้นไป`);
+  }
+  return parsed;
+}
+
+function normalizeLimitPair(limitCount, periodDays) {
+  if ((limitCount == null || limitCount === 0) && (periodDays == null || periodDays === 0)) {
+    return { submissionLimitCount: null, submissionLimitPeriodDays: null };
+  }
+  if (limitCount == null || limitCount <= 0) {
+    throw new Error('ถ้าต้องการใช้ลิมิตส่งเควส ต้องระบุจำนวนครั้งมากกว่า 0');
+  }
+  if (periodDays == null || periodDays <= 0) {
+    throw new Error('ถ้าต้องการใช้ลิมิตส่งเควส ต้องระบุจำนวนวันของรอบมากกว่า 0');
+  }
+  return { submissionLimitCount: limitCount, submissionLimitPeriodDays: periodDays };
+}
+
 function splitSuccessFailure(raw) {
   const value = String(raw || '');
   const [successMessage, ...rest] = value.split('|');
   return { successMessage: successMessage?.trim() || '', failureMessage: rest.join('|').trim() || '' };
+}
+
+async function renderCreateTypePicker(interaction) {
+  await updateOrReply(interaction, { embeds: [buildCreateTypeEmbed()], components: buildCreateTypeComponents() });
 }
 
 async function refreshAdminPanel(message) {
@@ -407,18 +445,17 @@ async function renderCreateQuestSummary(interaction, professionCode, level) {
   });
 }
 
-async function renderCreateQuestCategoryPicker(interaction, professionCode, level) {
-  const profession = await findProfessionByCode(professionCode);
-  const professionLabel = profession?.profession_name_th || professionCode;
-
-  await updateOrReply(interaction, {
-    embeds: [buildCreateQuestCategoryEmbed(professionLabel, level)],
-    components: buildCreateCategoryComponents(professionCode, level)
-  });
-}
-
 async function showCreateQuestModal(interaction, professionCode, level, categoryCode = 'MAIN') {
   await interaction.showModal(buildCreateQuestModal(professionCode, level, categoryCode));
+}
+
+async function showQuestSettingsModal(interaction, questId) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) {
+    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
+    return;
+  }
+  await interaction.showModal(buildQuestSettingsModal(bundle.quest));
 }
 
 async function saveCreateQuestFromModal(interaction, professionCode, level, categoryCode = 'MAIN') {
@@ -430,8 +467,8 @@ async function saveCreateQuestFromModal(interaction, professionCode, level, cate
     dependencyQuestId = matches.find((row) => row.quest_code === dependencyCode)?.quest_id || null;
   }
 
-  const normalizedCategory = String(categoryCode || 'MAIN').toUpperCase();
-  const isRepeatableByCategory = normalizedCategory === 'REPEATABLE';
+  const normalizedCategory = parseQuestCategory(categoryCode);
+
   const questId = await createQuest({
     professionCode,
     questLevel: Number(level),
@@ -441,12 +478,34 @@ async function saveCreateQuestFromModal(interaction, professionCode, level, cate
     questDescription: interaction.fields.getTextInputValue('quest_description').trim(),
     isStepQuest: flags.isStepQuest,
     requiresTicket: flags.requiresTicket,
-    isRepeatable: isRepeatableByCategory || flags.isRepeatable,
+    isRepeatable: flags.isRepeatable || normalizedCategory === 'REPEATABLE',
     dependencyQuestId
   }, interaction.user.id);
 
   const bundle = await getQuestDetailBundle(questId);
-  await interaction.reply({ content: `✅ สร้างเควสประเภท ${normalizedCategory} เรียบร้อยแล้ว`, ...buildQuestDetailResponse(bundle), ephemeral: true });
+  await interaction.reply({ content: '✅ สร้างเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(bundle), ephemeral: true });
+}
+
+async function saveQuestSettingsFromModal(interaction, questId) {
+  const categoryCode = parseQuestCategory(interaction.fields.getTextInputValue('category_code'));
+  const flags = parseCreateQuestFlags(interaction.fields.getTextInputValue('flags'));
+  const repeatCooldownDays = parseNullableNonNegativeInteger(interaction.fields.getTextInputValue('repeat_cooldown_days'), 'คูลดาวน์');
+  const submissionLimitCount = parseNullableNonNegativeInteger(interaction.fields.getTextInputValue('submission_limit_count'), 'ลิมิตจำนวนครั้ง');
+  const submissionLimitPeriodDays = parseNullableNonNegativeInteger(interaction.fields.getTextInputValue('submission_limit_period_days'), 'จำนวนวันของรอบ');
+  const normalizedLimit = normalizeLimitPair(submissionLimitCount, submissionLimitPeriodDays);
+
+  await updateQuestSettings(questId, {
+    categoryCode,
+    isStepQuest: flags.isStepQuest,
+    requiresTicket: flags.requiresTicket,
+    isRepeatable: flags.isRepeatable || categoryCode === 'REPEATABLE',
+    repeatCooldownDays: repeatCooldownDays == null ? 0 : repeatCooldownDays,
+    submissionLimitCount: normalizedLimit.submissionLimitCount,
+    submissionLimitPeriodDays: normalizedLimit.submissionLimitPeriodDays
+  }, interaction.user.id);
+
+  const bundle = await getQuestDetailBundle(questId);
+  await interaction.reply({ content: '✅ อัปเดตประเภท/ลิมิตเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(bundle), ephemeral: true });
 }
 
 async function renderDependencyEditor(interaction, questId) {
@@ -590,6 +649,7 @@ module.exports = {
   renderAdminHome,
   renderPanelManagement,
   renderMasterHome,
+  renderCreateTypePicker,
   renderProfessionPicker,
   renderLevelPicker,
   renderQuestList,
@@ -601,18 +661,19 @@ module.exports = {
   renderPanelStatus,
   toggleQuestActiveAndRender,
   showQuestDescriptionModal,
+  showQuestSettingsModal,
   showEditRequirementModal,
   showAddRequirementModal,
   showEditRewardModal,
   showAddRewardModal,
   saveQuestDescriptionFromModal,
+  saveQuestSettingsFromModal,
   saveQuestRequirementFromModal,
   addQuestRequirementFromModal,
   saveQuestRewardFromModal,
   addQuestRewardFromModal,
   addQuestImageFromModal,
   removeQuestImageAndRender,
-  renderCreateQuestCategoryPicker,
   showCreateQuestModal,
   saveCreateQuestFromModal,
   renderDependencyEditor,

@@ -10,6 +10,7 @@ const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
 const { handleAdminQuestSearchModal } = require('./modals/adminQuestSearch.modal');
 const { handleAdminQuestImageModal } = require('./modals/adminQuestImage.modal');
 const { handleAdminQuestDescriptionModal } = require('./modals/adminQuestDescription.modal');
+const { handleAdminQuestSettingsModal } = require('./modals/adminQuestSettings.modal');
 const { handleAdminQuestRequirementModal } = require('./modals/adminQuestRequirement.modal');
 const { handleAdminQuestRewardModal } = require('./modals/adminQuestReward.modal');
 const { handleAdminCreateQuestModal } = require('./modals/adminCreateQuest.modal');
@@ -73,6 +74,11 @@ function registerInteractionHandler(client) {
         if (interaction.customId.startsWith('quest:admin_modal:qdesc:')
           || interaction.customId.startsWith('quest:admin_modal:edit_description:')) {
           await handleAdminQuestDescriptionModal(interaction);
+          return;
+        }
+
+        if (interaction.customId.startsWith('quest:admin_modal:qset:')) {
+          await handleAdminQuestSettingsModal(interaction);
           return;
         }
 

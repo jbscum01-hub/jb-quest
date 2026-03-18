@@ -4,10 +4,10 @@ const {
   renderQuestDetail,
   showEditRequirementModal,
   showEditRewardModal,
-  renderCreateQuestCategoryPicker,
   showCreateQuestModal,
   saveDependencySelection,
-  renderStepDetail
+  renderStepDetail,
+  renderProfessionPicker
 } = require('../../services/adminPanel.service');
 
 async function handleAdminSelect(interaction) {
@@ -19,8 +19,13 @@ async function handleAdminSelect(interaction) {
     return renderLevelPicker(interaction, interaction.values[0], 'browse');
   }
 
+  if (action === 'create_type') {
+    return renderProfessionPicker(interaction, `create:${interaction.values[0]}`);
+  }
+
   if (action === 'create_profession') {
-    return renderLevelPicker(interaction, interaction.values[0], 'create');
+    const categoryCode = extra || 'MAIN';
+    return renderLevelPicker(interaction, interaction.values[0], `create:${categoryCode}`);
   }
 
   if (action === 'level') {
@@ -28,12 +33,8 @@ async function handleAdminSelect(interaction) {
   }
 
   if (action === 'create_level') {
-    return renderCreateQuestCategoryPicker(interaction, extra, Number(interaction.values[0]));
-  }
-
-  if (action === 'create_category') {
-    const [professionCode, levelText] = (extra || '').split('|');
-    return showCreateQuestModal(interaction, professionCode, Number(levelText), interaction.values[0]);
+    const [professionCode, categoryCode] = String(extra || '').split('|');
+    return showCreateQuestModal(interaction, professionCode, Number(interaction.values[0]), categoryCode || 'MAIN');
   }
 
   if (action === 'quest') {

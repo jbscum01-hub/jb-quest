@@ -393,12 +393,49 @@ async function updateQuestDescription(questId, payload, updatedBy, client) {
     SET quest_name = $2,
         quest_description = NULLIF($3, ''),
         panel_description = NULLIF($4, ''),
-        updated_by = $5,
+        panel_title = NULLIF($5, ''),
+        admin_note = NULLIF($6, ''),
+        updated_by = $7,
         updated_at = NOW()
     WHERE quest_id = $1
     RETURNING *
     `,
-    [questId, payload.questName, payload.questDescription, payload.panelDescription, updatedBy]
+    [questId, payload.questName, payload.questDescription, payload.panelDescription, payload.panelTitle, payload.adminNote, updatedBy]
+  );
+  return result.rows[0] || null;
+}
+
+async function updateQuestSettings(questId, payload, updatedBy, client) {
+  const db = getDb(client);
+  const category = await findCategoryByCode(payload.categoryCode, client);
+  if (!category) throw new Error(`ไม่พบหมวดเควส ${payload.categoryCode}`);
+
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_master
+    SET category_id = $2,
+        is_step_quest = $3,
+        requires_ticket = $4,
+        is_repeatable = $5,
+        repeat_cooldown_days = $6,
+        submission_limit_count = $7,
+        submission_limit_period_days = $8,
+        updated_by = $9,
+        updated_at = NOW()
+    WHERE quest_id = $1
+    RETURNING *
+    `,
+    [
+      questId,
+      category.category_id,
+      !!payload.isStepQuest,
+      !!payload.requiresTicket,
+      !!payload.isRepeatable,
+      Number(payload.repeatCooldownDays || 0),
+      payload.submissionLimitCount == null ? null : Number(payload.submissionLimitCount),
+      payload.submissionLimitPeriodDays == null ? null : Number(payload.submissionLimitPeriodDays),
+      updatedBy
+    ]
   );
   return result.rows[0] || null;
 }
@@ -891,6 +928,7 @@ module.exports = {
   getStepDetailBundle,
   updateQuestActive,
   updateQuestDescription,
+  updateQuestSettings,
   updateQuestRequirement,
   addQuestRequirement,
   updateQuestReward,

@@ -5,6 +5,7 @@ const {
   renderAdminHome,
   renderPanelManagement,
   renderMasterHome,
+  renderCreateTypePicker,
   renderProfessionPicker,
   renderLevelPicker,
   renderQuestList,
@@ -15,6 +16,7 @@ const {
   renderRewardEditor,
   toggleQuestActiveAndRender,
   showQuestDescriptionModal,
+  showQuestSettingsModal,
   showAddRequirementModal,
   showAddRewardModal,
   removeQuestImageAndRender,
@@ -78,7 +80,6 @@ async function handleAdminButtons(interaction) {
   if (action === 'panel_status') return renderPanelStatus(interaction);
   if (action === 'browse_quests') return renderProfessionPicker(interaction, 'browse');
   if (action === 'browse_levels') return renderLevelPicker(interaction, extra, 'browse');
-  if (action === 'create_levels') return renderLevelPicker(interaction, extra, 'create');
 
   if (action === 'back_quest_list') {
     const [professionCode, levelText] = (extra || '').split('|');
@@ -86,8 +87,9 @@ async function handleAdminButtons(interaction) {
   }
 
   if (action === 'search_quest') return interaction.showModal(buildQuestSearchModal());
-  if (action === 'create_quest') return renderProfessionPicker(interaction, 'create');
+  if (action === 'create_quest') return renderCreateTypePicker(interaction);
   if (action === 'toggle_active') return toggleQuestActiveAndRender(interaction, extra);
+  if (action === 'edit_settings') return showQuestSettingsModal(interaction, extra);
 
   if (action === 'manage_images') {
     const [questId, indexText] = (extra || '').split('|');
@@ -129,6 +131,13 @@ async function handleAdminButtons(interaction) {
     return removeStepImageAndRender(interaction, stepId, Number(indexText || 0));
   }
   if (action === 'add_step_image') return showAddStepImageModal(interaction, extra);
+
+  if (action === 'create_direct') {
+    const [professionCode, levelText, categoryCode] = (extra || '').split('|');
+    return showCreateQuestModal(interaction, professionCode, Number(levelText), categoryCode || 'MAIN');
+  }
+
+  await interaction.reply({ content: 'ยังไม่รองรับปุ่มนี้ในระบบแอดมิน', ephemeral: true });
 }
 
 module.exports = { handleAdminButtons };
