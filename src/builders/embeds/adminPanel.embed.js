@@ -37,14 +37,6 @@ function imageTitle(item, index) {
 
 function formatThaiDateTime(value) {
   if (!value) return '-';
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    const m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (m) {
-      const [, y, mo, d, hh='00', mm='00'] = m;
-      return `${d}/${mo}/${Number(y) + 543} ${hh}:${mm}`;
-    }
-  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('th-TH', {

@@ -18,14 +18,6 @@ function formatReward(row) {
 
 function formatThaiDateTime(value) {
   if (!value) return '-';
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    const m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (m) {
-      const [, y, mo, d, hh='00', mm='00'] = m;
-      return `${d}/${mo}/${Number(y) + 543} ${hh}:${mm}`;
-    }
-  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('th-TH', {
@@ -69,7 +61,7 @@ function buildLegendaryStatusLines(quest) {
 }
 
 function buildGlobalQuestPanelEmbed(bundle, runtime = {}) {
-  const { quest, requirements = [], rewards = [] } = bundle;
+  const { quest, requirements = [], rewards = [], images = [] } = bundle;
   const color = quest.category_code === 'LEGENDARY' ? 0xeb459e : 0x57f287;
   const icon = quest.category_code === 'LEGENDARY' ? '👑' : '✨';
   const title = `${icon} ${quest.panel_title || quest.quest_name || quest.quest_code}`;
@@ -89,13 +81,18 @@ function buildGlobalQuestPanelEmbed(bundle, runtime = {}) {
     { name: 'รางวัล', value: rewards.length ? rewards.map(formatReward).join('\n') : 'ไม่มี', inline: false }
   );
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
     .setDescription(desc)
     .addFields(fields)
     .setFooter({ text: `SCUM Quest System • ${quest.quest_code}` })
     .setTimestamp();
+
+  const firstImageUrl = images.find((image) => image?.media_url)?.media_url || null;
+  if (firstImageUrl) embed.setImage(firstImageUrl);
+
+  return embed;
 }
 
 module.exports = { buildGlobalQuestPanelEmbed };
