@@ -34,6 +34,16 @@ const {
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
 const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
 
+
+const EPHEMERAL_FLAGS = 64;
+
+async function runDeferredEphemeral(interaction, task, successMessage) {
+  await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+  await task();
+  await interaction.editReply({ content: successMessage });
+}
+
+
 async function handleAdminButtons(interaction) {
   const { customId } = interaction;
   const parts = customId.split(':');
@@ -44,36 +54,61 @@ async function handleAdminButtons(interaction) {
   if (action === 'home_master') return renderMasterHome(interaction);
 
   if (action === 'home_refresh') {
-    await refreshAdminPanel(interaction.message);
-    await interaction.reply({ content: '✅ รีเฟรชแผงแอดมินเรียบร้อยแล้ว', ephemeral: true });
+    await runDeferredEphemeral(
+      interaction,
+      async () => {
+        await refreshAdminPanel(interaction.message);
+      },
+      '✅ รีเฟรชแผงแอดมินเรียบร้อยแล้ว'
+    );
     return;
   }
 
   if (action === 'back_home') return renderAdminHome(interaction);
 
   if (action === 'refresh_panels') {
-    await refreshAdminPanel(interaction.message);
-    await deployProfessionPanels(interaction.client);
-    await interaction.reply({ content: '✅ รีเฟรชพาเนลผู้เล่นเรียบร้อยแล้ว', ephemeral: true });
+    await runDeferredEphemeral(
+      interaction,
+      async () => {
+        await refreshAdminPanel(interaction.message);
+        await deployProfessionPanels(interaction.client);
+      },
+      '✅ รีเฟรชพาเนลผู้เล่นเรียบร้อยแล้ว'
+    );
     return;
   }
 
   if (action === 'deploy_panels') {
-    await autoDeployAdminPanel(interaction.client);
-    await deployProfessionPanels(interaction.client);
-    await interaction.reply({ content: '✅ สร้าง/อัปเดตพาเนลผู้เล่นเรียบร้อยแล้ว', ephemeral: true });
+    await runDeferredEphemeral(
+      interaction,
+      async () => {
+        await autoDeployAdminPanel(interaction.client);
+        await deployProfessionPanels(interaction.client);
+      },
+      '✅ สร้าง/อัปเดตพาเนลผู้เล่นเรียบร้อยแล้ว'
+    );
     return;
   }
 
   if (action === 'repair_panels') {
-    await deployProfessionPanels(interaction.client);
-    await interaction.reply({ content: '🛠️ ระบบพยายามซ่อมพาเนลที่หายแล้ว', ephemeral: true });
+    await runDeferredEphemeral(
+      interaction,
+      async () => {
+        await deployProfessionPanels(interaction.client);
+      },
+      '🛠️ ระบบพยายามซ่อมพาเนลที่หายแล้ว'
+    );
     return;
   }
 
   if (action === 'refresh_current_quest') {
-    await deployProfessionPanels(interaction.client);
-    await interaction.reply({ content: '🔄 รีเฟรชข้อมูลเควสปัจจุบันเรียบร้อยแล้ว', ephemeral: true });
+    await runDeferredEphemeral(
+      interaction,
+      async () => {
+        await deployProfessionPanels(interaction.client);
+      },
+      '🔄 รีเฟรชข้อมูลเควสปัจจุบันเรียบร้อยแล้ว'
+    );
     return;
   }
 
