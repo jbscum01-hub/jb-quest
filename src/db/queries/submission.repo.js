@@ -29,7 +29,7 @@ async function findSubmissionById(submissionId, client) {
   const result = await db.query(
     `
     SELECT s.*, p.profession_code, p.profession_name_th, q.quest_code, q.quest_name, q.quest_level,
-           c.category_code, q.repeat_cooldown_days, pp.discord_user_id, pp.discord_username, pp.discord_display_name
+           c.category_code, q.repeat_cooldown_days, q.submission_limit_count, q.submission_limit_period_days, pp.discord_user_id, pp.discord_username, pp.discord_display_name
     FROM public.tb_quest_submission s
     JOIN public.tb_quest_master q ON s.quest_id = q.quest_id
     LEFT JOIN public.tb_quest_master_category c ON q.category_id = c.category_id
@@ -65,6 +65,29 @@ async function findPendingSubmissionByPlayer(
   );
 
   return result.rows[0] || null;
+}
+
+
+async function countApprovedSubmissionsInWindow(
+  { playerId, professionId, questId, periodDays },
+  client
+) {
+  const db = getDb(client);
+
+  const result = await db.query(
+    `
+    SELECT COUNT(*)::int AS approved_count
+    FROM public.tb_quest_submission
+    WHERE player_id = $1
+      AND profession_id = $2
+      AND quest_id = $3
+      AND submission_status = 'APPROVED'
+      AND submitted_at >= (NOW() - (($4 || ' days')::interval))
+    `,
+    [playerId, professionId, questId, periodDays]
+  );
+
+  return Number(result.rows[0]?.approved_count || 0);
 }
 
 async function updateSubmissionReview(
@@ -139,5 +162,6 @@ module.exports = {
   findPendingSubmissionByPlayer,
   updateSubmissionReview,
   insertSubmissionAttachment,
-  saveSubmissionMessageRefs
+  saveSubmissionMessageRefs,
+  countApprovedSubmissionsInWindow
 };

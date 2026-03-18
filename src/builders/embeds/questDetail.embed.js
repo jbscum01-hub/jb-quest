@@ -39,6 +39,17 @@ function formatSteps(steps) {
   return steps.map((step) => `${step.step_no}. ${step.step_title}`).join('\n');
 }
 
+function formatSubmissionLimit(quest) {
+  const limitCount = Number(quest.submission_limit_count || 0);
+  const limitPeriodDays = Number(quest.submission_limit_period_days || 0);
+
+  if (!limitCount || !limitPeriodDays) {
+    return 'ไม่จำกัดจำนวนครั้งต่อรอบ';
+  }
+
+  return `${limitCount} ครั้ง / ${limitPeriodDays} วัน`;
+}
+
 function buildQuestDetailEmbed(bundle) {
   const { quest, requirements, rewards, dependencies, images, steps } = bundle;
   const primaryDependency = dependencies[0] || null;
@@ -64,6 +75,8 @@ function buildQuestDetailEmbed(bundle) {
           `ใช้ Ticket: ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
           `อนุมัติโดยแอดมิน: ${quest.requires_admin_approval ? 'ใช่' : 'ไม่ใช่'}`,
           `เควสก่อนหน้า: ${formatDependency(primaryDependency)}`,
+          `คูลดาวน์: ${quest.repeat_cooldown_days || 0} วัน`,
+          `ลิมิตส่งเควส: ${formatSubmissionLimit(quest)}`,
           `จำนวนรูปตัวอย่าง: ${images.length} รูป`
         ].join('\n')
       },
@@ -115,7 +128,7 @@ function buildImageManagerEmbed(bundle) {
       value: images.length
         ? images
           .slice(0, 20)
-          .map((image, index) => `${index + 1}. ${image.media_title || 'ไม่มีชื่อรูป'}\n- URL: ${image.media_url}\n- คำอธิบาย: ${image.media_description || '-'} `)
+          .map((image, index) => `${index + 1}. ${image.media_title || 'ไม่มีชื่อรูป'}\n- URL: ${image.media_url}\n- คำอธิบาย: ${image.media_description || '-'}`)
           .join('\n')
           .slice(0, 1024)
         : 'ยังไม่มีรูปตัวอย่างของเควสนี้'

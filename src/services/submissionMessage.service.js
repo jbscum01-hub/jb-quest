@@ -44,7 +44,6 @@ function buildSubmissionEmbed({
   characterName,
   professionCode,
   questName,
-  screenshot,
   reviewerText = '-',
   reviewNote = '-',
   title = '📩 Quest Submission',
@@ -62,7 +61,6 @@ function buildSubmissionEmbed({
 ผู้ตรวจ: ${reviewerText}
 หมายเหตุ: ${reviewNote}`
     )
-    .setImage(screenshot || null)
     .setTimestamp();
 }
 
@@ -72,8 +70,7 @@ async function sendSubmissionMirrors({
   discordUserId,
   characterName,
   professionCode,
-  questName,
-  screenshot
+  questName
 }) {
   const reviewChannelId = await getConfig('QUEST_REVIEW_CHANNEL');
   const logChannelId = await getConfig('QUEST_SUBMISSION_LOG_CHANNEL');
@@ -94,8 +91,7 @@ async function sendSubmissionMirrors({
     discordUserId,
     characterName,
     professionCode,
-    questName,
-    screenshot
+    questName
   });
 
   const logEmbed = buildSubmissionEmbed({
@@ -103,8 +99,7 @@ async function sendSubmissionMirrors({
     discordUserId,
     characterName,
     professionCode,
-    questName,
-    screenshot
+    questName
   });
 
   const reviewMessage = await reviewChannel.send({
@@ -163,7 +158,6 @@ async function updateSubmissionMirrors({
     characterName: submission.player_ingame_name || '-',
     professionCode: submission.profession_code || '-',
     questName: submission.quest_name || '-',
-    screenshot: submission.submission_text || null,
     reviewerText: `<@${reviewerId}>`,
     reviewNote,
     title,

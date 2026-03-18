@@ -97,22 +97,24 @@ async function reviewSubmission({
           incrementRepeat: true
         }, client);
 
-        await client.query(
-          `
-          UPDATE public.tb_quest_player_repeatable_state
-          SET next_available_at = NOW() + (($4 || ' days')::interval),
-              updated_at = NOW()
-          WHERE player_id = $1
-            AND profession_id = $2
-            AND quest_id = $3
-          `,
-          [
-            submission.player_id,
-            submission.profession_id,
-            submission.quest_id,
-            submission.repeat_cooldown_days || 1
-          ]
-        );
+        if (Number(submission.repeat_cooldown_days || 0) > 0) {
+          await client.query(
+            `
+            UPDATE public.tb_quest_player_repeatable_state
+            SET next_available_at = NOW() + (($4 || ' days')::interval),
+                updated_at = NOW()
+            WHERE player_id = $1
+              AND profession_id = $2
+              AND quest_id = $3
+            `,
+            [
+              submission.player_id,
+              submission.profession_id,
+              submission.quest_id,
+              submission.repeat_cooldown_days
+            ]
+          );
+        }
 
         await insertCompletionLog({
           playerId: submission.player_id,

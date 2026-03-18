@@ -1,13 +1,41 @@
 const { buildQuestSubmissionModal } = require('../../builders/modals/questSubmission.modal');
 const { buildCurrentQuestEmbed, buildCurrentQuestImageEmbeds } = require('../../builders/embeds/currentQuest.embed');
-const { getCurrentQuestSummary, getFirstRepeatableQuest } = require('../../services/panel.service');
+const { getCurrentQuestSummary } = require('../../services/panel.service');
 const { openStepQuestTicket } = require('../../services/stepTicket.service');
+
+const VIEW_CURRENT_COOLDOWN_MS = 2500;
+const lastViewQuestAt = new Map();
+
+function getViewQuestKey(userId, professionCode) {
+  return `${userId}:${professionCode}`;
+}
+
+function isViewQuestCoolingDown(userId, professionCode) {
+  const key = getViewQuestKey(userId, professionCode);
+  const now = Date.now();
+  const lastAt = lastViewQuestAt.get(key) || 0;
+
+  if ((now - lastAt) < VIEW_CURRENT_COOLDOWN_MS) {
+    return true;
+  }
+
+  lastViewQuestAt.set(key, now);
+  return false;
+}
 
 async function handlePanelButton(interaction, parsedCustomId) {
   const { action, extra } = parsedCustomId;
   const professionCode = extra;
 
   if (action === 'view_current') {
+    if (isViewQuestCoolingDown(interaction.user.id, professionCode)) {
+      await interaction.reply({
+        content: '⏳ กรุณารอสักครู่แล้วค่อยกดดูเควสอีกครั้ง เพื่อกันข้อความซ้ำ',
+        flags: 64
+      });
+      return;
+    }
+
     await interaction.deferReply({ flags: 64 });
 
     const summary = await getCurrentQuestSummary(interaction.user.id, professionCode);
@@ -35,6 +63,14 @@ async function handlePanelButton(interaction, parsedCustomId) {
     if (!quest) {
       await interaction.reply({
         content: '❌ ไม่พบเควสปัจจุบันของสายนี้',
+        flags: 64
+      });
+      return;
+    }
+
+    if (quest.is_repeatable) {
+      await interaction.reply({
+        content: '❌ ปุ่มส่งเควสซ้ำถูกปิดใช้งานแล้ว กรุณาใช้ flow เควสที่แอดมินตั้งไว้แทน',
         flags: 64
       });
       return;
@@ -70,25 +106,10 @@ async function handlePanelButton(interaction, parsedCustomId) {
   }
 
   if (action === 'submit_repeatable') {
-    await interaction.deferReply({ flags: 64 });
-
-    const repeatable = await getFirstRepeatableQuest(professionCode);
-
-    if (!repeatable.quest) {
-      await interaction.editReply({
-        content: `ยังไม่มีเควสซ้ำของสาย ${professionCode}`
-      });
-      return;
-    }
-
-    await interaction.deleteReply().catch(() => {});
-
-    const modal = buildQuestSubmissionModal({
-      submissionMode: 'REPEATABLE',
-      professionCode
+    await interaction.reply({
+      content: '❌ ปุ่มส่งเควสซ้ำถูกถอดออกจากพาเนลแล้ว',
+      flags: 64
     });
-
-    await interaction.showModal(modal);
     return;
   }
 

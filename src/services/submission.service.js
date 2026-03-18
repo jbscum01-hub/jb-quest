@@ -19,7 +19,8 @@ const {
 const {
   createSubmission,
   insertSubmissionAttachment,
-  findPendingSubmissionByPlayer
+  findPendingSubmissionByPlayer,
+  countApprovedSubmissionsInWindow
 } = require('../db/queries/submission.repo');
 
 const {
@@ -105,6 +106,22 @@ async function submitQuest({
         new Date(state.next_available_at) > new Date()
       ) {
         throw new Error(`Quest ยังติดคูลดาวน์ถึง ${new Date(state.next_available_at).toLocaleString('th-TH')}`);
+      }
+
+      const submissionLimitCount = Number(quest.submission_limit_count || 0);
+      const submissionLimitPeriodDays = Number(quest.submission_limit_period_days || 0);
+
+      if (submissionLimitCount > 0 && submissionLimitPeriodDays > 0) {
+        const approvedCount = await countApprovedSubmissionsInWindow({
+          playerId: playerProfile.player_id,
+          professionId: profession.profession_id,
+          questId: quest.quest_id,
+          periodDays: submissionLimitPeriodDays
+        }, client);
+
+        if (approvedCount >= submissionLimitCount) {
+          throw new Error(`เควสนี้ส่งได้สูงสุด ${submissionLimitCount} ครั้ง ภายใน ${submissionLimitPeriodDays} วัน`);
+        }
       }
     } else {
       throw new Error(`Unsupported submission mode: ${submissionMode}`);
