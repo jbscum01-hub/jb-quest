@@ -55,8 +55,9 @@ function buildTimedWindowLines(quest) {
 function buildLegendaryStatusLines(quest) {
   return [
     `สถานะ: ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
-    `ประเภท: LEGENDARY`,
-    `รับรางวัลรายสัปดาห์: ${Number(quest.weekly_claim_limit || 1)} ครั้ง`
+    'ประเภท: LEGENDARY',
+    `ผ่านครั้งแรก: ต้องส่งเควสให้แอดมินอนุมัติ`,
+    `เคลมรอบถัดไป: ทุก ${Number(quest.legendary_claim_cooldown_days || 7)} วัน`
   ];
 }
 
