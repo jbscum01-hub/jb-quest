@@ -1,6 +1,7 @@
 const { withTransaction } = require('../db/pool');
 const { findQuestById } = require('../db/queries/questMaster.repo');
 const { findLatestSubmissionByPlayerAndQuest } = require('../db/queries/submission.repo');
+const { findPlayerByDiscordId } = require('../db/queries/playerProfile.repo');
 const {
   findLegendaryStateByPlayerAndQuest,
   lockLegendaryStateByPlayerAndQuest,
@@ -62,6 +63,29 @@ async function ensureLegendaryQuest(questId, client) {
     throw new Error('ไม่พบเควสตำนานนี้');
   }
   return quest;
+}
+
+async function resolvePlayerContext({ playerId = null, discordUserId = null }, client) {
+  if (playerId) {
+    return {
+      playerId,
+      playerProfile: null
+    };
+  }
+
+  if (!discordUserId) {
+    throw new Error('ไม่พบ playerId หรือ discordUserId สำหรับระบบเควสตำนาน');
+  }
+
+  const playerProfile = await findPlayerByDiscordId(discordUserId, client);
+  if (!playerProfile) {
+    throw new Error('ยังไม่พบข้อมูลผู้เล่น กรุณาส่งเควสครั้งแรกก่อน');
+  }
+
+  return {
+    playerId: playerProfile.player_id,
+    playerProfile
+  };
 }
 
 async function canSubmitLegendary({ playerId, questId }, client) {
@@ -201,10 +225,11 @@ async function activateLegendaryFromApproval({ playerId, questId, submissionId, 
   }, client);
 }
 
-async function getLegendaryClaimDetail({ playerId, questId }, client) {
+async function getLegendaryClaimDetail({ playerId = null, discordUserId = null, questId }, client) {
+  const { playerId: resolvedPlayerId } = await resolvePlayerContext({ playerId, discordUserId }, client);
   const quest = await ensureLegendaryQuest(questId, client);
-  const state = await findLegendaryStateByPlayerAndQuest({ playerId, questId }, client);
-  const latestSubmission = await findLatestSubmissionByPlayerAndQuest({ playerId, questId }, client);
+  const state = await findLegendaryStateByPlayerAndQuest({ playerId: resolvedPlayerId, questId }, client);
+  const latestSubmission = await findLatestSubmissionByPlayerAndQuest({ playerId: resolvedPlayerId, questId }, client);
   const now = new Date();
 
   if (!state && !latestSubmission) {
@@ -214,7 +239,10 @@ async function getLegendaryClaimDetail({ playerId, questId }, client) {
       lines: [
         'สถานะ: ยังไม่ปลดล็อก',
         'คุณต้องส่งเควสตำนานนี้ให้ผ่านครั้งแรกก่อน จึงจะใช้ระบบเคลมได้'
-      ]
+      ],
+      quest,
+      state: null,
+      readyToClaim: false
     };
   }
 
@@ -226,7 +254,10 @@ async function getLegendaryClaimDetail({ playerId, questId }, client) {
         'สถานะ: รอตรวจสอบ',
         `ส่งล่าสุด: ${formatThaiDateTime(latestSubmission.submitted_at)}`,
         'ยังไม่สามารถเคลมได้จนกว่าแอดมินจะอนุมัติครั้งแรก'
-      ]
+      ],
+      quest,
+      state,
+      readyToClaim: false
     };
   }
 
@@ -239,7 +270,10 @@ async function getLegendaryClaimDetail({ playerId, questId }, client) {
         `ตรวจล่าสุด: ${formatThaiDateTime(latestSubmission.reviewed_at)}`,
         `หมายเหตุ: ${latestSubmission.review_remark || '-'}`,
         'คุณสามารถกลับไปส่งเควสนี้ใหม่ได้อีกครั้ง'
-      ]
+      ],
+      quest,
+      state,
+      readyToClaim: false
     };
   }
 
@@ -250,7 +284,10 @@ async function getLegendaryClaimDetail({ playerId, questId }, client) {
       lines: [
         'สถานะ: ยังไม่ปลดล็อก',
         'คุณต้องผ่านเควสครั้งแรกก่อน จึงจะเคลมรอบถัดไปได้'
-      ]
+      ],
+      quest,
+      state: null,
+      readyToClaim: false
     };
   }
 
@@ -274,10 +311,11 @@ async function getLegendaryClaimDetail({ playerId, questId }, client) {
   };
 }
 
-async function claimLegendaryReward({ playerId, questId }, client) {
+async function claimLegendaryReward({ playerId = null, discordUserId = null, questId }, client) {
   return withTransaction(async (tx) => {
+    const { playerId: resolvedPlayerId, playerProfile } = await resolvePlayerContext({ playerId, discordUserId }, tx);
     const quest = await ensureLegendaryQuest(questId, tx);
-    const state = await lockLegendaryStateByPlayerAndQuest({ playerId, questId }, tx);
+    const state = await lockLegendaryStateByPlayerAndQuest({ playerId: resolvedPlayerId, questId }, tx);
 
     if (!state || !state.is_unlocked) {
       throw new Error('คุณยังไม่ผ่านเควสตำนานนี้ครั้งแรก');
@@ -301,6 +339,8 @@ async function claimLegendaryReward({ playerId, questId }, client) {
     return {
       quest,
       state: updated,
+      playerId: resolvedPlayerId,
+      playerProfile,
       claimCount: Number(updated.claim_count || 0),
       lastClaimedAt: updated.last_claimed_at,
       nextClaimAvailableAt: updated.next_claim_available_at
