@@ -139,12 +139,13 @@ async function submitQuest({
         }
       }
     } else if (submissionMode === 'GLOBAL') {
-      effectiveSubmissionType = 'GLOBAL';
       quest = await findQuestById(questId, client);
 
       if (!quest || !['TIMED', 'LEGENDARY'].includes(quest.category_code)) {
         throw new Error('ไม่พบเควสพิเศษ/เควสตำนานที่ต้องการส่ง');
       }
+
+      effectiveSubmissionType = quest.category_code;
 
       const pendingSubmission = await findPendingSubmissionByPlayer({
         playerId: playerProfile.player_id,

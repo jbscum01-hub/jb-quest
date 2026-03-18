@@ -55,8 +55,9 @@ async function findPendingSubmissionByPlayer(
     SELECT *
     FROM public.tb_quest_submission
     WHERE player_id = $1
-      AND profession_id = $2
+      AND (($2::uuid IS NULL AND profession_id IS NULL) OR profession_id = $2)
       AND submission_type = $3
+      AND ($4::uuid IS NULL OR quest_id = $4)
       AND submission_status = 'PENDING_REVIEW'
     ORDER BY submitted_at DESC
     LIMIT 1
@@ -79,7 +80,7 @@ async function countApprovedSubmissionsInWindow(
     SELECT COUNT(*)::int AS approved_count
     FROM public.tb_quest_submission
     WHERE player_id = $1
-      AND profession_id = $2
+      AND (($2::uuid IS NULL AND profession_id IS NULL) OR profession_id = $2)
       AND quest_id = $3
       AND submission_status = 'APPROVED'
       AND submitted_at >= (NOW() - (($4 || ' days')::interval))

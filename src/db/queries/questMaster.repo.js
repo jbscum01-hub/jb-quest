@@ -4,7 +4,10 @@ function getDb(client) {
   return client || getPool();
 }
 
+let questMasterColumnCache = null;
+
 async function getQuestMasterColumnSet(client) {
+  if (questMasterColumnCache) return questMasterColumnCache;
   const db = getDb(client);
   const result = await db.query(`
     SELECT column_name
@@ -12,7 +15,8 @@ async function getQuestMasterColumnSet(client) {
     WHERE table_schema = 'public'
       AND table_name = 'tb_quest_master'
   `);
-  return new Set(result.rows.map((row) => row.column_name));
+  questMasterColumnCache = new Set(result.rows.map((row) => row.column_name));
+  return questMasterColumnCache;
 }
 
 function parseNullableInteger(value) {
@@ -20,17 +24,6 @@ function parseNullableInteger(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) throw new Error('ค่าที่ส่งมาต้องเป็นตัวเลขจำนวนเต็ม');
   return parsed;
-}
-
-function normalizeNaiveTimestamp(value) {
-  if (value === null || value === undefined) return null;
-  const raw = String(value).trim();
-  if (!raw) return null;
-  const normalized = raw.replace('T', ' ').replace(/\//g, '-').replace(/\s+/g, ' ').trim();
-  const m = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (!m) throw new Error('รูปแบบวันเวลาไม่ถูกต้อง ใช้ YYYY-MM-DD หรือ YYYY-MM-DD HH:mm');
-  const [, y, mo, d, hh='00', mm='00', ss='00'] = m;
-  return `${y}-${mo}-${d} ${hh}:${mm}:${ss}`;
 }
 
 
@@ -477,7 +470,7 @@ async function updateQuestScheduleAndLimits(questId, payload, updatedBy, client)
     assignments.push(fragment.replaceAll('$VALUE', `$${values.length}`));
   };
 
-  const startAt = normalizeNaiveTimestamp(payload.startAt);
+  const startAt = payload.startAt || null;
   const durationDays = parseNullableInteger(payload.durationDays);
   const submissionLimitCount = parseNullableInteger(payload.submissionLimitCount);
   const submissionLimitPeriodDays = parseNullableInteger(payload.submissionLimitPeriodDays);
