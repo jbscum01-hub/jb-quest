@@ -42,6 +42,7 @@ const { buildQuestRequirementModal } = require('../builders/modals/adminQuestReq
 const { buildQuestRewardModal } = require('../builders/modals/adminQuestReward.modal');
 const { buildQuestImageModal, buildStepImageModal } = require('../builders/modals/adminQuestImage.modal');
 const { buildCreateQuestModal } = require('../builders/modals/adminCreateQuest.modal');
+const { buildQuestScheduleModal } = require('../builders/modals/adminQuestSchedule.modal');
 const { buildStepModal } = require('../builders/modals/adminStep.modal');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const { findProfessionConfig } = require('../db/queries/discordConfig.repo');
@@ -54,6 +55,7 @@ const {
   getQuestDetailBundle,
   updateQuestActive,
   updateQuestDescription,
+  updateQuestScheduleAndLimits,
   findQuestRequirementById,
   updateQuestRequirement,
   addQuestRequirement,
@@ -73,6 +75,7 @@ const {
   deactivateStepGuideImage,
   findQuestStepById
 } = require('../db/queries/questMaster.repo');
+const { getQuestPanelMessageId, deployOrRefreshGlobalQuestPanel } = require('./globalPanel.service');
 
 async function updateOrReply(interaction, payload) {
   if (interaction.isButton() || interaction.isStringSelectMenu()) {
@@ -217,8 +220,16 @@ async function renderQuestSearchResults(interaction, keyword) {
   });
 }
 
+async function enrichBundle(bundle) {
+  if (!bundle) return bundle;
+  bundle.panelMessageId = ['TIMED', 'LEGENDARY'].includes(bundle.quest.category_code)
+    ? await getQuestPanelMessageId(bundle.quest.quest_id)
+    : null;
+  return bundle;
+}
+
 async function renderQuestDetail(interaction, questId) {
-  const bundle = await getQuestDetailBundle(questId);
+  const bundle = await enrichBundle(await getQuestDetailBundle(questId));
   if (!bundle) {
     await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
     return;
@@ -283,7 +294,7 @@ async function toggleQuestActiveAndRender(interaction, questId) {
     return;
   }
   await updateQuestActive(questId, !bundle.quest.is_active, interaction.user.id);
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
   await interaction.update(buildQuestDetailResponse(refreshed));
   await interaction.followUp({ content: `✅ ปรับสถานะเควสเป็น ${refreshed.quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} แล้ว`, ephemeral: true });
 }
@@ -330,7 +341,7 @@ async function saveQuestDescriptionFromModal(interaction, questId) {
     panelDescription: interaction.fields.getTextInputValue('panel_description').trim()
   }, interaction.user.id);
 
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
   await interaction.reply({ content: '✅ บันทึกคำอธิบายเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
@@ -342,7 +353,7 @@ async function saveQuestRequirementFromModal(interaction, requirementId) {
     requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
   }, interaction.user.id);
 
-  const refreshed = await getQuestDetailBundle(requirement.quest_id);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(requirement.quest_id));
   await interaction.reply({ content: '✅ บันทึกรายการของที่ต้องส่งเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
@@ -352,7 +363,7 @@ async function addQuestRequirementFromModal(interaction, questId) {
     requiredQuantity: parsePositiveInteger(interaction.fields.getTextInputValue('required_quantity'), 'จำนวนที่ต้องส่ง')
   }, interaction.user.id);
 
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
   await interaction.reply({ content: '✅ เพิ่มรายการของที่ต้องส่งเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
@@ -366,7 +377,7 @@ async function saveQuestRewardFromModal(interaction, rewardId) {
     rewardDisplayText: interaction.fields.getTextInputValue('reward_display_text').trim()
   }, interaction.user.id);
 
-  const refreshed = await getQuestDetailBundle(reward.quest_id);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(reward.quest_id));
   await interaction.reply({ content: '✅ บันทึกรางวัลเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
@@ -378,7 +389,7 @@ async function addQuestRewardFromModal(interaction, questId) {
     rewardDisplayText: interaction.fields.getTextInputValue('reward_display_text').trim()
   }, interaction.user.id);
 
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
   await interaction.reply({ content: '✅ เพิ่มรางวัลเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
@@ -448,7 +459,7 @@ async function saveCreateQuestFromModal(interaction, context = {}) {
     dependencyQuestId
   }, interaction.user.id);
 
-  const bundle = await getQuestDetailBundle(questId);
+  const bundle = await enrichBundle(await getQuestDetailBundle(questId));
   await interaction.reply({ content: '✅ สร้างเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(bundle), ephemeral: true });
 }
 
@@ -474,7 +485,7 @@ async function renderDependencyEditor(interaction, questId) {
 
 async function saveDependencySelection(interaction, questId, selectedValue) {
   await replaceQuestDependency(questId, selectedValue === 'NONE' ? null : selectedValue, interaction.user.id);
-  const refreshed = await getQuestDetailBundle(questId);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
   await interaction.update(buildQuestDetailResponse(refreshed));
   await interaction.followUp({ content: selectedValue === 'NONE' ? '✅ ลบ dependency เรียบร้อยแล้ว' : '✅ เปลี่ยนเควสก่อนหน้าเรียบร้อยแล้ว', ephemeral: true });
 }
@@ -588,6 +599,47 @@ async function showAddStepImageModal(interaction, stepId) {
   await interaction.showModal(buildStepImageModal(stepId));
 }
 
+
+async function showQuestScheduleModal(interaction, questId) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) {
+    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
+    return;
+  }
+  if (!['TIMED', 'LEGENDARY'].includes(bundle.quest.category_code)) {
+    await interaction.reply({ content: 'เมนูนี้ใช้ได้เฉพาะเควสพิเศษและเควสตำนาน', ephemeral: true });
+    return;
+  }
+  await interaction.showModal(buildQuestScheduleModal(bundle.quest));
+}
+
+async function saveQuestScheduleFromModal(interaction, questId) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) throw new Error('ไม่พบข้อมูลเควสนี้');
+
+  if (bundle.quest.category_code === 'TIMED') {
+    await updateQuestScheduleAndLimits(questId, {
+      startAt: interaction.fields.getTextInputValue('start_at').trim() || null,
+      durationDays: interaction.fields.getTextInputValue('duration_days').trim(),
+      submissionLimitCount: interaction.fields.getTextInputValue('submission_limit_count').trim(),
+      submissionLimitPeriodDays: interaction.fields.getTextInputValue('submission_limit_period_days').trim()
+    }, interaction.user.id);
+  } else {
+    await updateQuestScheduleAndLimits(questId, {
+      weeklyClaimLimit: interaction.fields.getTextInputValue('weekly_claim_limit').trim()
+    }, interaction.user.id);
+  }
+
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
+  await interaction.reply({ content: '✅ บันทึกเวลา/ลิมิตเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
+}
+
+async function deployQuestPanelAndRender(interaction, questId) {
+  await interaction.deferReply({ flags: 64 });
+  const result = await deployOrRefreshGlobalQuestPanel(interaction.client, questId);
+  await interaction.editReply({ content: result.created ? '✅ สร้าง panel ของเควสนี้แล้ว' : '✅ อัปเดต panel เดิมของเควสนี้แล้ว' });
+}
+
 module.exports = {
   refreshAdminPanel,
   renderAdminHome,
@@ -619,6 +671,9 @@ module.exports = {
   showCreateQuestModal,
   showCreateGlobalQuestModal,
   saveCreateQuestFromModal,
+  showQuestScheduleModal,
+  saveQuestScheduleFromModal,
+  deployQuestPanelAndRender,
   renderDependencyEditor,
   saveDependencySelection,
   renderStepManager,

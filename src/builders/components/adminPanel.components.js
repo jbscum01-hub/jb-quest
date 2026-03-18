@@ -166,6 +166,11 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_images', `${questId}|0`)).setLabel('จัดการรูปตัวอย่าง').setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_schedule', questId)).setLabel('แก้เวลา/ลิมิต').setStyle(ButtonStyle.Secondary).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code)),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'deploy_quest_panel', questId)).setLabel('Deploy Panel').setStyle(ButtonStyle.Success).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code)),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'refresh_quest_panel', questId)).setLabel('Refresh Panel').setStyle(ButtonStyle.Primary).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code))
+    ),
+    new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_requirement', questId)).setLabel('เพิ่มของที่ต้องส่ง').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_reward', questId)).setLabel('เพิ่มรางวัล').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success)

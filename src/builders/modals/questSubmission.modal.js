@@ -5,11 +5,11 @@ const {
   ActionRowBuilder
 } = require('discord.js');
 
-function buildQuestSubmissionModal({ submissionMode, professionCode }) {
-
+function buildQuestSubmissionModal({ submissionMode, professionCode = null, questId = null, title = null }) {
+  const extra = submissionMode === 'GLOBAL' ? questId : professionCode;
   const modal = new ModalBuilder()
-    .setCustomId(`quest:modal_submit:${submissionMode}:${professionCode}`)
-    .setTitle(`ส่งเควส ${professionCode}`);
+    .setCustomId(`quest:modal_submit:${submissionMode}:${extra}`)
+    .setTitle(title || (submissionMode === 'GLOBAL' ? 'ส่งเควสพิเศษ/ตำนาน' : `ส่งเควส ${professionCode}`));
 
   const characterName = new TextInputBuilder()
     .setCustomId('character_name')

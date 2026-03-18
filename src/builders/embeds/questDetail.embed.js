@@ -25,12 +25,8 @@ function formatDependency(dep) {
       ? `${dep.required_quest_code} · ${dep.required_quest_name || '-'}`
       : 'ตั้งค่า quest ก่อนหน้าไว้ แต่ไม่พบข้อมูลปลายทาง';
   }
-  if (dep.dependency_type === 'MAIN_LEVEL') {
-    return `Main Level อย่างน้อย Lv${dep.required_level || '-'}`;
-  }
-  if (dep.dependency_type === 'ROLE') {
-    return `Role: ${dep.required_role_name || dep.required_role_id || '-'}`;
-  }
+  if (dep.dependency_type === 'MAIN_LEVEL') return `Main Level อย่างน้อย Lv${dep.required_level || '-'}`;
+  if (dep.dependency_type === 'ROLE') return `Role: ${dep.required_role_name || dep.required_role_id || '-'}`;
   return dep.dependency_type || 'ไม่มี';
 }
 
@@ -40,26 +36,37 @@ function formatSteps(steps) {
 }
 
 function formatSubmissionLimit(quest) {
-  const limitCount = Number(quest.submission_limit_count || 0);
-  const limitPeriodDays = Number(quest.submission_limit_period_days || 0);
-
-  if (!limitCount || !limitPeriodDays) {
-    return 'ไม่จำกัดจำนวนครั้งต่อรอบ';
+  if (quest.category_code === 'LEGENDARY') {
+    return `${Number(quest.weekly_claim_limit || 1)} ครั้ง / สัปดาห์`;
   }
 
+  const limitCount = Number(quest.submission_limit_count || 0);
+  const limitPeriodDays = Number(quest.submission_limit_period_days || 0);
+  if (!limitCount || !limitPeriodDays) return 'ไม่จำกัดจำนวนครั้งต่อรอบ';
   return `${limitCount} ครั้ง / ${limitPeriodDays} วัน`;
 }
 
+function formatTimedWindow(quest) {
+  if (quest.category_code !== 'TIMED') return '-';
+  if (!quest.start_at || !quest.end_at) return 'ยังไม่ได้ตั้งเวลา';
+  return `${new Date(quest.start_at).toLocaleString('th-TH')}\nถึง ${new Date(quest.end_at).toLocaleString('th-TH')}`;
+}
+
+function resolveQuestType(quest) {
+  if (quest.category_code === 'TIMED') return 'Special Quest';
+  if (quest.category_code === 'LEGENDARY') return 'Legendary Quest';
+  return quest.is_repeatable ? 'Repeatable' : (quest.is_step_quest ? 'Step Quest' : 'Main Quest');
+}
+
 function buildQuestDetailEmbed(bundle) {
-  const { quest, requirements, rewards, dependencies, images, steps } = bundle;
+  const { quest, requirements, rewards, dependencies, images, steps, panelMessageId = null } = bundle;
   const primaryDependency = dependencies[0] || null;
   const titleParts = [
-    quest.icon_emoji || '📘',
-    quest.profession_code || 'NO_PROF',
+    quest.icon_emoji || (quest.category_code === 'LEGENDARY' ? '👑' : quest.category_code === 'TIMED' ? '✨' : '📘'),
+    quest.profession_code || (quest.category_code === 'TIMED' ? 'SPECIAL' : quest.category_code === 'LEGENDARY' ? 'LEGENDARY' : 'NO_PROF'),
     `Lv${quest.quest_level || '-'}`,
     quest.quest_code
   ];
-
   const descriptionText = quest.quest_description || quest.panel_description || '-';
 
   return new EmbedBuilder()
@@ -71,45 +78,29 @@ function buildQuestDetailEmbed(bundle) {
         name: 'ข้อมูลหลัก',
         value: [
           `สถานะ: ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
-          `ประเภท: ${quest.is_repeatable ? 'Repeatable' : (quest.is_step_quest ? 'Step Quest' : 'Main Quest')}`,
+          `ประเภท: ${resolveQuestType(quest)}`,
           `ใช้ Ticket: ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
           `อนุมัติโดยแอดมิน: ${quest.requires_admin_approval ? 'ใช่' : 'ไม่ใช่'}`,
           `เควสก่อนหน้า: ${formatDependency(primaryDependency)}`,
           `คูลดาวน์: ${quest.repeat_cooldown_days || 0} วัน`,
           `ลิมิตส่งเควส: ${formatSubmissionLimit(quest)}`,
+          `เวลาเปิด-ปิด: ${formatTimedWindow(quest)}`,
+          `Panel Message: ${panelMessageId || 'ยังไม่ deploy'}`,
           `จำนวนรูปตัวอย่าง: ${images.length} รูป`
         ].join('\n')
       },
-      {
-        name: 'คำอธิบายเควส',
-        value: descriptionText.length > 1024 ? `${descriptionText.slice(0, 1021)}...` : descriptionText
-      },
-      {
-        name: `ของที่ต้องส่ง / เงื่อนไข (${requirements.length})`,
-        value: requirements.length
-          ? requirements.slice(0, 15).map(formatRequirement).join('\n').slice(0, 1024)
-          : 'ไม่มี'
-      },
-      {
-        name: `รางวัล (${rewards.length})`,
-        value: rewards.length
-          ? rewards.slice(0, 15).map(formatReward).join('\n').slice(0, 1024)
-          : 'ไม่มี'
-      },
-      {
-        name: `ขั้นตอน (${steps.length})`,
-        value: formatSteps(steps).slice(0, 1024)
-      },
+      { name: 'คำอธิบายเควส', value: descriptionText.length > 1024 ? `${descriptionText.slice(0, 1021)}...` : descriptionText },
+      { name: `ของที่ต้องส่ง / เงื่อนไข (${requirements.length})`, value: requirements.length ? requirements.slice(0, 15).map(formatRequirement).join('\n').slice(0, 1024) : 'ไม่มี' },
+      { name: `รางวัล (${rewards.length})`, value: rewards.length ? rewards.slice(0, 15).map(formatReward).join('\n').slice(0, 1024) : 'ไม่มี' },
+      { name: `ขั้นตอน (${steps.length})`, value: formatSteps(steps).slice(0, 1024) },
       {
         name: 'เมนูการจัดการ',
         value: [
           '• **แก้คำอธิบาย** : แก้ชื่อเควส รายละเอียดหลัก ป้ายพาเนล และบันทึกแอดมิน',
-          '• **แก้ของที่ต้องส่ง** : เลือกรายการ requirement เดิมเพื่อแก้ชื่อ จำนวน หรือข้อความ',
-          '• **แก้รางวัล** : เลือกรายการ reward เดิมเพื่อแก้ประเภท จำนวน หรือข้อความแสดงผล',
-          '• **แก้เควสก่อนหน้า** : ตั้งหรือเปลี่ยน dependency ของเควสนี้',
-          '• **จัดการรูปตัวอย่าง** : ดูรายการรูปปัจจุบันและลบรูปที่ไม่ใช้',
-          '• **เปลี่ยนสถานะเควส** : เปิดหรือปิดการใช้งานเควส',
-          '• **เพิ่มของที่ต้องส่ง / เพิ่มรางวัล / เพิ่มรูปตัวอย่าง** : เพิ่มข้อมูลใหม่ให้เควสนี้'
+          '• **แก้เวลา/ลิมิต** : ตั้งจำนวนครั้ง ช่วงเวลา หรือ weekly limit',
+          '• **Deploy Panel / Refresh Panel** : สร้างหรืออัปเดต panel ของเควสนี้',
+          '• **แก้ของที่ต้องส่ง / แก้รางวัล** : ปรับเงื่อนไขและรางวัล',
+          '• **เปลี่ยนสถานะเควส** : ปิดรับโดยให้ panel คงอยู่แต่ซ่อนปุ่มส่งเควส'
         ].join('\n').slice(0, 1024)
       }
     )
@@ -126,19 +117,11 @@ function buildImageManagerEmbed(bundle) {
     .addFields({
       name: `รูปตัวอย่างทั้งหมด (${images.length})`,
       value: images.length
-        ? images
-          .slice(0, 20)
-          .map((image, index) => `${index + 1}. ${image.media_title || 'ไม่มีชื่อรูป'}\n- URL: ${image.media_url}\n- คำอธิบาย: ${image.media_description || '-'}`)
-          .join('\n')
-          .slice(0, 1024)
+        ? images.slice(0, 20).map((image, index) => `${index + 1}. ${image.media_title || 'ไม่มีชื่อรูป'}\n- URL: ${image.media_url}\n- คำอธิบาย: ${image.media_description || '-'}`).join('\n').slice(0, 1024)
         : 'ยังไม่มีรูปตัวอย่างของเควสนี้'
     }, {
       name: 'เมนูการจัดการ',
-      value: [
-        '• **เพิ่มรูปตัวอย่าง** : เพิ่ม GUIDE_IMAGE ใหม่ให้เควสนี้',
-        '• **ลบรูปตัวอย่าง** : เลือกรูปที่ต้องการปิดการใช้งาน',
-        '• **กลับหน้าเควส** : ย้อนกลับไปดูข้อมูลเควสทั้งหมด'
-      ].join('\n')
+      value: ['• **เพิ่มรูปตัวอย่าง** : เพิ่ม GUIDE_IMAGE ใหม่ให้เควสนี้', '• **ลบรูปตัวอย่าง** : เลือกรูปที่ต้องการปิดการใช้งาน', '• **กลับหน้าเควส** : ย้อนกลับไปดูข้อมูลเควสทั้งหมด'].join('\n')
     })
     .setFooter({ text: `Quest ID: ${quest.quest_id}` })
     .setTimestamp();

@@ -1,7 +1,8 @@
 const { withTransaction } = require('../db/pool');
 const {
   findProfessionByCode,
-  findRepeatableQuestsByProfession
+  findRepeatableQuestsByProfession,
+  findQuestById
 } = require('../db/queries/questMaster.repo');
 
 const {
@@ -20,7 +21,8 @@ const {
   createSubmission,
   insertSubmissionAttachment,
   findPendingSubmissionByPlayer,
-  countApprovedSubmissionsInWindow
+  countApprovedSubmissionsInWindow,
+  countApprovedSubmissionsThisWeek
 } = require('../db/queries/submission.repo');
 
 const {
@@ -31,16 +33,17 @@ async function submitQuest({
   discordUserId,
   discordUsername,
   discordDisplayName,
-  professionCode,
+  professionCode = null,
+  questId = null,
   submissionMode,
   ingameName,
   submissionText,
   attachments = []
 }) {
   return withTransaction(async (client) => {
-    const profession = await findProfessionByCode(professionCode, client);
+    const profession = professionCode ? await findProfessionByCode(professionCode, client) : null;
 
-    if (!profession) {
+    if (professionCode && !profession) {
       throw new Error(`Profession not found: ${professionCode}`);
     }
 
@@ -62,19 +65,21 @@ async function submitQuest({
       }, client);
     }
 
-    const pendingSubmission = await findPendingSubmissionByPlayer({
-      playerId: playerProfile.player_id,
-      professionId: profession.profession_id,
-      submissionType: submissionMode
-    }, client);
-
-    if (pendingSubmission) {
-      throw new Error('คุณมีเควสที่ส่งค้างตรวจอยู่แล้ว กรุณารอแอดมินตรวจสอบก่อน');
-    }
-
     let quest;
+    let effectiveProfessionId = profession?.profession_id || null;
+    let effectiveSubmissionType = submissionMode;
 
     if (submissionMode === 'MAIN') {
+      const pendingSubmission = await findPendingSubmissionByPlayer({
+        playerId: playerProfile.player_id,
+        professionId: profession.profession_id,
+        submissionType: submissionMode
+      }, client);
+
+      if (pendingSubmission) {
+        throw new Error('คุณมีเควสที่ส่งค้างตรวจอยู่แล้ว กรุณารอแอดมินตรวจสอบก่อน');
+      }
+
       const resolved = await resolveCurrentMainQuestByPlayer(discordUserId, professionCode, client);
       quest = resolved.quest || null;
 
@@ -86,6 +91,16 @@ async function submitQuest({
         throw new Error('Current main quest not found');
       }
     } else if (submissionMode === 'REPEATABLE') {
+      const pendingSubmission = await findPendingSubmissionByPlayer({
+        playerId: playerProfile.player_id,
+        professionId: profession.profession_id,
+        submissionType: submissionMode
+      }, client);
+
+      if (pendingSubmission) {
+        throw new Error('คุณมีเควสที่ส่งค้างตรวจอยู่แล้ว กรุณารอแอดมินตรวจสอบก่อน');
+      }
+
       const repeatableQuests = await findRepeatableQuestsByProfession(professionCode, client);
       quest = repeatableQuests[0] || null;
 
@@ -123,15 +138,69 @@ async function submitQuest({
           throw new Error(`เควสนี้ส่งได้สูงสุด ${submissionLimitCount} ครั้ง ภายใน ${submissionLimitPeriodDays} วัน`);
         }
       }
+    } else if (submissionMode === 'GLOBAL') {
+      effectiveSubmissionType = 'GLOBAL';
+      quest = await findQuestById(questId, client);
+
+      if (!quest || !['TIMED', 'LEGENDARY'].includes(quest.category_code)) {
+        throw new Error('ไม่พบเควสพิเศษ/เควสตำนานที่ต้องการส่ง');
+      }
+
+      const pendingSubmission = await findPendingSubmissionByPlayer({
+        playerId: playerProfile.player_id,
+        professionId: null,
+        submissionType: effectiveSubmissionType,
+        questId: quest.quest_id
+      }, client);
+
+      if (pendingSubmission) {
+        throw new Error('คุณมีเควสนี้ที่ส่งค้างตรวจอยู่แล้ว กรุณารอแอดมินตรวจสอบก่อน');
+      }
+
+      if (!quest.is_active) {
+        throw new Error('เควสนี้ปิดรับอยู่');
+      }
+
+      if (quest.category_code === 'TIMED') {
+        const now = new Date();
+        if (quest.start_at && now < new Date(quest.start_at)) throw new Error('เควสนี้ยังไม่ถึงเวลาเปิด');
+        if (quest.end_at && now > new Date(quest.end_at)) throw new Error('เควสนี้หมดเวลาแล้ว');
+
+        const submissionLimitCount = Number(quest.submission_limit_count || 0);
+        const submissionLimitPeriodDays = Number(quest.submission_limit_period_days || 0);
+        if (submissionLimitCount > 0 && submissionLimitPeriodDays > 0) {
+          const approvedCount = await countApprovedSubmissionsInWindow({
+            playerId: playerProfile.player_id,
+            professionId: null,
+            questId: quest.quest_id,
+            periodDays: submissionLimitPeriodDays
+          }, client);
+          if (approvedCount >= submissionLimitCount) {
+            throw new Error(`เควสนี้ส่งได้สูงสุด ${submissionLimitCount} ครั้ง ภายใน ${submissionLimitPeriodDays} วัน`);
+          }
+        }
+      }
+
+      if (quest.category_code === 'LEGENDARY') {
+        const weeklyClaimLimit = Number(quest.weekly_claim_limit || 1);
+        const approvedThisWeek = await countApprovedSubmissionsThisWeek({
+          playerId: playerProfile.player_id,
+          professionId: null,
+          questId: quest.quest_id
+        }, client);
+        if (approvedThisWeek >= weeklyClaimLimit) {
+          throw new Error(`เควสตำนานนี้รับรางวัลได้สูงสุด ${weeklyClaimLimit} ครั้งต่อสัปดาห์`);
+        }
+      }
     } else {
       throw new Error(`Unsupported submission mode: ${submissionMode}`);
     }
 
     const submission = await createSubmission({
       playerId: playerProfile.player_id,
-      professionId: profession.profession_id,
+      professionId: effectiveProfessionId,
       questId: quest.quest_id,
-      submissionType: submissionMode,
+      submissionType: effectiveSubmissionType,
       playerIngameName: ingameName,
       submissionText
     }, client);

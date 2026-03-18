@@ -128,6 +128,20 @@ async function reviewSubmission({
 
         questCompleted = true;
       }
+
+      if (submission.submission_type === 'GLOBAL') {
+        await insertCompletionLog({
+          playerId: submission.player_id,
+          professionId: submission.profession_id,
+          questId: submission.quest_id,
+          submissionId,
+          completedBy: reviewerDiscordTag,
+          completionType: submission.category_code || 'GLOBAL',
+          remark: reviewNote
+        }, client);
+
+        questCompleted = true;
+      }
     } else if (action === 'revision') {
       updatedSubmission = await updateSubmissionReview({
         submissionId,
