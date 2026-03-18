@@ -35,6 +35,30 @@ function imageTitle(item, index) {
   return item.media_title || item.media_description || `รูปตัวอย่าง ${index + 1}`;
 }
 
+function formatThaiDateTime(value) {
+  if (!value) return '-';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+function buildTimedWindowAdminBlock(quest) {
+  if (quest.category_code !== 'TIMED') return null;
+  return [
+    `เริ่ม: ${formatThaiDateTime(quest.start_at)}`,
+    `ระยะเวลา: ${Number(quest.duration_days || 0) > 0 ? `${quest.duration_days} วัน` : 'ยังไม่ได้ตั้งค่า'}`,
+    `สิ้นสุด: ${formatThaiDateTime(quest.end_at)}`
+  ].join('\n');
+}
+
 function buildAdminHomeEmbed() {
   return new EmbedBuilder()
     .setColor(0x2b2d31)
@@ -155,6 +179,35 @@ function buildQuestDetailEmbed(bundle) {
     ? `${quest.icon_emoji || '📘'} ${quest.profession_code} · Lv${quest.quest_level || '-'} · ${quest.quest_code}`
     : `${quest.category_code === 'LEGENDARY' ? '👑' : '✨'} ${quest.category_code === 'LEGENDARY' ? 'LEGENDARY' : quest.category_code === 'TIMED' ? 'SPECIAL' : 'QUEST'} · ${quest.quest_code}`;
 
+  const fields = [
+    { name: '📝 คำอธิบายเควส', value: clampText(quest.quest_description || quest.panel_description || '-'), inline: false }
+  ];
+
+  if (quest.category_code === 'TIMED') {
+    fields.push({ name: '🕒 เวลาเควส', value: clampText(buildTimedWindowAdminBlock(quest) || '-') , inline: false });
+  }
+
+  fields.push(
+    { name: '🔗 เควสที่ต้องผ่านก่อน', value: clampText(dependencyText), inline: false },
+    { name: '📦 ของที่ต้องส่ง / เงื่อนไข', value: clampText(requirementText), inline: false },
+    { name: '🎁 รางวัล', value: clampText(rewardText), inline: false },
+    { name: '🪜 ขั้นตอน', value: clampText(stepText), inline: false },
+    {
+      name: '🛠️ เมนูการจัดการ',
+      value: clampText([
+        '• **แก้คำอธิบาย** : แก้ชื่อและรายละเอียดหลักของเควส',
+        '• **แก้เวลา/ลิมิต** : ตั้งเวลาเปิด-ปิด และจำนวนครั้งของเควสนี้',
+        '• **แก้ของที่ต้องส่ง** : แก้ชื่อและจำนวนของ requirement',
+        '• **แก้รางวัล** : แก้รายการ reward เดิมของเควสนี้',
+        '• **แก้เควสก่อนหน้า** : ตั้งหรือเปลี่ยน dependency ของเควสนี้',
+        '• **จัดการ Step** : เพิ่ม แก้ เปิด/ปิด Step และจัดการรูปของ Step',
+        '• **จัดการรูปตัวอย่าง** : ลบและเพิ่มรูปตัวอย่างระดับเควส',
+        '• **เพิ่มของที่ต้องส่ง / เพิ่มรางวัล / เพิ่มรูปตัวอย่าง** : เพิ่มข้อมูลใหม่ให้เควสนี้'
+      ].join('\n')),
+      inline: false
+    }
+  );
+
   return new EmbedBuilder()
     .setColor(quest.is_active ? 0x57f287 : 0xed4245)
     .setTitle(titleText)
@@ -166,26 +219,7 @@ function buildQuestDetailEmbed(bundle) {
       `**ใช้ Ticket:** ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
       `**จำนวนรูปตัวอย่าง:** ${images.length} รูป`
     ].join('\n'))
-    .addFields(
-      { name: '📝 คำอธิบายเควส', value: clampText(quest.quest_description || quest.panel_description || '-'), inline: false },
-      { name: '🔗 เควสที่ต้องผ่านก่อน', value: clampText(dependencyText), inline: false },
-      { name: '📦 ของที่ต้องส่ง / เงื่อนไข', value: clampText(requirementText), inline: false },
-      { name: '🎁 รางวัล', value: clampText(rewardText), inline: false },
-      { name: '🪜 ขั้นตอน', value: clampText(stepText), inline: false },
-      {
-        name: '🛠️ เมนูการจัดการ',
-        value: clampText([
-          '• **แก้คำอธิบาย** : แก้ชื่อและรายละเอียดหลักของเควส',
-          '• **แก้ของที่ต้องส่ง** : แก้ชื่อและจำนวนของ requirement',
-          '• **แก้รางวัล** : แก้รายการ reward เดิมของเควสนี้',
-          '• **แก้เควสก่อนหน้า** : ตั้งหรือเปลี่ยน dependency ของเควสนี้',
-          '• **จัดการ Step** : เพิ่ม แก้ เปิด/ปิด Step และจัดการรูปของ Step',
-          '• **จัดการรูปตัวอย่าง** : ลบและเพิ่มรูปตัวอย่างระดับเควส',
-          '• **เพิ่มของที่ต้องส่ง / เพิ่มรางวัล / เพิ่มรูปตัวอย่าง** : เพิ่มข้อมูลใหม่ให้เควสนี้'
-        ].join('\n')),
-        inline: false
-      }
-    )
+    .addFields(...fields)
     .setFooter({ text: `SCUM Quest System · ${professionLabel}` })
     .setTimestamp(quest.updated_at || new Date());
 }
