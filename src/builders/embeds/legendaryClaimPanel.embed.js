@@ -16,7 +16,11 @@ function buildLegendaryClaimPanelEmbed(bundle) {
   const embed = new EmbedBuilder()
     .setColor(0xF1C40F)
     .setTitle(`👑 เคลมตำนาน • ${quest.panel_title || quest.quest_name}`)
-    .setDescription(quest.panel_description || quest.quest_description || 'กดปุ่มด้านล่างเพื่อดูสถานะและเคลมรางวัลของเควสตำนานนี้')
+    .setDescription(
+      quest.panel_description ||
+        quest.quest_description ||
+        'กดปุ่มด้านล่างเพื่อดูสถานะและเคลมรางวัลของเควสตำนานนี้'
+    )
     .addFields(
       {
         name: 'วิธีใช้งาน',
@@ -25,8 +29,7 @@ function buildLegendaryClaimPanelEmbed(bundle) {
           '• ตอนแอดมินอนุมัติครั้งแรก ระบบจะให้รางวัลทันที',
           '• หลังจากนั้นกดเคลมจากพาเนลนี้ได้ตามเวลา',
           '• ส่งเควสซ้ำได้เฉพาะกรณีแอดมินขอแก้ไขเท่านั้น'
-        ].join('
-'),
+        ].join('\n'),
         inline: false
       },
       {
@@ -36,8 +39,7 @@ function buildLegendaryClaimPanelEmbed(bundle) {
       },
       {
         name: 'รางวัลต่อรอบ',
-        value: rewards.length ? rewards.map(formatReward).join('
-') : 'ไม่มี',
+        value: rewards.length ? rewards.map(formatReward).join('\n') : 'ไม่มี',
         inline: false
       }
     )
