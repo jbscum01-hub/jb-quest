@@ -35,6 +35,7 @@ const {
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
 const { deployAllGlobalQuestPanels } = require('../../services/globalPanel.service');
+const { deployAllLegendaryClaimPanels } = require('../../services/legendaryClaimPanel.service');
 const { autoDeployAdminPanel } = require('../../services/adminPanelAutoDeploy.service');
 
 
@@ -76,6 +77,7 @@ async function handleAdminButtons(interaction) {
         await refreshAdminPanel(interaction.message);
         await deployProfessionPanels(interaction.client);
         await deployAllGlobalQuestPanels(interaction.client);
+        await deployAllLegendaryClaimPanels(interaction.client);
       },
       '✅ รีเฟรชพาเนลผู้เล่นเรียบร้อยแล้ว'
     );
@@ -89,6 +91,7 @@ async function handleAdminButtons(interaction) {
         await autoDeployAdminPanel(interaction.client);
         await deployProfessionPanels(interaction.client);
         await deployAllGlobalQuestPanels(interaction.client);
+        await deployAllLegendaryClaimPanels(interaction.client);
       },
       '✅ สร้าง/อัปเดตพาเนลผู้เล่นเรียบร้อยแล้ว'
     );
@@ -101,6 +104,7 @@ async function handleAdminButtons(interaction) {
       async () => {
         await deployProfessionPanels(interaction.client);
         await deployAllGlobalQuestPanels(interaction.client);
+        await deployAllLegendaryClaimPanels(interaction.client);
       },
       '🛠️ ระบบพยายามซ่อมพาเนลที่หายแล้ว'
     );
@@ -113,6 +117,7 @@ async function handleAdminButtons(interaction) {
       async () => {
         await deployProfessionPanels(interaction.client);
         await deployAllGlobalQuestPanels(interaction.client);
+        await deployAllLegendaryClaimPanels(interaction.client);
       },
       '🔄 รีเฟรชข้อมูลเควสปัจจุบันเรียบร้อยแล้ว'
     );
