@@ -4,6 +4,7 @@ const {
   renderQuestDetail,
   showEditRequirementModal,
   showEditRewardModal,
+  renderCreateQuestCategoryPicker,
   showCreateQuestModal,
   saveDependencySelection,
   renderStepDetail
@@ -27,7 +28,12 @@ async function handleAdminSelect(interaction) {
   }
 
   if (action === 'create_level') {
-    return showCreateQuestModal(interaction, extra, Number(interaction.values[0]));
+    return renderCreateQuestCategoryPicker(interaction, extra, Number(interaction.values[0]));
+  }
+
+  if (action === 'create_category') {
+    const [professionCode, levelText] = (extra || '').split('|');
+    return showCreateQuestModal(interaction, professionCode, Number(levelText), interaction.values[0]);
   }
 
   if (action === 'quest') {

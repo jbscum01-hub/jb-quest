@@ -79,7 +79,7 @@ function buildMasterHomeEmbed() {
       '**คำอธิบายปุ่ม**',
       '• **เรียกดูเควส** : เลือกสายอาชีพ → เลือกเลเวล → เลือกเควส',
       '• **ค้นหาเควส** : ค้นจากชื่อเควสหรือโค้ดเควส',
-      '• **สร้างเควส** : เลือกสาย เลือกเลเวล แล้วกรอกข้อมูลพื้นฐานเพื่อสร้างเควสใหม่'
+      '• **สร้างเควส** : เลือกสาย → เลือกเลเวล → เลือกประเภทเควส → กรอกข้อมูลพื้นฐาน'
     ].join('\n'))
     .setFooter({ text: 'SCUM Quest System · Master Data' })
     .setTimestamp();
@@ -104,6 +104,23 @@ function buildBrowseLevelEmbed(professionLabel, mode = 'browse') {
       ? 'เลือกเลเวลที่จะสร้างเควสใหม่ในสายนี้'
       : 'เลือกเลเวลที่ต้องการเพื่อดูรายการเควสในสายนั้น')
     .setFooter({ text: 'SCUM Quest System · Browse Quest Level' })
+    .setTimestamp();
+}
+
+
+function buildCreateQuestCategoryEmbed(professionLabel, level) {
+  return new EmbedBuilder()
+    .setColor(0x57f287)
+    .setTitle(`🧱 เลือกประเภทเควส · ${professionLabel} · Lv${level}`)
+    .setDescription([
+      'เลือกประเภทก่อนสร้างเควสใหม่',
+      '',
+      '• **เควสหลัก** : เควสเลเวลปกติของสายนี้',
+      '• **เควสซ้ำ** : เควสที่ทำซ้ำได้',
+      '• **เควสพิเศษ** : เควสกิจกรรม / เควสช่วงเวลา',
+      '• **เควสตำนาน** : เควสพิเศษระดับสูง'
+    ].join('\n'))
+    .setFooter({ text: 'SCUM Quest System · Create Quest Category' })
     .setTimestamp();
 }
 
@@ -371,6 +388,7 @@ module.exports = {
   buildMasterHomeEmbed,
   buildBrowseQuestEmbed,
   buildBrowseLevelEmbed,
+  buildCreateQuestCategoryEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
   buildQuestImageEmbeds,

@@ -78,6 +78,7 @@ async function handleAdminButtons(interaction) {
   if (action === 'panel_status') return renderPanelStatus(interaction);
   if (action === 'browse_quests') return renderProfessionPicker(interaction, 'browse');
   if (action === 'browse_levels') return renderLevelPicker(interaction, extra, 'browse');
+  if (action === 'create_levels') return renderLevelPicker(interaction, extra, 'create');
 
   if (action === 'back_quest_list') {
     const [professionCode, levelText] = (extra || '').split('|');

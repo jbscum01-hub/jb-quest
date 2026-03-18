@@ -77,6 +77,28 @@ function buildLevelSelectComponents(professionCode, mode = 'browse') {
   ];
 }
 
+
+function buildCreateCategoryComponents(professionCode, level) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'create_category', `${professionCode}|${level}`))
+        .setPlaceholder('เลือกประเภทเควสที่จะสร้าง')
+        .addOptions([
+          { label: 'เควสหลัก', value: 'MAIN', description: 'เควสหลักตามเลเวลปกติ' },
+          { label: 'เควสซ้ำ', value: 'REPEATABLE', description: 'เควสที่ทำซ้ำได้' },
+          { label: 'เควสพิเศษ', value: 'TIMED', description: 'เควสกิจกรรมหรือเควสช่วงเวลา' },
+          { label: 'เควสตำนาน', value: 'LEGENDARY', description: 'เควสพิเศษระดับตำนาน' }
+        ])
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'create_quest')).setLabel('กลับไปเลือกสายใหม่').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'create_levels', professionCode)).setLabel('กลับไปเลือกเลเวล').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้ามาสเตอร์เควส').setStyle(ButtonStyle.Danger)
+    )
+  ];
+}
+
 function buildQuestSelectComponents(professionCode, level, quests = []) {
   const options = quests.slice(0, 25).map((quest) => ({
     label: `${quest.quest_code}`.slice(0, 100),
@@ -272,6 +294,7 @@ module.exports = {
   buildMasterHomeButtons,
   buildProfessionSelectComponents,
   buildLevelSelectComponents,
+  buildCreateCategoryComponents,
   buildQuestSelectComponents,
   buildQuestSearchResultComponents,
   buildQuestDetailButtons,

@@ -4,6 +4,7 @@ const {
   buildMasterHomeEmbed,
   buildBrowseQuestEmbed,
   buildBrowseLevelEmbed,
+  buildCreateQuestCategoryEmbed,
   buildBrowseQuestListEmbed,
   buildQuestDetailEmbed,
   buildQuestImageEmbeds,
@@ -24,6 +25,7 @@ const {
   buildMasterHomeButtons,
   buildProfessionSelectComponents,
   buildLevelSelectComponents,
+  buildCreateCategoryComponents,
   buildQuestSelectComponents,
   buildQuestSearchResultComponents,
   buildQuestDetailButtons,
@@ -405,11 +407,21 @@ async function renderCreateQuestSummary(interaction, professionCode, level) {
   });
 }
 
-async function showCreateQuestModal(interaction, professionCode, level) {
-  await interaction.showModal(buildCreateQuestModal(professionCode, level));
+async function renderCreateQuestCategoryPicker(interaction, professionCode, level) {
+  const profession = await findProfessionByCode(professionCode);
+  const professionLabel = profession?.profession_name_th || professionCode;
+
+  await updateOrReply(interaction, {
+    embeds: [buildCreateQuestCategoryEmbed(professionLabel, level)],
+    components: buildCreateCategoryComponents(professionCode, level)
+  });
 }
 
-async function saveCreateQuestFromModal(interaction, professionCode, level) {
+async function showCreateQuestModal(interaction, professionCode, level, categoryCode = 'MAIN') {
+  await interaction.showModal(buildCreateQuestModal(professionCode, level, categoryCode));
+}
+
+async function saveCreateQuestFromModal(interaction, professionCode, level, categoryCode = 'MAIN') {
   const flags = parseCreateQuestFlags(interaction.fields.getTextInputValue('flags'));
   const dependencyCode = interaction.fields.getTextInputValue('dependency_code').trim().toUpperCase();
   let dependencyQuestId = null;
@@ -418,20 +430,23 @@ async function saveCreateQuestFromModal(interaction, professionCode, level) {
     dependencyQuestId = matches.find((row) => row.quest_code === dependencyCode)?.quest_id || null;
   }
 
+  const normalizedCategory = String(categoryCode || 'MAIN').toUpperCase();
+  const isRepeatableByCategory = normalizedCategory === 'REPEATABLE';
   const questId = await createQuest({
     professionCode,
     questLevel: Number(level),
+    categoryCode: normalizedCategory,
     questCode: interaction.fields.getTextInputValue('quest_code').trim().toUpperCase(),
     questName: interaction.fields.getTextInputValue('quest_name').trim(),
     questDescription: interaction.fields.getTextInputValue('quest_description').trim(),
     isStepQuest: flags.isStepQuest,
     requiresTicket: flags.requiresTicket,
-    isRepeatable: flags.isRepeatable,
+    isRepeatable: isRepeatableByCategory || flags.isRepeatable,
     dependencyQuestId
   }, interaction.user.id);
 
   const bundle = await getQuestDetailBundle(questId);
-  await interaction.reply({ content: '✅ สร้างเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(bundle), ephemeral: true });
+  await interaction.reply({ content: `✅ สร้างเควสประเภท ${normalizedCategory} เรียบร้อยแล้ว`, ...buildQuestDetailResponse(bundle), ephemeral: true });
 }
 
 async function renderDependencyEditor(interaction, questId) {
@@ -597,6 +612,7 @@ module.exports = {
   addQuestRewardFromModal,
   addQuestImageFromModal,
   removeQuestImageAndRender,
+  renderCreateQuestCategoryPicker,
   showCreateQuestModal,
   saveCreateQuestFromModal,
   renderDependencyEditor,
