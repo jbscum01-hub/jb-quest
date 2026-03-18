@@ -435,6 +435,21 @@ async function showCreateGlobalQuestModal(interaction, categoryCode) {
   await interaction.showModal(buildCreateQuestModal({ categoryCode }));
 }
 
+async function deployQuestRelatedPanels(client, quest) {
+  if (!quest || !['TIMED', 'LEGENDARY'].includes(quest.category_code)) {
+    return { questPanel: null, claimPanel: null };
+  }
+
+  const questPanel = await deployOrRefreshGlobalQuestPanel(client, quest.quest_id);
+  let claimPanel = null;
+
+  if (quest.category_code === 'LEGENDARY') {
+    claimPanel = await deployOrRefreshLegendaryClaimPanel(client, quest.quest_id);
+  }
+
+  return { questPanel, claimPanel };
+}
+
 async function saveCreateQuestFromModal(interaction, context = {}) {
   const { professionCode = null, level = null, categoryCode = null } = context;
   const flags = parseCreateQuestFlags(interaction.fields.getTextInputValue('flags'));
@@ -460,7 +475,20 @@ async function saveCreateQuestFromModal(interaction, context = {}) {
   }, interaction.user.id);
 
   const bundle = await enrichBundle(await getQuestDetailBundle(questId));
-  await interaction.reply({ content: '✅ สร้างเควสเรียบร้อยแล้ว', ...buildQuestDetailResponse(bundle), ephemeral: true });
+
+  let createMessage = '✅ สร้างเควสเรียบร้อยแล้ว';
+  if (['TIMED', 'LEGENDARY'].includes(bundle.quest.category_code)) {
+    try {
+      const deployed = await deployQuestRelatedPanels(interaction.client, bundle.quest);
+      createMessage += deployed.claimPanel
+        ? '\n✅ สร้าง/อัปเดตพาเนลเควส + พาเนลเคลมให้แล้วอัตโนมัติ'
+        : '\n✅ สร้าง/อัปเดตพาเนลเควสให้แล้วอัตโนมัติ';
+    } catch (error) {
+      createMessage += `\n⚠️ สร้างเควสสำเร็จ แต่สร้างพาเนลอัตโนมัติไม่สำเร็จ: ${error.message}`;
+    }
+  }
+
+  await interaction.reply({ content: createMessage, ...buildQuestDetailResponse(bundle), ephemeral: true });
 }
 
 async function renderDependencyEditor(interaction, questId) {
@@ -636,8 +664,21 @@ async function saveQuestScheduleFromModal(interaction, questId) {
 
 async function deployQuestPanelAndRender(interaction, questId) {
   await interaction.deferReply({ flags: 64 });
-  const result = await deployOrRefreshGlobalQuestPanel(interaction.client, questId);
-  await interaction.editReply({ content: result.created ? '✅ สร้าง panel ของเควสนี้แล้ว' : '✅ อัปเดต panel เดิมของเควสนี้แล้ว' });
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) throw new Error('ไม่พบข้อมูลเควสนี้');
+
+  const deployed = await deployQuestRelatedPanels(interaction.client, bundle.quest);
+  const messages = [
+    deployed.questPanel?.created ? '✅ สร้าง/อัปเดตพาเนลเควสนี้แล้ว' : '✅ รีเฟรชพาเนลเควสนี้แล้ว'
+  ];
+
+  if (deployed.claimPanel) {
+    messages.push(deployed.claimPanel.created
+      ? '✅ สร้าง/อัปเดตพาเนลเคลมตำนานของเควสนี้แล้ว'
+      : '✅ รีเฟรชพาเนลเคลมตำนานของเควสนี้แล้ว');
+  }
+
+  await interaction.editReply({ content: messages.join('\n') });
 }
 
 module.exports = {
@@ -674,6 +715,7 @@ module.exports = {
   showQuestScheduleModal,
   saveQuestScheduleFromModal,
   deployQuestPanelAndRender,
+  deployQuestRelatedPanels,
   renderDependencyEditor,
   saveDependencySelection,
   renderStepManager,
