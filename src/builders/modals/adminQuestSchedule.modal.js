@@ -4,6 +4,24 @@ function safeValue(value) {
   return value === null || value === undefined ? '' : String(value);
 }
 
+function formatTimestampForInput(value) {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const m = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2})(?::\d{2})?)?$/);
+    if (m) return `${m[1]} ${m[2] || '00:00'}`;
+    return value;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const yyyy = value.getFullYear();
+    const mm = String(value.getMonth() + 1).padStart(2, '0');
+    const dd = String(value.getDate()).padStart(2, '0');
+    const hh = String(value.getHours()).padStart(2, '0');
+    const mi = String(value.getMinutes()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+  }
+  return String(value);
+}
+
 function buildQuestScheduleModal(quest) {
   const isTimed = quest.category_code === 'TIMED';
   const isLegendary = quest.category_code === 'LEGENDARY';
@@ -18,11 +36,11 @@ function buildQuestScheduleModal(quest) {
       .setLabel('วันเริ่ม (YYYY-MM-DD หรือ YYYY-MM-DD HH:mm)')
       .setStyle(TextInputStyle.Short)
       .setRequired(false)
-      .setValue(safeValue(quest.start_at ? new Date(quest.start_at).toISOString().slice(0, 16).replace('T', ' ') : ''));
+      .setValue(safeValue(formatTimestampForInput(quest.start_at)));
 
     const durationDays = new TextInputBuilder()
       .setCustomId('duration_days')
-      .setLabel('เปิดกี่วัน (duration_days)')
+      .setLabel('ระยะเวลาเควส (วัน)')
       .setStyle(TextInputStyle.Short)
       .setRequired(false)
       .setValue(safeValue(quest.duration_days));
@@ -36,7 +54,7 @@ function buildQuestScheduleModal(quest) {
 
     const limitPeriod = new TextInputBuilder()
       .setCustomId('submission_limit_period_days')
-      .setLabel('ภายในกี่วัน (เช่น 7)')
+      .setLabel('จำกัดการส่ง (วัน)')
       .setStyle(TextInputStyle.Short)
       .setRequired(false)
       .setValue(safeValue(quest.submission_limit_period_days));
