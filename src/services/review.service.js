@@ -46,6 +46,10 @@ async function reviewSubmission({
     let actionType;
     let questCompleted = false;
 
+    const isLegendarySubmission = submission.submission_type === 'LEGENDARY' || submission.category_code === 'LEGENDARY';
+    const isTimedSubmission = submission.submission_type === 'TIMED' || submission.category_code === 'TIMED';
+    const isGlobalSubmission = submission.submission_type === 'GLOBAL' || isLegendarySubmission || isTimedSubmission;
+
     if (action === 'approve') {
       updatedSubmission = await updateSubmissionReview({
         submissionId,
@@ -130,8 +134,8 @@ async function reviewSubmission({
         questCompleted = true;
       }
 
-      if (submission.submission_type === 'GLOBAL') {
-        if (submission.category_code === 'LEGENDARY') {
+      if (isGlobalSubmission) {
+        if (isLegendarySubmission) {
           await activateLegendaryFromApproval({
             playerId: submission.player_id,
             questId: submission.quest_id,
@@ -147,7 +151,7 @@ async function reviewSubmission({
           questId: submission.quest_id,
           submissionId,
           completedBy: reviewerDiscordTag,
-          completionType: submission.category_code || 'GLOBAL',
+          completionType: submission.category_code || submission.submission_type || 'GLOBAL',
           remark: reviewNote
         }, client);
 
@@ -185,7 +189,7 @@ async function reviewSubmission({
         }, client);
       }
 
-      if (submission.submission_type === 'GLOBAL' && submission.category_code === 'LEGENDARY') {
+      if (isLegendarySubmission) {
         await markLegendaryRevisionRequired({
           playerId: submission.player_id,
           questId: submission.quest_id,
