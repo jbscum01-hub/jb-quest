@@ -3,8 +3,9 @@ const { buildCurrentQuestEmbed, buildCurrentQuestImageEmbeds } = require('../../
 const { getCurrentQuestSummary } = require('../../services/panel.service');
 const { openStepQuestTicket } = require('../../services/stepTicket.service');
 
-const VIEW_CURRENT_COOLDOWN_MS = 2500;
+const VIEW_CURRENT_COOLDOWN_MS = 4000;
 const lastViewQuestAt = new Map();
+const activeViewQuestRequests = new Set();
 
 function getViewQuestKey(userId, professionCode) {
   return `${userId}:${professionCode}`;
@@ -14,13 +15,13 @@ function isViewQuestCoolingDown(userId, professionCode) {
   const key = getViewQuestKey(userId, professionCode);
   const now = Date.now();
   const lastAt = lastViewQuestAt.get(key) || 0;
+  return (now - lastAt) < VIEW_CURRENT_COOLDOWN_MS;
+}
 
-  if ((now - lastAt) < VIEW_CURRENT_COOLDOWN_MS) {
-    return true;
-  }
-
-  lastViewQuestAt.set(key, now);
-  return false;
+function markViewQuestCompleted(userId, professionCode) {
+  const key = getViewQuestKey(userId, professionCode);
+  lastViewQuestAt.set(key, Date.now());
+  activeViewQuestRequests.delete(key);
 }
 
 async function handlePanelButton(interaction, parsedCustomId) {
@@ -28,31 +29,40 @@ async function handlePanelButton(interaction, parsedCustomId) {
   const professionCode = extra;
 
   if (action === 'view_current') {
-    if (isViewQuestCoolingDown(interaction.user.id, professionCode)) {
-      await interaction.reply({
-        content: '⏳ กรุณารอสักครู่แล้วค่อยกดดูเควสอีกครั้ง เพื่อกันข้อความซ้ำ',
-        flags: 64
+    const viewKey = getViewQuestKey(interaction.user.id, professionCode);
+
+    if (activeViewQuestRequests.has(viewKey) || isViewQuestCoolingDown(interaction.user.id, professionCode)) {
+      await interaction.deferUpdate().catch(async () => {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: '⏳ กรุณารอสักครู่แล้วค่อยกดดูเควสอีกครั้ง', flags: 64 }).catch(() => null);
+        }
       });
       return;
     }
 
-    await interaction.deferReply({ flags: 64 });
+    activeViewQuestRequests.add(viewKey);
 
-    const summary = await getCurrentQuestSummary(interaction.user.id, professionCode);
+    try {
+      await interaction.deferReply({ flags: 64 });
 
-    const embed = buildCurrentQuestEmbed({
-      professionCode,
-      profession: summary.profession,
-      quest: summary.quest,
-      requirements: summary.requirements,
-      rewards: summary.rewards,
-      guideMedia: summary.guideMedia,
-      completedAllMain: summary.completedAllMain
-    });
+      const summary = await getCurrentQuestSummary(interaction.user.id, professionCode);
 
-    await interaction.editReply({
-      embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส')]
-    });
+      const embed = buildCurrentQuestEmbed({
+        professionCode,
+        profession: summary.profession,
+        quest: summary.quest,
+        requirements: summary.requirements,
+        rewards: summary.rewards,
+        guideMedia: summary.guideMedia,
+        completedAllMain: summary.completedAllMain
+      });
+
+      await interaction.editReply({
+        embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส')]
+      });
+    } finally {
+      markViewQuestCompleted(interaction.user.id, professionCode);
+    }
     return;
   }
 

@@ -47,9 +47,10 @@ function buildSubmissionEmbed({
   reviewerText = '-',
   reviewNote = '-',
   title = '📩 Quest Submission',
-  color = 0x2b82ff
+  color = 0x2b82ff,
+  imageUrl = null
 }) {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(title)
     .setColor(color)
     .setDescription(
@@ -62,6 +63,12 @@ function buildSubmissionEmbed({
 หมายเหตุ: ${reviewNote}`
     )
     .setTimestamp();
+
+  if (imageUrl && /^https?:\/\//i.test(String(imageUrl))) {
+    embed.setImage(imageUrl);
+  }
+
+  return embed;
 }
 
 async function sendSubmissionMirrors({
@@ -91,7 +98,8 @@ async function sendSubmissionMirrors({
     discordUserId,
     characterName,
     professionCode,
-    questName
+    questName,
+    imageUrl: submission.submission_text
   });
 
   const logEmbed = buildSubmissionEmbed({
@@ -152,7 +160,20 @@ async function updateSubmissionMirrors({
     color = 0xfee75c;
   }
 
-  const embed = buildSubmissionEmbed({
+  const reviewEmbed = buildSubmissionEmbed({
+    submissionId: submission.submission_id,
+    discordUserId: submission.discord_user_id,
+    characterName: submission.player_ingame_name || '-',
+    professionCode: submission.profession_code || '-',
+    questName: submission.quest_name || '-',
+    reviewerText: `<@${reviewerId}>`,
+    reviewNote,
+    title,
+    color,
+    imageUrl: submission.submission_text
+  });
+
+  const logEmbed = buildSubmissionEmbed({
     submissionId: submission.submission_id,
     discordUserId: submission.discord_user_id,
     characterName: submission.player_ingame_name || '-',
@@ -170,7 +191,7 @@ async function updateSubmissionMirrors({
       const reviewMessage = await reviewChannel.messages.fetch(submission.review_message_id).catch(() => null);
       if (reviewMessage) {
         await reviewMessage.edit({
-          embeds: [embed],
+          embeds: [reviewEmbed],
           components: buildClosedRows()
         });
       }
@@ -183,7 +204,7 @@ async function updateSubmissionMirrors({
       const logMessage = await logChannel.messages.fetch(submission.log_message_id).catch(() => null);
       if (logMessage) {
         await logMessage.edit({
-          embeds: [embed]
+          embeds: [logEmbed]
         });
       }
     }

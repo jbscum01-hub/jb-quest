@@ -9,8 +9,7 @@ function buildProfessionPanelEmbed(professionCode) {
       '',
       'ใช้ปุ่มด้านล่างเพื่อดูเควสหรือส่งเควส',
       '• ดูเควสปัจจุบัน',
-      '• ส่งเควสหลัก',
-      '• ส่งเควสซ้ำ'
+      '• ส่งเควสหลัก'
     ].join('\n'))
     .setFooter({ text: 'SCUM Quest System' })
     .setTimestamp();
