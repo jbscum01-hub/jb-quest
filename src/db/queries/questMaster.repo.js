@@ -4,6 +4,20 @@ function getDb(client) {
   return client || getPool();
 }
 
+let questMasterColumnCache = null;
+
+async function getQuestMasterColumnSet(client) {
+  if (questMasterColumnCache) return questMasterColumnCache;
+  const db = getDb(client);
+  const result = await db.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'tb_quest_master'
+  `);
+  questMasterColumnCache = new Set(result.rows.map((row) => row.column_name));
+  return questMasterColumnCache;
+}
 
 function parseNullableInteger(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -447,33 +461,62 @@ async function updateQuestDescription(questId, payload, updatedBy, client) {
 
 async function updateQuestScheduleAndLimits(questId, payload, updatedBy, client) {
   const db = getDb(client);
+  const columns = await getQuestMasterColumnSet(client);
+  const assignments = [];
+  const values = [questId];
+
+  const bind = (fragment, value) => {
+    values.push(value);
+    assignments.push(fragment.replaceAll('$VALUE', `$${values.length}`));
+  };
+
   const startAt = payload.startAt || null;
   const durationDays = parseNullableInteger(payload.durationDays);
   const submissionLimitCount = parseNullableInteger(payload.submissionLimitCount);
   const submissionLimitPeriodDays = parseNullableInteger(payload.submissionLimitPeriodDays);
   const weeklyClaimLimit = parseNullableInteger(payload.weeklyClaimLimit);
 
+  if (columns.has('start_at')) bind('start_at = $VALUE::timestamp', startAt);
+  if (columns.has('duration_days')) bind('duration_days = $VALUE::integer', durationDays);
+  if (columns.has('end_at')) {
+    if (columns.has('start_at') && columns.has('duration_days')) {
+      values.push(startAt);
+      const startIdx = values.length;
+      values.push(durationDays);
+      const durationIdx = values.length;
+      assignments.push(`end_at = CASE
+          WHEN $${startIdx}::timestamp IS NOT NULL AND $${durationIdx}::integer IS NOT NULL AND $${durationIdx}::integer > 0
+            THEN ($${startIdx}::timestamp + (($${durationIdx}::text || ' days')::interval))
+          WHEN $${startIdx}::timestamp IS NULL OR $${durationIdx}::integer IS NULL OR $${durationIdx}::integer <= 0
+            THEN NULL
+          ELSE end_at
+        END`);
+    } else {
+      assignments.push('end_at = NULL');
+    }
+  }
+  if (columns.has('submission_limit_count')) bind('submission_limit_count = $VALUE::integer', submissionLimitCount);
+  if (columns.has('submission_limit_period_days')) bind('submission_limit_period_days = $VALUE::integer', submissionLimitPeriodDays);
+  if (columns.has('weekly_claim_limit')) {
+    if (weeklyClaimLimit === null || weeklyClaimLimit === undefined) {
+      assignments.push('weekly_claim_limit = NULL');
+    } else {
+      bind('weekly_claim_limit = $VALUE::integer', weeklyClaimLimit);
+    }
+  }
+
+  values.push(updatedBy);
+  assignments.push(`updated_by = $${values.length}`);
+  assignments.push('updated_at = NOW()');
+
   const result = await db.query(
     `
     UPDATE public.tb_quest_master
-    SET start_at = COALESCE($2::timestamp, start_at),
-        duration_days = $3,
-        end_at = CASE
-          WHEN $2::timestamp IS NOT NULL AND $3::integer IS NOT NULL AND $3::integer > 0
-            THEN ($2::timestamp + (($3::text || ' days')::interval))
-          WHEN $2::timestamp IS NULL OR $3::integer IS NULL OR $3::integer <= 0
-            THEN NULL
-          ELSE end_at
-        END,
-        submission_limit_count = $4,
-        submission_limit_period_days = $5,
-        weekly_claim_limit = COALESCE($6, weekly_claim_limit),
-        updated_at = NOW(),
-        updated_by = $7
+    SET ${assignments.join(',\n        ')}
     WHERE quest_id = $1
     RETURNING *
     `,
-    [questId, startAt, durationDays, submissionLimitCount, submissionLimitPeriodDays, weeklyClaimLimit, updatedBy]
+    values
   );
 
   return result.rows[0] || null;
@@ -798,28 +841,52 @@ async function createQuest(payload, actorId, client) {
     );
   const nextOrder = Number(orderResult.rows[0]?.next_order || 1);
 
+  const columns = await getQuestMasterColumnSet(client);
+  const insertColumns = [
+    'quest_id', 'quest_code', 'quest_name', 'quest_description',
+    'category_id', 'profession_id', 'quest_level', 'display_order',
+    'is_step_quest', 'requires_ticket', 'requires_admin_approval',
+    'is_repeatable', 'unlock_mode', 'panel_title', 'panel_description',
+    'button_label', 'admin_note', 'is_active'
+  ];
+  const placeholders = [
+    'gen_random_uuid()', '$1', '$2', "NULLIF($3, '')",
+    '$4', '$5', '$6', '$7',
+    '$8', '$9', 'TRUE',
+    '$10', "CASE WHEN $11 THEN 'PREVIOUS_QUEST' ELSE 'NONE' END",
+    "NULLIF($12, '')", "NULLIF($13, '')",
+    "COALESCE(NULLIF($14, ''), 'ส่งเควส')", "NULLIF($15, '')", 'TRUE'
+  ];
+
+  if (columns.has('start_at')) {
+    insertColumns.push('start_at');
+    placeholders.push('NULL');
+  }
+  if (columns.has('duration_days')) {
+    insertColumns.push('duration_days');
+    placeholders.push('NULL');
+  }
+  if (columns.has('end_at')) {
+    insertColumns.push('end_at');
+    placeholders.push('NULL');
+  }
+  if (columns.has('weekly_claim_limit')) {
+    insertColumns.push('weekly_claim_limit');
+    placeholders.push("CASE WHEN $17 = 'LEGENDARY' THEN 1 ELSE NULL END");
+  }
+
+  insertColumns.push('created_at', 'updated_at', 'created_by', 'updated_by');
+  placeholders.push('NOW()', 'NOW()', '$16', '$16');
+
   const result = await db.query(
     `
     INSERT INTO public.tb_quest_master
     (
-      quest_id, quest_code, quest_name, quest_description,
-      category_id, profession_id, quest_level, display_order,
-      is_step_quest, requires_ticket, requires_admin_approval,
-      is_repeatable, unlock_mode, panel_title, panel_description,
-      button_label, admin_note, is_active,
-      start_at, duration_days, end_at, weekly_claim_limit,
-      created_at, updated_at, created_by, updated_by
+      ${insertColumns.join(', ')}
     )
     VALUES
     (
-      gen_random_uuid(), $1, $2, NULLIF($3, ''),
-      $4, $5, $6, $7,
-      $8, $9, TRUE,
-      $10, CASE WHEN $11 THEN 'PREVIOUS_QUEST' ELSE 'NONE' END,
-      NULLIF($12, ''), NULLIF($13, ''),
-      COALESCE(NULLIF($14, ''), 'ส่งเควส'), NULLIF($15, ''), TRUE,
-      NULL, NULL, NULL, CASE WHEN $17 = 'LEGENDARY' THEN 1 ELSE NULL END,
-      NOW(), NOW(), $16, $16
+      ${placeholders.join(', ')}
     )
     RETURNING quest_id
     `,
@@ -843,7 +910,6 @@ async function createQuest(payload, actorId, client) {
       categoryCode
     ]
   );
-
   const questId = result.rows[0]?.quest_id;
   if (payload.dependencyQuestId) {
     await replaceQuestDependency(questId, payload.dependencyQuestId, actorId, client);

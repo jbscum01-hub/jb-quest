@@ -61,7 +61,7 @@ async function findPendingSubmissionByPlayer(
     ORDER BY submitted_at DESC
     LIMIT 1
     `,
-    [playerId, professionId, submissionType]
+    [playerId, professionId, submissionType, questId]
   );
 
   return result.rows[0] || null;
