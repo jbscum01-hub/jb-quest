@@ -6,9 +6,11 @@ const { findQuestById } = require('../../db/queries/questMaster.repo');
 const { getLegendaryClaimDetail, claimLegendaryReward, formatThaiDateTime } = require('../../services/legendary.service');
 const { grantQuestRewards } = require('../../services/reward.service');
 
-const VIEW_CURRENT_MESSAGE_TTL_MS = 10 * 60 * 1000;
+const VIEW_CURRENT_KEEP_MS = 10 * 60 * 1000;
+const VIEW_CURRENT_COOLDOWN_MS = VIEW_CURRENT_KEEP_MS;
 const lastViewQuestAt = new Map();
 const activeViewQuestRequests = new Set();
+const pendingDeleteTimers = new Map();
 
 function getViewQuestKey(userId, professionCode) {
   return `${userId}:${professionCode}`;
@@ -18,12 +20,40 @@ function isViewQuestCoolingDown(userId, professionCode) {
   const key = getViewQuestKey(userId, professionCode);
   const now = Date.now();
   const lastAt = lastViewQuestAt.get(key) || 0;
-  return (now - lastAt) < VIEW_CURRENT_MESSAGE_TTL_MS;
+  return (now - lastAt) < VIEW_CURRENT_COOLDOWN_MS;
 }
 
-function markViewQuestCompleted(userId, professionCode) {
+function clearViewQuestLock(userId, professionCode) {
   const key = getViewQuestKey(userId, professionCode);
   activeViewQuestRequests.delete(key);
+}
+
+function markViewQuestOpened(userId, professionCode) {
+  const key = getViewQuestKey(userId, professionCode);
+  lastViewQuestAt.set(key, Date.now());
+  activeViewQuestRequests.delete(key);
+}
+
+function scheduleViewQuestAutoDelete(interaction, userId, professionCode) {
+  const key = getViewQuestKey(userId, professionCode);
+
+  const oldTimer = pendingDeleteTimers.get(key);
+  if (oldTimer) {
+    clearTimeout(oldTimer);
+  }
+
+  const timer = setTimeout(async () => {
+    try {
+      await interaction.deleteReply();
+    } catch (_) {
+      // ignore: reply may already be gone or interaction token may be unavailable
+    } finally {
+      pendingDeleteTimers.delete(key);
+      lastViewQuestAt.delete(key);
+    }
+  }, VIEW_CURRENT_KEEP_MS);
+
+  pendingDeleteTimers.set(key, timer);
 }
 
 async function handlePanelButton(interaction, parsedCustomId) {
@@ -34,17 +64,22 @@ async function handlePanelButton(interaction, parsedCustomId) {
     const viewKey = getViewQuestKey(interaction.user.id, professionCode);
 
     if (activeViewQuestRequests.has(viewKey)) {
-      await interaction.deferUpdate().catch(() => null);
+      await interaction.reply({
+        content: '⏳ ระบบกำลังเปิดรายละเอียดเควสนี้ให้คุณอยู่ กรุณารอสักครู่',
+        flags: 64
+      }).catch(() => null);
       return;
     }
 
     if (isViewQuestCoolingDown(interaction.user.id, professionCode)) {
-      await interaction.deferUpdate().catch(() => null);
+      await interaction.reply({
+        content: '📌 คุณเปิดรายละเอียดเควสนี้อยู่แล้ว กรุณารอให้ข้อความเดิมปิดอัตโนมัติภายใน 10 นาที',
+        flags: 64
+      }).catch(() => null);
       return;
     }
 
     activeViewQuestRequests.add(viewKey);
-    lastViewQuestAt.set(viewKey, Date.now());
 
     try {
       await interaction.deferReply({ flags: 64 });
@@ -69,16 +104,11 @@ async function handlePanelButton(interaction, parsedCustomId) {
         embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส', 8, summary.quest)]
       });
 
-      const replyMessage = await interaction.fetchReply().catch(() => null);
-      if (replyMessage) {
-        setTimeout(async () => {
-          try {
-            await replyMessage.delete();
-          } catch (_) {}
-        }, VIEW_CURRENT_MESSAGE_TTL_MS);
-      }
-    } finally {
-      markViewQuestCompleted(interaction.user.id, professionCode);
+      markViewQuestOpened(interaction.user.id, professionCode);
+      scheduleViewQuestAutoDelete(interaction, interaction.user.id, professionCode);
+    } catch (error) {
+      clearViewQuestLock(interaction.user.id, professionCode);
+      throw error;
     }
     return;
   }
