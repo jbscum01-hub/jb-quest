@@ -1,10 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { getQuestColor } = require('../../utils/questColor.util');
 
-function cleanText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
 function truncate(text, max = 1024) {
   const value = String(text || '').trim();
   if (!value) return '-';
@@ -12,12 +8,16 @@ function truncate(text, max = 1024) {
   return `${value.slice(0, max - 3)}...`;
 }
 
-function chunkLines(lines, maxLength = 1024) {
+function cleanText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function chunkLines(lines, maxLength = 1024, separator = '\n') {
   const chunks = [];
   let current = '';
 
   for (const line of lines) {
-    const next = current ? `${current}\n\n${line}` : line;
+    const next = current ? `${current}${separator}${line}` : line;
     if (next.length > maxLength) {
       if (current) chunks.push(current);
       current = line;
@@ -30,7 +30,18 @@ function chunkLines(lines, maxLength = 1024) {
   return chunks.length ? chunks : ['-'];
 }
 
-function formatRequirementItemRow(row) {
+function pad(value, length) {
+  return String(value || '').padEnd(length, ' ');
+}
+
+function safeCell(value, maxLength) {
+  const text = cleanText(value);
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function extractRequirementParts(row) {
   const baseText =
     row.display_text ||
     row.item_name ||
@@ -40,54 +51,131 @@ function formatRequirementItemRow(row) {
 
   let text = cleanText(baseText);
 
-  // ดึงจำนวนจากข้อความ เช่น x20, x 20
-  const matchQty = text.match(/\bx\s*(\d+)\b/i);
-  let qty = row.required_quantity || '';
+  const qtyMatch = text.match(/\bx\s*(\d+)\b/i);
+  let qty = '';
 
-  if (matchQty) {
-    qty = matchQty[1];
-    text = text.replace(matchQty[0], '').trim();
+  if (qtyMatch) {
+    qty = `x${qtyMatch[1]}`;
+    text = cleanText(text.replace(qtyMatch[0], ' '));
+  } else if (Number.isFinite(Number(row.required_quantity)) && Number(row.required_quantity) > 0) {
+    qty = `x${Number(row.required_quantity)}`;
   }
 
-  // ดึงข้อความในวงเล็บไปเป็นบรรทัดล่าง
-  let desc = '';
-  const matchDesc = text.match(/\(([^()]+)\)/);
+  let detail = '';
+  const descMatch = text.match(/\(([^()]+)\)/);
 
-  if (matchDesc) {
-    desc = cleanText(matchDesc[1]);
-    text = text.replace(matchDesc[0], '').trim();
+  if (descMatch) {
+    detail = cleanText(descMatch[1]);
+    text = cleanText(text.replace(descMatch[0], ' '));
   }
 
-  text = cleanText(text);
-
-  const lines = [];
-  lines.push(qty ? `• x${qty} ${text}` : `• ${text}`);
-
-  if (desc) {
-    lines.push(`  └ ${desc}`);
-  }
-
-  return lines.join('\n');
+  return {
+    qty,
+    item: text,
+    detail
+  };
 }
 
-function formatRequirement(row) {
-  if (row.requirement_type === 'IMAGE') return '• ส่งภาพหลักฐาน';
-  if (row.requirement_type === 'INGAME_NAME') return '• ระบุชื่อตัวละคร';
+function formatRequirementTableRows(requirements = []) {
+  const rows = [];
 
-  if (row.requirement_type === 'CUSTOM_TEXT') {
-    return `• ${cleanText(
-      row.display_text ||
-      row.input_label ||
-      row.admin_display_text ||
-      'เงื่อนไขเพิ่มเติม'
-    )}`;
+  for (const row of requirements) {
+    if (row.requirement_type === 'INGAME_NAME') {
+      rows.push({
+        qty: '-',
+        item: 'ระบุชื่อตัวละคร',
+        detail: ''
+      });
+      continue;
+    }
+
+    if (row.requirement_type === 'IMAGE') {
+      rows.push({
+        qty: '-',
+        item: 'ส่งภาพหลักฐาน',
+        detail: ''
+      });
+      continue;
+    }
+
+    if (row.requirement_type === 'CUSTOM_TEXT') {
+      rows.push({
+        qty: '-',
+        item: cleanText(
+          row.display_text ||
+          row.input_label ||
+          row.admin_display_text ||
+          'เงื่อนไขเพิ่มเติม'
+        ),
+        detail: ''
+      });
+      continue;
+    }
+
+    rows.push(extractRequirementParts(row));
   }
 
-  if (row.item_name || row.display_text || row.input_label) {
-    return formatRequirementItemRow(row);
+  return rows;
+}
+
+function buildRequirementTableBlock(rows = []) {
+  if (!rows.length) return '```ไม่มีข้อมูล```';
+
+  const qtyWidth = 4;
+  const itemWidth = 30;
+  const detailWidth = 46;
+
+  const lines = [
+    `${pad('Qty', qtyWidth)} ${pad('Item', itemWidth)} Detail`,
+    `${pad('----', qtyWidth)} ${pad('-'.repeat(itemWidth), itemWidth)} ${'-'.repeat(12)}`
+  ];
+
+  for (const row of rows) {
+    const qty = safeCell(row.qty || '-', qtyWidth);
+    const item = safeCell(row.item || '-', itemWidth);
+    const detail = safeCell(row.detail || '', detailWidth);
+
+    lines.push(`${pad(qty, qtyWidth)} ${pad(item, itemWidth)} ${detail}`.trimEnd());
   }
 
-  return `• ${cleanText(row.requirement_type || 'เงื่อนไข')}`;
+  return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
+}
+
+function chunkRequirementTableBlocks(rows = [], maxLength = 1024) {
+  if (!rows.length) return ['```ไม่มีข้อมูล```'];
+
+  const qtyWidth = 4;
+  const itemWidth = 30;
+  const detailWidth = 46;
+
+  const header1 = `${pad('Qty', qtyWidth)} ${pad('Item', itemWidth)} Detail`;
+  const header2 = `${pad('----', qtyWidth)} ${pad('-'.repeat(itemWidth), itemWidth)} ${'-'.repeat(12)}`;
+
+  const blocks = [];
+  let bodyLines = [];
+
+  const wrapBlock = (lines) => `\`\`\`\n${[header1, header2, ...lines].join('\n')}\n\`\`\``;
+
+  for (const row of rows) {
+    const qty = safeCell(row.qty || '-', qtyWidth);
+    const item = safeCell(row.item || '-', itemWidth);
+    const detail = safeCell(row.detail || '', detailWidth);
+    const line = `${pad(qty, qtyWidth)} ${pad(item, itemWidth)} ${detail}`.trimEnd();
+
+    const candidate = wrapBlock([...bodyLines, line]);
+    if (candidate.length > maxLength && bodyLines.length > 0) {
+      blocks.push(wrapBlock(bodyLines));
+      bodyLines = [line];
+    } else {
+      bodyLines.push(line);
+    }
+  }
+
+  if (bodyLines.length > 0) {
+    blocks.push(wrapBlock(bodyLines));
+  }
+
+  return blocks.length ? blocks : ['```ไม่มีข้อมูล```'];
 }
 
 function formatReward(row) {
@@ -101,7 +189,7 @@ function formatReward(row) {
     return `• FP ${Number(row.reward_value_number).toLocaleString('en-US')}`;
   }
   if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_name) {
-    return `• ยศ ${row.discord_role_name}`;
+    return `• Role: ${row.discord_role_name}`;
   }
   return `• ${cleanText(row.reward_type || 'รางวัล')}`;
 }
@@ -121,6 +209,15 @@ function getFameDisplayText(quest) {
   if (!fame) return 'ไม่จำกัด';
 
   return fame.toLocaleString('en-US');
+}
+
+function buildQuestInfoBlock({ professionCode, quest }) {
+  return [
+    `- สายอาชีพ: ${quest.profession_code || professionCode || '-'}`,
+    `- ระดับ: ${quest.quest_level ? `Lv.${quest.quest_level}` : '-'}${quest.is_step_quest ? ' Step Quest' : ''}`,
+    `- ประเภท: ${getQuestTypeText(quest)}`,
+    `- Fame ขั้นต่ำ: ${getFameDisplayText(quest)}`
+  ].join('\n');
 }
 
 function buildCurrentQuestEmbed({
@@ -148,31 +245,25 @@ function buildCurrentQuestEmbed({
       .setDescription('กรุณาตรวจสอบข้อมูล quest ในฐานข้อมูล');
   }
 
-  const requirementLines = requirements.map(formatRequirement).filter(Boolean);
+  const requirementRows = formatRequirementTableRows(requirements);
+  const requirementChunks = chunkRequirementTableBlocks(requirementRows);
   const rewardLines = rewards.map(formatReward).filter(Boolean);
-
-  const requirementChunks = chunkLines(requirementLines);
-  const rewardChunks = chunkLines(rewardLines);
+  const rewardChunks = chunkLines(rewardLines, 1024, '\n');
 
   const embed = new EmbedBuilder()
     .setColor(getQuestColor(quest))
-    .setTitle(`${quest.is_repeatable ? '♻️' : '📜'} ${quest.quest_name}`)
-    .setDescription(quest.quest_description || quest.panel_description || '-')
+    .setTitle(`${quest.icon_emoji || (quest.is_repeatable ? '♻️' : '📜')} ${quest.quest_name}`)
+    .setDescription(truncate(quest.quest_description || quest.panel_description || 'เควสนี้ไม่มีคำอธิบาย'))
     .addFields({
       name: '📌 ข้อมูลเควส',
-      value: truncate([
-        `- สายอาชีพ: ${quest.profession_code || professionCode || '-'}`,
-        `- ระดับ: ${quest.quest_level ? `Lv.${quest.quest_level}` : '-'}${quest.is_step_quest ? ' Step Quest' : ''}`,
-        `- ประเภท: ${getQuestTypeText(quest)}`,
-        `- Fame ขั้นต่ำ: ${getFameDisplayText(quest)}`
-      ].join('\n')),
+      value: truncate(buildQuestInfoBlock({ professionCode, quest })),
       inline: false
     });
 
   requirementChunks.forEach((chunk, index) => {
     embed.addFields({
       name: index === 0 ? '📦 สิ่งที่ต้องส่ง / เงื่อนไข' : '📦 สิ่งที่ต้องส่ง / เงื่อนไข (ต่อ)',
-      value: truncate(chunk),
+      value: chunk,
       inline: false
     });
   });
