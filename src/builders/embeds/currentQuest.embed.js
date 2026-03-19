@@ -12,30 +12,29 @@ function truncate(text, max = 1024) {
   return `${value.slice(0, max - 3)}...`;
 }
 
+function chunkPlainLines(lines, maxLength = 1024) {
+  const chunks = [];
+  let current = '';
+
+  for (const line of lines) {
+    const next = current ? `${current}\n${line}` : line;
+
+    if (next.length > maxLength) {
+      if (current) chunks.push(current);
+      current = line;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) chunks.push(current);
+  return chunks.length ? chunks : ['-'];
+}
+
 function padRight(value, width) {
   const text = String(value || '');
   if (text.length >= width) return text;
   return text + ' '.repeat(width - text.length);
-}
-
-function formatReward(row) {
-  if (row.reward_display_text) return `• ${cleanText(row.reward_display_text)}`;
-  if (row.reward_item_name && row.reward_quantity) return `• ${row.reward_item_name} x${row.reward_quantity}`;
-  if (row.reward_item_name) return `• ${row.reward_item_name}`;
-
-  if (row.reward_type === 'SCUM_MONEY' && row.reward_value_number) {
-    return `• เงิน ${Number(row.reward_value_number).toLocaleString('en-US')}`;
-  }
-
-  if (row.reward_type === 'FAME_POINT' && row.reward_value_number) {
-    return `• FP ${Number(row.reward_value_number).toLocaleString('en-US')}`;
-  }
-
-  if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_name) {
-    return `• Role: ${row.discord_role_name}`;
-  }
-
-  return `• ${cleanText(row.reward_type || 'รางวัล')}`;
 }
 
 function getQuestTypeText(quest) {
@@ -55,28 +54,58 @@ function getFameDisplayText(quest) {
   return fame.toLocaleString('en-US');
 }
 
+function buildQuestHeader({ questName, profession, level }) {
+  const left = '┌';
+  const right = '┐';
+  const bottomLeft = '└';
+  const bottomRight = '┘';
+  const line = '─';
+
+  const title = `🧩 QUEST : ${questName || '-'}`;
+  const sub = `สาย : ${profession || '-'} | ระดับ : ${level ? `Lv.${level}` : '-'}`;
+
+  const width = Math.max(title.length, sub.length) + 8;
+
+  const topLine =
+    left +
+    line.repeat(Math.floor((width - title.length) / 2)) +
+    title +
+    line.repeat(Math.ceil((width - title.length) / 2)) +
+    right;
+
+  const middleLine =
+    `│ ${sub}${' '.repeat(Math.max(0, width - sub.length - 1))}│`;
+
+  const bottomLine =
+    bottomLeft +
+    line.repeat(width) +
+    bottomRight;
+
+  return ['```', topLine, middleLine, bottomLine, '```'].join('\n');
+}
+
 function splitRequirementRows(requirements = []) {
-  const noteLines = [];
+  const conditionLines = [];
   const itemRows = [];
 
   for (const row of requirements) {
     if (row.requirement_type === 'INGAME_NAME') {
-      noteLines.push('• ระบุชื่อตัวละคร');
+      conditionLines.push('  ┆ - ระบุชื่อตัวละคร');
       continue;
     }
 
     if (row.requirement_type === 'IMAGE') {
-      noteLines.push('• ส่งภาพหลักฐาน');
+      conditionLines.push('  ┆ - ส่งภาพหลักฐาน');
       continue;
     }
 
     if (row.requirement_type === 'CUSTOM_TEXT') {
-      noteLines.push(
-        `• ${cleanText(
+      conditionLines.push(
+        `  ┆ - ${cleanText(
           row.display_text ||
-            row.input_label ||
-            row.admin_display_text ||
-            'เงื่อนไขเพิ่มเติม'
+          row.input_label ||
+          row.admin_display_text ||
+          'เงื่อนไขเพิ่มเติม'
         )}`
       );
       continue;
@@ -107,68 +136,87 @@ function splitRequirementRows(requirements = []) {
     });
   }
 
-  return { noteLines, itemRows };
+  return { conditionLines, itemRows };
 }
 
-function buildRequirementTableChunks(itemRows = [], maxLength = 1024) {
-  const qtyWidth = 4;
-  const header1 = `${padRight('Qty', qtyWidth)}  Item`;
-  const header2 = `${padRight('----', qtyWidth)}  --------------------------------`;
+function buildRequirementTableLines(itemRows = []) {
+  const lines = [
+    '  จำนวน   ไอเทม',
+    '  ──────   ─────────────────────────────────────────'
+  ];
 
   if (!itemRows.length) {
-    return [`\`\`\`\n${header1}\n${header2}\n-     ไม่มีข้อมูล\n\`\`\``];
+    lines.push('  -        ไม่มีข้อมูล');
+    return lines;
   }
-
-  const blocks = [];
-  let bodyLines = [];
-
-  const wrapBlock = (lines) => `\`\`\`\n${[header1, header2, ...lines].join('\n')}\n\`\`\``;
 
   for (const row of itemRows) {
-    const line = `${padRight(row.qty, qtyWidth)}  ${row.item}`;
-    const candidate = wrapBlock([...bodyLines, line]);
-
-    if (candidate.length > maxLength && bodyLines.length > 0) {
-      blocks.push(wrapBlock(bodyLines));
-      bodyLines = [line];
-    } else {
-      bodyLines.push(line);
-    }
+    const qty = padRight(row.qty || '-', 8);
+    lines.push(`  ${qty}${row.item}`);
   }
 
-  if (bodyLines.length > 0) {
-    blocks.push(wrapBlock(bodyLines));
-  }
-
-  return blocks.length ? blocks : [`\`\`\`\n${header1}\n${header2}\n-     ไม่มีข้อมูล\n\`\`\``];
+  return lines;
 }
 
-function chunkPlainLines(lines, maxLength = 1024) {
+function chunkRequirementTableLines(lines = [], maxLength = 1024) {
+  if (!lines.length) return ['-'];
+
+  const header = lines.slice(0, 2);
+  const body = lines.slice(2);
+
+  if (!body.length) {
+    return [lines.join('\n')];
+  }
+
   const chunks = [];
-  let current = '';
+  let currentBody = [];
 
-  for (const line of lines) {
-    const next = current ? `${current}\n${line}` : line;
+  const wrap = (bodyLines) => [...header, ...bodyLines].join('\n');
 
-    if (next.length > maxLength) {
-      if (current) chunks.push(current);
-      current = line;
+  for (const line of body) {
+    const candidate = wrap([...currentBody, line]);
+
+    if (candidate.length > maxLength && currentBody.length > 0) {
+      chunks.push(wrap(currentBody));
+      currentBody = [line];
     } else {
-      current = next;
+      currentBody.push(line);
     }
   }
 
-  if (current) chunks.push(current);
-  return chunks.length ? chunks : ['-'];
+  if (currentBody.length > 0) {
+    chunks.push(wrap(currentBody));
+  }
+
+  return chunks.length ? chunks : [lines.join('\n')];
 }
 
-function buildQuestInfoBlock({ professionCode, quest }) {
-  return [
-    `- สายอาชีพ: ${quest.profession_code || professionCode || '-'}`,
-    `- ระดับ: ${quest.quest_level ? `Lv.${quest.quest_level}` : '-'}`,
-    `- ประเภท: ${getQuestTypeText(quest)}`,
-    `- Fame ขั้นต่ำ: ${getFameDisplayText(quest)}`
-  ].join('\n');
+function formatReward(row) {
+  if (row.reward_display_text) {
+    return `  ┆ • ${cleanText(row.reward_display_text)}`;
+  }
+
+  if (row.reward_item_name && row.reward_quantity) {
+    return `  ┆ • ${row.reward_item_name} x ${row.reward_quantity}`;
+  }
+
+  if (row.reward_item_name) {
+    return `  ┆ • ${row.reward_item_name}`;
+  }
+
+  if (row.reward_type === 'SCUM_MONEY' && row.reward_value_number) {
+    return `  ┆ • เงิน ${Number(row.reward_value_number).toLocaleString('en-US')}`;
+  }
+
+  if (row.reward_type === 'FAME_POINT' && row.reward_value_number) {
+    return `  ┆ • FP ${Number(row.reward_value_number).toLocaleString('en-US')}`;
+  }
+
+  if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_name) {
+    return `  ┆ • Role: ${row.discord_role_name}`;
+  }
+
+  return `  ┆ • ${cleanText(row.reward_type || 'รางวัล')}`;
 }
 
 function buildCurrentQuestEmbed({
@@ -195,43 +243,53 @@ function buildCurrentQuestEmbed({
       .setDescription('กรุณาตรวจสอบข้อมูล quest ในฐานข้อมูล');
   }
 
-  const { noteLines, itemRows } = splitRequirementRows(requirements);
-  const noteChunks = chunkPlainLines(noteLines, 1024);
-  const tableChunks = buildRequirementTableChunks(itemRows, 1024);
+  const headerBlock = buildQuestHeader({
+    questName: quest.quest_name,
+    profession: quest.profession_code || professionCode,
+    level: quest.quest_level
+  });
+
+  const { conditionLines, itemRows } = splitRequirementRows(requirements);
+  const conditionChunks = chunkPlainLines(conditionLines, 1024);
+  const requirementTableLines = buildRequirementTableLines(itemRows);
+  const requirementChunks = chunkRequirementTableLines(requirementTableLines, 1024);
+
   const rewardLines = rewards.map(formatReward).filter(Boolean);
   const rewardChunks = chunkPlainLines(rewardLines, 1024);
 
   const embed = new EmbedBuilder()
     .setColor(getQuestColor(quest))
-    .setTitle(`${quest.icon_emoji || '📜'} ${quest.quest_name}`)
-    .setDescription(truncate(quest.quest_description || quest.panel_description || '-'))
+    .setDescription(headerBlock)
     .addFields({
-      name: '📌 ข้อมูลเควส',
-      value: truncate(buildQuestInfoBlock({ professionCode, quest })),
+      name: '📍 ข้อมูลเควส',
+      value: [
+        `  ┆ - ประเภท : ${getQuestTypeText(quest)}`,
+        `  ┆ - Fame ขั้นต่ำ : ${getFameDisplayText(quest)}`
+      ].join('\n'),
       inline: false
     });
 
-  if (noteChunks.length > 0 && !(noteChunks.length === 1 && noteChunks[0] === '-')) {
-    noteChunks.forEach((chunk, index) => {
+  if (conditionLines.length > 0) {
+    conditionChunks.forEach((chunk, index) => {
       embed.addFields({
-        name: index === 0 ? '✅ เงื่อนไข' : '✅ เงื่อนไข (ต่อ)',
+        name: index === 0 ? '🔻 เงื่อนไขการส่งเควส:' : '🔻 เงื่อนไขการส่งเควส (ต่อ):',
         value: truncate(chunk),
         inline: false
       });
     });
   }
 
-  tableChunks.forEach((chunk, index) => {
+  requirementChunks.forEach((chunk, index) => {
     embed.addFields({
-      name: index === 0 ? '📦 สิ่งที่ต้องส่ง' : '📦 สิ่งที่ต้องส่ง (ต่อ)',
-      value: chunk,
+      name: index === 0 ? '📦 สิ่งที่ต้องส่ง:' : '📦 สิ่งที่ต้องส่ง (ต่อ):',
+      value: truncate(chunk),
       inline: false
     });
   });
 
   rewardChunks.forEach((chunk, index) => {
     embed.addFields({
-      name: index === 0 ? '🎁 รางวัล' : '🎁 รางวัล (ต่อ)',
+      name: index === 0 ? '🎁 รางวัล:' : '🎁 รางวัล (ต่อ):',
       value: truncate(chunk),
       inline: false
     });
