@@ -34,7 +34,6 @@ function formatRequirement(row) {
 
   let text = cleanText(baseText);
 
-  // ดึง xจำนวน
   let qty = '';
   const matchQty = text.match(/\bx\s*(\d+)\b/i);
 
@@ -42,10 +41,9 @@ function formatRequirement(row) {
     qty = matchQty[1];
     text = text.replace(matchQty[0], '').trim();
   } else if (row.required_quantity) {
-    qty = row.required_quantity;
+    qty = String(row.required_quantity);
   }
 
-  // ดึง (desc)
   let desc = '';
   const matchDesc = text.match(/\(([^()]+)\)/);
 
@@ -56,7 +54,6 @@ function formatRequirement(row) {
 
   text = cleanText(text);
 
-  // รวมทุกอย่างในบรรทัดเดียว
   let line = qty ? `• x${qty} ${text}` : `• ${text}`;
 
   if (desc) {
@@ -66,7 +63,7 @@ function formatRequirement(row) {
   return line;
 }
 
-function chunkRequirement(lines, maxLength = 1024) {
+function chunkLines(lines, maxLength = 1024) {
   const chunks = [];
   let current = '';
 
@@ -142,47 +139,78 @@ function buildCurrentQuestEmbed({
   if (!quest) {
     return new EmbedBuilder()
       .setColor(0xff0000)
-      .setTitle(`ไม่พบเควสของสาย ${professionCode}`);
+      .setTitle(`ไม่พบเควสของสาย ${professionCode}`)
+      .setDescription('กรุณาตรวจสอบข้อมูล quest ในฐานข้อมูล');
   }
 
   const requirementLines = requirements.map(formatRequirement).filter(Boolean);
   const rewardLines = rewards.map(formatReward).filter(Boolean);
 
-  const requirementChunks = chunkRequirement(requirementLines);
-  const rewardChunks = chunkRequirement(rewardLines);
+  const requirementChunks = chunkLines(requirementLines);
+  const rewardChunks = chunkLines(rewardLines);
 
   const embed = new EmbedBuilder()
     .setColor(getQuestColor(quest))
-    .setTitle(`📜 ${quest.quest_name}`)
+    .setTitle(`${quest.icon_emoji || '📜'} ${quest.quest_name}`)
+    .setDescription(truncate(quest.quest_description || quest.panel_description || '-'))
     .addFields({
       name: '📌 ข้อมูลเควส',
       value: [
-        `- สายอาชีพ: ${quest.profession_code}`,
-        `- ระดับ: Lv.${quest.quest_level}`,
+        `- สายอาชีพ: ${quest.profession_code || professionCode || '-'}`,
+        `- ระดับ: ${quest.quest_level ? `Lv.${quest.quest_level}` : '-'}`,
         `- ประเภท: ${getQuestTypeText(quest)}`,
         `- Fame ขั้นต่ำ: ${getFameDisplayText(quest)}`
-      ].join('\n')
+      ].join('\n'),
+      inline: false
     });
 
   requirementChunks.forEach((chunk, i) => {
     embed.addFields({
       name: i === 0 ? '📦 สิ่งที่ต้องส่ง' : '📦 สิ่งที่ต้องส่ง (ต่อ)',
-      value: chunk
+      value: truncate(chunk),
+      inline: false
     });
   });
 
   rewardChunks.forEach((chunk, i) => {
     embed.addFields({
       name: i === 0 ? '🎁 รางวัล' : '🎁 รางวัล (ต่อ)',
-      value: chunk
+      value: truncate(chunk),
+      inline: false
     });
   });
 
   return embed
-    .setFooter({ text: 'SCUM Quest System' })
+    .setFooter({ text: quest.fame_note || 'SCUM Quest System' })
     .setTimestamp();
 }
 
+function buildCurrentQuestImageEmbeds(guideMedia = [], title = 'รูปตัวอย่างเควส', limit = 8, quest = null) {
+  if (!Array.isArray(guideMedia) || guideMedia.length === 0) {
+    return [];
+  }
+
+  const color = quest ? getQuestColor(quest) : 0x5865f2;
+
+  return guideMedia.slice(0, limit).map((row, index) => {
+    const embed = new EmbedBuilder()
+      .setColor(color)
+      .setTitle(`🖼️ ${title} ${index + 1}/${guideMedia.length}`)
+      .setFooter({ text: 'SCUM Quest System' });
+
+    if (row.media_title || row.media_description) {
+      embed.setDescription(row.media_title || row.media_description);
+    }
+
+    if (row.media_url) {
+      embed.setImage(row.media_url);
+    }
+
+    return embed;
+  });
+}
+
 module.exports = {
-  buildCurrentQuestEmbed
+  buildCurrentQuestEmbed,
+  buildCurrentQuestImageEmbeds
 };
