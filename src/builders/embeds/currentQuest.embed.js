@@ -1,6 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
 const { getQuestColor } = require('../../utils/questColor.util');
 
+function cleanText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
 function truncate(text, max = 1024) {
   const value = String(text || '').trim();
   if (!value) return '-';
@@ -8,99 +12,22 @@ function truncate(text, max = 1024) {
   return `${value.slice(0, max - 3)}...`;
 }
 
-function cleanText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
+function chunkLines(lines, maxLength = 1024) {
+  const chunks = [];
+  let current = '';
 
-function stripOuterParens(value) {
-  const text = cleanText(value);
-  if (!text.startsWith('(') || !text.endsWith(')')) return text;
-  return text.slice(1, -1).trim();
-}
-
-function extractQuantity(rawText, fallbackQuantity) {
-  const text = cleanText(rawText);
-  const fallback =
-    Number.isFinite(Number(fallbackQuantity)) && Number(fallbackQuantity) > 0
-      ? Number(fallbackQuantity)
-      : null;
-
-  const patterns = [
-    /\bx\s*(\d+)\s*$/i,
-    /×\s*(\d+)\s*$/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      return {
-        quantity: Number(match[1]),
-        textWithoutQuantity: cleanText(text.replace(match[0], ''))
-      };
+  for (const line of lines) {
+    const next = current ? `${current}\n\n${line}` : line;
+    if (next.length > maxLength) {
+      if (current) chunks.push(current);
+      current = line;
+    } else {
+      current = next;
     }
   }
 
-  return {
-    quantity: fallback,
-    textWithoutQuantity: text
-  };
-}
-
-function splitRequirementText(rawText) {
-  let text = cleanText(rawText);
-  if (!text) {
-    return {
-      main: '',
-      details: []
-    };
-  }
-
-  const details = [];
-
-  const parenMatches = [...text.matchAll(/\(([^()]+)\)/g)];
-  if (parenMatches.length) {
-    for (const match of parenMatches) {
-      const inside = stripOuterParens(match[0]);
-      if (inside) details.push(inside);
-    }
-    text = cleanText(text.replace(/\(([^()]+)\)/g, ' '));
-  }
-
-  const tailPatterns = [
-    /\bStack\s*เต็ม\b.*$/i,
-    /\bไม่ต้องอัปเต็ม\b.*$/i,
-    /\bสีใดก็ได้\b.*$/i,
-    /\bน้ำหนัก\s*.+$/i,
-    /\bเหลือเกิน\s*.+$/i,
-    /\bมากกว่า\s*.+$/i,
-    /\bขึ้นไป\b.*$/i
-  ];
-
-  for (const pattern of tailPatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      const tail = cleanText(match[0]).replace(/^เหลือเกิน\s*/i, '≥');
-      if (tail) details.push(tail);
-      text = cleanText(text.replace(match[0], ' '));
-      break;
-    }
-  }
-
-  text = cleanText(text.replace(/\s+-\s+/g, ' '));
-
-  const uniqueDetails = [];
-  for (const detail of details) {
-    const normalized = cleanText(detail);
-    if (!normalized) continue;
-    if (!uniqueDetails.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
-      uniqueDetails.push(normalized);
-    }
-  }
-
-  return {
-    main: text,
-    details: uniqueDetails
-  };
+  if (current) chunks.push(current);
+  return chunks.length ? chunks : ['-'];
 }
 
 function formatRequirementItemRow(row) {
@@ -111,22 +38,49 @@ function formatRequirementItemRow(row) {
     row.admin_display_text ||
     '';
 
-  const { quantity, textWithoutQuantity } = extractQuantity(baseText, row.required_quantity);
-  const { main, details } = splitRequirementText(textWithoutQuantity);
+  let text = cleanText(baseText);
 
-  const title = quantity
-    ? `• x${quantity} ${main || row.item_name || row.input_label || 'รายการ'}`
-    : `• ${main || row.item_name || row.input_label || 'รายการ'}`;
-  const extraLines = details.map((detail) => `  └ ${detail}`);
+  // ดึงจำนวนจากข้อความ เช่น x20, x 20
+  const matchQty = text.match(/\bx\s*(\d+)\b/i);
+  let qty = row.required_quantity || '';
 
-  return [title, ...extraLines].join('\n');
+  if (matchQty) {
+    qty = matchQty[1];
+    text = text.replace(matchQty[0], '').trim();
+  }
+
+  // ดึงข้อความในวงเล็บไปเป็นบรรทัดล่าง
+  let desc = '';
+  const matchDesc = text.match(/\(([^()]+)\)/);
+
+  if (matchDesc) {
+    desc = cleanText(matchDesc[1]);
+    text = text.replace(matchDesc[0], '').trim();
+  }
+
+  text = cleanText(text);
+
+  const lines = [];
+  lines.push(qty ? `• x${qty} ${text}` : `• ${text}`);
+
+  if (desc) {
+    lines.push(`  └ ${desc}`);
+  }
+
+  return lines.join('\n');
 }
 
 function formatRequirement(row) {
-  if (row.requirement_type === 'IMAGE') return '• แนบรูปหลักฐาน';
+  if (row.requirement_type === 'IMAGE') return '• ส่งภาพหลักฐาน';
   if (row.requirement_type === 'INGAME_NAME') return '• ระบุชื่อตัวละคร';
+
   if (row.requirement_type === 'CUSTOM_TEXT') {
-    return `• ${cleanText(row.display_text || row.input_label || row.admin_display_text || 'เงื่อนไขเพิ่มเติม')}`;
+    return `• ${cleanText(
+      row.display_text ||
+      row.input_label ||
+      row.admin_display_text ||
+      'เงื่อนไขเพิ่มเติม'
+    )}`;
   }
 
   if (row.item_name || row.display_text || row.input_label) {
@@ -147,27 +101,9 @@ function formatReward(row) {
     return `• FP ${Number(row.reward_value_number).toLocaleString('en-US')}`;
   }
   if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_name) {
-    return `• Role: ${row.discord_role_name}`;
+    return `• ยศ ${row.discord_role_name}`;
   }
   return `• ${cleanText(row.reward_type || 'รางวัล')}`;
-}
-
-function chunkLines(lines, maxLength = 1024) {
-  const chunks = [];
-  let current = '';
-
-  for (const line of lines) {
-    const next = current ? `${current}\n${line}` : line;
-    if (next.length > maxLength) {
-      if (current) chunks.push(current);
-      current = line;
-    } else {
-      current = next;
-    }
-  }
-
-  if (current) chunks.push(current);
-  return chunks.length ? chunks : ['-'];
 }
 
 function getQuestTypeText(quest) {
@@ -185,15 +121,6 @@ function getFameDisplayText(quest) {
   if (!fame) return 'ไม่จำกัด';
 
   return fame.toLocaleString('en-US');
-}
-
-function buildQuestInfoBlock({ professionCode, quest }) {
-  return [
-    `- สายอาชีพ: ${quest.profession_code || professionCode || '-'}`,
-    `- ระดับ: ${quest.quest_level ? `Lv.${quest.quest_level}` : '-'}${quest.is_step_quest ? ' Step Quest' : ''}`,
-    `- ประเภท: ${getQuestTypeText(quest)}`,
-    `- Fame ขั้นต่ำ: ${getFameDisplayText(quest)}`
-  ].join('\n');
 }
 
 function buildCurrentQuestEmbed({
@@ -221,19 +148,24 @@ function buildCurrentQuestEmbed({
       .setDescription('กรุณาตรวจสอบข้อมูล quest ในฐานข้อมูล');
   }
 
-  const requirementLines = requirements.map(formatRequirement);
-  const rewardLines = rewards.map(formatReward);
+  const requirementLines = requirements.map(formatRequirement).filter(Boolean);
+  const rewardLines = rewards.map(formatReward).filter(Boolean);
 
   const requirementChunks = chunkLines(requirementLines);
   const rewardChunks = chunkLines(rewardLines);
 
   const embed = new EmbedBuilder()
     .setColor(getQuestColor(quest))
-    .setTitle(`${quest.icon_emoji || (quest.is_repeatable ? '♻️' : '📜')} ${quest.quest_name}`)
-    .setDescription(truncate(quest.quest_description || quest.panel_description || 'เควสนี้ไม่มีคำอธิบาย'))
+    .setTitle(`${quest.is_repeatable ? '♻️' : '📜'} ${quest.quest_name}`)
+    .setDescription(quest.quest_description || quest.panel_description || '-')
     .addFields({
       name: '📌 ข้อมูลเควส',
-      value: truncate(buildQuestInfoBlock({ professionCode, quest })),
+      value: truncate([
+        `- สายอาชีพ: ${quest.profession_code || professionCode || '-'}`,
+        `- ระดับ: ${quest.quest_level ? `Lv.${quest.quest_level}` : '-'}${quest.is_step_quest ? ' Step Quest' : ''}`,
+        `- ประเภท: ${getQuestTypeText(quest)}`,
+        `- Fame ขั้นต่ำ: ${getFameDisplayText(quest)}`
+      ].join('\n')),
       inline: false
     });
 
