@@ -6,7 +6,7 @@ const { findQuestById } = require('../../db/queries/questMaster.repo');
 const { getLegendaryClaimDetail, claimLegendaryReward, formatThaiDateTime } = require('../../services/legendary.service');
 const { grantQuestRewards } = require('../../services/reward.service');
 
-const VIEW_CURRENT_COOLDOWN_MS = 4000;
+const VIEW_CURRENT_MESSAGE_TTL_MS = 10 * 60 * 1000;
 const lastViewQuestAt = new Map();
 const activeViewQuestRequests = new Set();
 
@@ -18,12 +18,11 @@ function isViewQuestCoolingDown(userId, professionCode) {
   const key = getViewQuestKey(userId, professionCode);
   const now = Date.now();
   const lastAt = lastViewQuestAt.get(key) || 0;
-  return (now - lastAt) < VIEW_CURRENT_COOLDOWN_MS;
+  return (now - lastAt) < VIEW_CURRENT_MESSAGE_TTL_MS;
 }
 
 function markViewQuestCompleted(userId, professionCode) {
   const key = getViewQuestKey(userId, professionCode);
-  lastViewQuestAt.set(key, Date.now());
   activeViewQuestRequests.delete(key);
 }
 
@@ -34,16 +33,18 @@ async function handlePanelButton(interaction, parsedCustomId) {
   if (action === 'view_current') {
     const viewKey = getViewQuestKey(interaction.user.id, professionCode);
 
-    if (activeViewQuestRequests.has(viewKey) || isViewQuestCoolingDown(interaction.user.id, professionCode)) {
-      await interaction.deferUpdate().catch(async () => {
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: '⏳ กรุณารอสักครู่แล้วค่อยกดดูเควสอีกครั้ง', flags: 64 }).catch(() => null);
-        }
-      });
+    if (activeViewQuestRequests.has(viewKey)) {
+      await interaction.deferUpdate().catch(() => null);
+      return;
+    }
+
+    if (isViewQuestCoolingDown(interaction.user.id, professionCode)) {
+      await interaction.deferUpdate().catch(() => null);
       return;
     }
 
     activeViewQuestRequests.add(viewKey);
+    lastViewQuestAt.set(viewKey, Date.now());
 
     try {
       await interaction.deferReply({ flags: 64 });
@@ -60,9 +61,22 @@ async function handlePanelButton(interaction, parsedCustomId) {
         completedAllMain: summary.completedAllMain
       });
 
+      embed.setFooter({
+        text: '⏳ ข้อความนี้จะปิดอัตโนมัติใน 10 นาที'
+      });
+
       await interaction.editReply({
         embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส', 8, summary.quest)]
       });
+
+      const replyMessage = await interaction.fetchReply().catch(() => null);
+      if (replyMessage) {
+        setTimeout(async () => {
+          try {
+            await replyMessage.delete();
+          } catch (_) {}
+        }, VIEW_CURRENT_MESSAGE_TTL_MS);
+      }
     } finally {
       markViewQuestCompleted(interaction.user.id, professionCode);
     }
