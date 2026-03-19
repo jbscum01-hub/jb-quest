@@ -61,7 +61,7 @@ async function handlePanelButton(interaction, parsedCustomId) {
       });
 
       await interaction.editReply({
-        embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส')]
+        embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส', 8, summary.quest)]
       });
     } finally {
       markViewQuestCompleted(interaction.user.id, professionCode);
