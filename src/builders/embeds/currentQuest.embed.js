@@ -12,12 +12,84 @@ function cleanText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function chunkLines(lines, maxLength = 1024, separator = '\n') {
+// แยกข้อความ requirement เป็น: qty / item / desc(ในวงเล็บ) / ที่เหลือ (คงไว้ท้าย item)
+function extractRequirementParts(row) {
+  const baseText =
+    row.display_text ||
+    row.item_name ||
+    row.input_label ||
+    row.admin_display_text ||
+    '';
+
+  let text = cleanText(baseText);
+
+  // 1) ดึงจำนวน x20, x 20
+  let qty = '';
+  const matchQty = text.match(/\bx\s*(\d+)\b/i);
+  if (matchQty) {
+    qty = `x${matchQty[1]}`;
+    text = cleanText(text.replace(matchQty[0], ' '));
+  } else if (Number.isFinite(Number(row.required_quantity)) && Number(row.required_quantity) > 0) {
+    qty = `x${Number(row.required_quantity)}`;
+  }
+
+  // 2) ดึง (desc)
+  let desc = '';
+  const matchDesc = text.match(/\(([^()]+)\)/);
+  if (matchDesc) {
+    desc = cleanText(matchDesc[1]);
+    text = cleanText(text.replace(matchDesc[0], ' '));
+  }
+
+  // 3) ที่เหลือคงไว้เป็น item (รวม condition เช่น เหลือเกินครึ่ง, Stack เต็ม ฯลฯ)
+  const item = text;
+
+  return { qty, item, desc };
+}
+
+// แสดงแบบ Compact Hybrid (แถวเดียว)
+function formatRequirementLine(row) {
+  // กรณี special types
+  if (row.requirement_type === 'INGAME_NAME') {
+    return '• ระบุชื่อตัวละคร';
+  }
+  if (row.requirement_type === 'IMAGE') {
+    return '• ส่งภาพหลักฐาน';
+  }
+  if (row.requirement_type === 'CUSTOM_TEXT') {
+    return `• ${cleanText(
+      row.display_text ||
+      row.input_label ||
+      row.admin_display_text ||
+      'เงื่อนไขเพิ่มเติม'
+    )}`;
+  }
+
+  const { qty, item, desc } = extractRequirementParts(row);
+
+  // รูปแบบ:
+  // • x20 Painkillers (ยาแก้ปวด-กล่อง) เหลือเกินครึ่ง
+  // • x1 Copper Coin
+  let line = '• ';
+
+  if (qty) line += `${qty} `;
+  line += item;
+
+  if (desc) {
+    // ใส่ desc ในวงเล็บต่อท้าย item
+    line += ` (${desc})`;
+  }
+
+  return cleanText(line);
+}
+
+// chunk สำหรับ requirement (เว้นบรรทัดระหว่าง item)
+function chunkRequirementLines(lines, maxLength = 1024) {
   const chunks = [];
   let current = '';
 
   for (const line of lines) {
-    const next = current ? `${current}${separator}${line}` : line;
+    const next = current ? `${current}\n${line}` : line; // ไม่ต้องเว้นบรรทัดเพิ่มแล้ว (compact)
     if (next.length > maxLength) {
       if (current) chunks.push(current);
       current = line;
@@ -30,152 +102,24 @@ function chunkLines(lines, maxLength = 1024, separator = '\n') {
   return chunks.length ? chunks : ['-'];
 }
 
-function pad(value, length) {
-  return String(value || '').padEnd(length, ' ');
-}
+// reward (ไม่เว้นบรรทัด)
+function chunkLinesCompact(lines, maxLength = 1024) {
+  const chunks = [];
+  let current = '';
 
-function safeCell(value, maxLength) {
-  const text = cleanText(value);
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
-}
+  for (const line of lines) {
+    const next = current ? `${current}\n${line}` : line;
 
-function extractRequirementParts(row) {
-  const baseText =
-    row.display_text ||
-    row.item_name ||
-    row.input_label ||
-    row.admin_display_text ||
-    '';
-
-  let text = cleanText(baseText);
-
-  const qtyMatch = text.match(/\bx\s*(\d+)\b/i);
-  let qty = '';
-
-  if (qtyMatch) {
-    qty = `x${qtyMatch[1]}`;
-    text = cleanText(text.replace(qtyMatch[0], ' '));
-  } else if (Number.isFinite(Number(row.required_quantity)) && Number(row.required_quantity) > 0) {
-    qty = `x${Number(row.required_quantity)}`;
-  }
-
-  let detail = '';
-  const descMatch = text.match(/\(([^()]+)\)/);
-
-  if (descMatch) {
-    detail = cleanText(descMatch[1]);
-    text = cleanText(text.replace(descMatch[0], ' '));
-  }
-
-  return {
-    qty,
-    item: text,
-    detail
-  };
-}
-
-function formatRequirementTableRows(requirements = []) {
-  const rows = [];
-
-  for (const row of requirements) {
-    if (row.requirement_type === 'INGAME_NAME') {
-      rows.push({
-        qty: '-',
-        item: 'ระบุชื่อตัวละคร',
-        detail: ''
-      });
-      continue;
-    }
-
-    if (row.requirement_type === 'IMAGE') {
-      rows.push({
-        qty: '-',
-        item: 'ส่งภาพหลักฐาน',
-        detail: ''
-      });
-      continue;
-    }
-
-    if (row.requirement_type === 'CUSTOM_TEXT') {
-      rows.push({
-        qty: '-',
-        item: cleanText(
-          row.display_text ||
-          row.input_label ||
-          row.admin_display_text ||
-          'เงื่อนไขเพิ่มเติม'
-        ),
-        detail: ''
-      });
-      continue;
-    }
-
-    rows.push(extractRequirementParts(row));
-  }
-
-  return rows;
-}
-
-function buildRequirementTableBlock(rows = []) {
-  if (!rows.length) return '```ไม่มีข้อมูล```';
-
-  const qtyWidth = 4;
-  const itemWidth = 30;
-  const detailWidth = 46;
-
-  const lines = [
-    `${pad('Qty', qtyWidth)} ${pad('Item', itemWidth)} Detail`,
-    `${pad('----', qtyWidth)} ${pad('-'.repeat(itemWidth), itemWidth)} ${'-'.repeat(12)}`
-  ];
-
-  for (const row of rows) {
-    const qty = safeCell(row.qty || '-', qtyWidth);
-    const item = safeCell(row.item || '-', itemWidth);
-    const detail = safeCell(row.detail || '', detailWidth);
-
-    lines.push(`${pad(qty, qtyWidth)} ${pad(item, itemWidth)} ${detail}`.trimEnd());
-  }
-
-  return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
-}
-
-function chunkRequirementTableBlocks(rows = [], maxLength = 1024) {
-  if (!rows.length) return ['```ไม่มีข้อมูล```'];
-
-  const qtyWidth = 4;
-  const itemWidth = 30;
-  const detailWidth = 46;
-
-  const header1 = `${pad('Qty', qtyWidth)} ${pad('Item', itemWidth)} Detail`;
-  const header2 = `${pad('----', qtyWidth)} ${pad('-'.repeat(itemWidth), itemWidth)} ${'-'.repeat(12)}`;
-
-  const blocks = [];
-  let bodyLines = [];
-
-  const wrapBlock = (lines) => `\`\`\`\n${[header1, header2, ...lines].join('\n')}\n\`\`\``;
-
-  for (const row of rows) {
-    const qty = safeCell(row.qty || '-', qtyWidth);
-    const item = safeCell(row.item || '-', itemWidth);
-    const detail = safeCell(row.detail || '', detailWidth);
-    const line = `${pad(qty, qtyWidth)} ${pad(item, itemWidth)} ${detail}`.trimEnd();
-
-    const candidate = wrapBlock([...bodyLines, line]);
-    if (candidate.length > maxLength && bodyLines.length > 0) {
-      blocks.push(wrapBlock(bodyLines));
-      bodyLines = [line];
+    if (next.length > maxLength) {
+      if (current) chunks.push(current);
+      current = line;
     } else {
-      bodyLines.push(line);
+      current = next;
     }
   }
 
-  if (bodyLines.length > 0) {
-    blocks.push(wrapBlock(bodyLines));
-  }
-
-  return blocks.length ? blocks : ['```ไม่มีข้อมูล```'];
+  if (current) chunks.push(current);
+  return chunks.length ? chunks : ['-'];
 }
 
 function formatReward(row) {
@@ -245,10 +189,11 @@ function buildCurrentQuestEmbed({
       .setDescription('กรุณาตรวจสอบข้อมูล quest ในฐานข้อมูล');
   }
 
-  const requirementRows = formatRequirementTableRows(requirements);
-  const requirementChunks = chunkRequirementTableBlocks(requirementRows);
+  const requirementLines = requirements.map(formatRequirementLine).filter(Boolean);
   const rewardLines = rewards.map(formatReward).filter(Boolean);
-  const rewardChunks = chunkLines(rewardLines, 1024, '\n');
+
+  const requirementChunks = chunkRequirementLines(requirementLines);
+  const rewardChunks = chunkLinesCompact(rewardLines);
 
   const embed = new EmbedBuilder()
     .setColor(getQuestColor(quest))
@@ -263,7 +208,7 @@ function buildCurrentQuestEmbed({
   requirementChunks.forEach((chunk, index) => {
     embed.addFields({
       name: index === 0 ? '📦 สิ่งที่ต้องส่ง / เงื่อนไข' : '📦 สิ่งที่ต้องส่ง / เงื่อนไข (ต่อ)',
-      value: chunk,
+      value: truncate(chunk),
       inline: false
     });
   });
