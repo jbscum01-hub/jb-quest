@@ -200,6 +200,7 @@ function buildQuestDetailEmbed(bundle) {
         '• **แก้ของที่ต้องส่ง** : แก้ชื่อและจำนวนของ requirement',
         '• **แก้รางวัล** : แก้รายการ reward เดิมของเควสนี้',
         '• **แก้เควสก่อนหน้า** : ตั้งหรือเปลี่ยน dependency ของเควสนี้',
+        '• **แก้ Fame ขั้นต่ำ** : ตั้งค่า Fame ขั้นต่ำของเควสนี้จากพาเนลแอดมิน',
         '• **จัดการ Step** : เพิ่ม แก้ เปิด/ปิด Step และจัดการรูปของ Step',
         '• **จัดการรูปตัวอย่าง** : ลบและเพิ่มรูปตัวอย่างระดับเควส',
         '• **เพิ่มของที่ต้องส่ง / เพิ่มรางวัล / เพิ่มรูปตัวอย่าง** : เพิ่มข้อมูลใหม่ให้เควสนี้'
@@ -217,6 +218,7 @@ function buildQuestDetailEmbed(bundle) {
       `**ประเภท:** ${formatQuestType(quest)}`,
       `**สายอาชีพ:** ${quest.profession_name_th || '-'}`,
       `**ใช้ Ticket:** ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
+      `**Fame ขั้นต่ำ:** ${Number(quest.fame_required_display || 0) > 0 ? Number(quest.fame_required_display).toLocaleString('en-US') : 'ไม่จำกัด'}`,
       `**จำนวนรูปตัวอย่าง:** ${images.length} รูป`
     ].join('\n'))
     .addFields(...fields)

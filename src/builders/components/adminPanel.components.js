@@ -162,6 +162,7 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_dependency', questId)).setLabel('แก้เควสก่อนหน้า').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_fame', questId)).setLabel('แก้ Fame ขั้นต่ำ').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_steps', questId)).setLabel('จัดการ Step').setStyle(ButtonStyle.Secondary).setDisabled(!isStepQuest),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_images', `${questId}|0`)).setLabel('จัดการรูปตัวอย่าง').setStyle(ButtonStyle.Secondary)
     ),
@@ -176,6 +177,7 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success)
     ),
     new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'preview_quest', questId)).setLabel('ดูเควส').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'toggle_active', questId)).setLabel('เปลี่ยนสถานะเควส').setStyle(ButtonStyle.Secondary),
       backButton,
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้าหลัก').setStyle(ButtonStyle.Danger)
