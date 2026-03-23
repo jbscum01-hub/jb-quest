@@ -40,6 +40,8 @@ const {
 const { buildQuestDescriptionModal } = require('../builders/modals/adminQuestDescription.modal');
 const { buildQuestRequirementModal } = require('../builders/modals/adminQuestRequirement.modal');
 const { buildQuestRewardModal } = require('../builders/modals/adminQuestReward.modal');
+const { buildQuestRequirementBulkModal } = require('../builders/modals/adminQuestRequirementBulk.modal');
+const { buildQuestRewardBulkModal } = require('../builders/modals/adminQuestRewardBulk.modal');
 const { buildQuestImageModal, buildStepImageModal } = require('../builders/modals/adminQuestImage.modal');
 const { buildCreateQuestModal } = require('../builders/modals/adminCreateQuest.modal');
 const { buildQuestScheduleModal } = require('../builders/modals/adminQuestSchedule.modal');
@@ -59,9 +61,11 @@ const {
   findQuestRequirementById,
   updateQuestRequirement,
   addQuestRequirement,
+  replaceQuestRequirementsBulk,
   findQuestRewardById,
   updateQuestReward,
   addQuestReward,
+  replaceQuestRewardsBulk,
   addQuestGuideImage,
   deactivateQuestGuideImage,
   findAvailableDependencyQuests,
@@ -118,6 +122,114 @@ function parseRewardType(raw) {
     throw new Error(`ประเภทรางวัลต้องเป็น ${allowed.join(' / ')}`);
   }
   return value;
+}
+
+
+function parseBulkLines(raw) {
+  return String(raw || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+}
+
+function parseRequirementBulkInput(raw) {
+  const lines = parseBulkLines(raw);
+  return lines.map((line, index) => {
+    const parts = line.split('|').map((v) => v.trim());
+    const first = (parts[0] || '').toUpperCase();
+    const allowed = ['SCUM_ITEM', 'SCUM_MONEY', 'CUSTOM_TEXT', 'TEXT', 'IMAGE', 'INGAME_NAME'];
+    const hasType = allowed.includes(first);
+    const requirementType = hasType ? first : 'SCUM_ITEM';
+    const values = hasType ? parts.slice(1) : parts;
+    if (values.length < 2) {
+      throw new Error(`ของที่ต้องส่งบรรทัด ${index + 1} ต้องมีอย่างน้อย ชื่อ|จำนวน`);
+    }
+    const itemName = values[0] || '';
+    const requiredQuantity = parsePositiveInteger(values[1], `จำนวนของที่ต้องส่งบรรทัด ${index + 1}`);
+    const itemSpawnCommandTemplate = values[2] || (requirementType === 'SCUM_ITEM' ? `#spawnitem ${itemName} ${requiredQuantity}` : null);
+    const displayText = values[3] || `${itemName} x${requiredQuantity}`;
+    return {
+      requirementType,
+      itemName,
+      itemSpawnName: itemName,
+      itemSpawnCommandTemplate,
+      requiredQuantity,
+      inputLabel: itemName,
+      displayText,
+      adminDisplayText: displayText
+    };
+  });
+}
+
+function parseRewardBulkInput(raw) {
+  const lines = parseBulkLines(raw);
+  return lines.map((line, index) => {
+    const parts = line.split('|').map((v) => v.trim());
+    const first = (parts[0] || '').toUpperCase();
+    const allowed = ['SCUM_ITEM', 'SCUM_MONEY', 'FAME_POINT', 'DISCORD_ROLE'];
+    const hasType = allowed.includes(first);
+    const rewardType = hasType ? first : 'SCUM_ITEM';
+    const values = hasType ? parts.slice(1) : parts;
+
+    if (rewardType === 'SCUM_ITEM') {
+      if (values.length < 2) throw new Error(`รางวัลบรรทัด ${index + 1} ต้องมีอย่างน้อย ชื่อไอเทม|จำนวน`);
+      const rewardItemName = values[0] || '';
+      const rewardQuantity = parsePositiveInteger(values[1], `จำนวนรางวัลบรรทัด ${index + 1}`);
+      const rewardSpawnCommandTemplate = values[2] || `#spawnitem ${rewardItemName} ${rewardQuantity}`;
+      const rewardDisplayText = values[3] || `${rewardItemName} x${rewardQuantity}`;
+      return {
+        rewardType,
+        rewardItemName,
+        rewardItemSpawnName: rewardItemName,
+        rewardSpawnCommandTemplate,
+        rewardQuantity,
+        rewardDisplayText,
+        rewardValueText: rewardDisplayText,
+        rewardValueNumber: null,
+        discordRoleId: null,
+        discordRoleName: null
+      };
+    }
+
+    if (rewardType === 'SCUM_MONEY' || rewardType === 'FAME_POINT') {
+      if (values.length < 1) throw new Error(`รางวัลบรรทัด ${index + 1} ต้องมีมูลค่าอย่างน้อย 1 ค่า`);
+      const rewardValueNumber = parsePositiveInteger(values[0], `มูลค่ารางวัลบรรทัด ${index + 1}`);
+      const rewardDisplayText = values[1] || `${rewardType} ${rewardValueNumber}`;
+      return {
+        rewardType,
+        rewardItemName: null,
+        rewardItemSpawnName: null,
+        rewardSpawnCommandTemplate: null,
+        rewardQuantity: null,
+        rewardDisplayText,
+        rewardValueText: rewardDisplayText,
+        rewardValueNumber,
+        discordRoleId: null,
+        discordRoleName: null
+      };
+    }
+
+    if (rewardType === 'DISCORD_ROLE') {
+      if (values.length < 2) throw new Error(`รางวัลบรรทัด ${index + 1} ต้องมีอย่างน้อย ROLE_ID|ROLE_NAME`);
+      const discordRoleId = values[0] || '';
+      const discordRoleName = values[1] || '';
+      const rewardDisplayText = values[2] || discordRoleName || discordRoleId;
+      return {
+        rewardType,
+        rewardItemName: null,
+        rewardItemSpawnName: null,
+        rewardSpawnCommandTemplate: null,
+        rewardQuantity: null,
+        rewardDisplayText,
+        rewardValueText: discordRoleName || discordRoleId,
+        rewardValueNumber: null,
+        discordRoleId,
+        discordRoleName
+      };
+    }
+
+    throw new Error(`ไม่รองรับ reward type บรรทัด ${index + 1}`);
+  });
 }
 
 function parseFlagSet(raw) {
@@ -252,29 +364,11 @@ async function renderQuestImageManager(interaction, questId, index = 0) {
 }
 
 async function renderRequirementEditor(interaction, questId) {
-  const bundle = await getQuestDetailBundle(questId);
-  if (!bundle) {
-    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
-    return;
-  }
-  await interaction.reply({
-    embeds: [buildRequirementPickerEmbed(bundle)],
-    components: buildRequirementEditSelectComponents(questId, bundle.requirements),
-    ephemeral: true
-  });
+  return showBulkRequirementModal(interaction, questId);
 }
 
 async function renderRewardEditor(interaction, questId) {
-  const bundle = await getQuestDetailBundle(questId);
-  if (!bundle) {
-    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
-    return;
-  }
-  await interaction.reply({
-    embeds: [buildRewardPickerEmbed(bundle)],
-    components: buildRewardEditSelectComponents(questId, bundle.rewards),
-    ephemeral: true
-  });
+  return showBulkRewardModal(interaction, questId);
 }
 
 async function renderPanelStatus(interaction) {
@@ -335,6 +429,24 @@ async function showAddRewardModal(interaction, questId) {
   await interaction.showModal(buildQuestRewardModal({ questId, mode: 'add' }));
 }
 
+async function showBulkRequirementModal(interaction, questId) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) {
+    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
+    return;
+  }
+  await interaction.showModal(buildQuestRequirementBulkModal(bundle));
+}
+
+async function showBulkRewardModal(interaction, questId) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) {
+    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
+    return;
+  }
+  await interaction.showModal(buildQuestRewardBulkModal(bundle));
+}
+
 async function saveQuestDescriptionFromModal(interaction, questId) {
   await updateQuestDescription(questId, {
     questName: interaction.fields.getTextInputValue('quest_name').trim(),
@@ -392,6 +504,20 @@ async function addQuestRewardFromModal(interaction, questId) {
 
   const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
   await interaction.reply({ content: '✅ เพิ่มรางวัลเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
+}
+
+async function saveQuestRequirementBulkFromModal(interaction, questId) {
+  const items = parseRequirementBulkInput(interaction.fields.getTextInputValue('bulk_requirement_lines'));
+  await replaceQuestRequirementsBulk(questId, items, interaction.user.id);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
+  await interaction.reply({ content: `✅ บันทึกของที่ต้องส่งแบบยกชุดเรียบร้อยแล้ว (${items.length} รายการ)`, ...buildQuestDetailResponse(refreshed), ephemeral: true });
+}
+
+async function saveQuestRewardBulkFromModal(interaction, questId) {
+  const items = parseRewardBulkInput(interaction.fields.getTextInputValue('bulk_reward_lines'));
+  await replaceQuestRewardsBulk(questId, items, interaction.user.id);
+  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
+  await interaction.reply({ content: `✅ บันทึกรางวัลแบบยกชุดเรียบร้อยแล้ว (${items.length} รายการ)`, ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
 async function addQuestImageFromModal(interaction, questId) {
@@ -682,6 +808,25 @@ async function deployQuestPanelAndRender(interaction, questId) {
   await interaction.editReply({ content: messages.join('\n') });
 }
 
+async function showPlayerQuestPreview(interaction, questId) {
+  const bundle = await getQuestDetailBundle(questId);
+  if (!bundle) {
+    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
+    return;
+  }
+  const { buildCurrentQuestEmbed, buildCurrentQuestImageEmbeds } = require('../builders/embeds/currentQuest.embed');
+  const preview = buildCurrentQuestEmbed({
+    professionCode: bundle.quest.profession_code || bundle.quest.category_code,
+    profession: { profession_name_th: bundle.quest.profession_name_th, icon_emoji: bundle.quest.icon_emoji },
+    quest: bundle.quest,
+    requirements: bundle.requirements,
+    rewards: bundle.rewards,
+    guideMedia: bundle.images,
+    completedAllMain: false
+  });
+  await interaction.reply({ embeds: [preview, ...buildCurrentQuestImageEmbeds(bundle.images, 'รูปตัวอย่างเควส', 8, bundle.quest)], ephemeral: true });
+}
+
 module.exports = {
   refreshAdminPanel,
   renderAdminHome,
@@ -695,6 +840,8 @@ module.exports = {
   renderQuestImageManager,
   renderRequirementEditor,
   renderRewardEditor,
+  showBulkRequirementModal,
+  showBulkRewardModal,
   renderQuestSearchResults,
   renderPanelStatus,
   toggleQuestActiveAndRender,
@@ -706,8 +853,10 @@ module.exports = {
   saveQuestDescriptionFromModal,
   saveQuestRequirementFromModal,
   addQuestRequirementFromModal,
+  saveQuestRequirementBulkFromModal,
   saveQuestRewardFromModal,
   addQuestRewardFromModal,
+  saveQuestRewardBulkFromModal,
   addQuestImageFromModal,
   removeQuestImageAndRender,
   showCreateQuestModal,
@@ -716,6 +865,7 @@ module.exports = {
   showQuestScheduleModal,
   saveQuestScheduleFromModal,
   deployQuestPanelAndRender,
+  showPlayerQuestPreview,
   deployQuestRelatedPanels,
   renderDependencyEditor,
   saveDependencySelection,
