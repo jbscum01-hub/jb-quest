@@ -15,7 +15,7 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('reward_type')
-          .setLabel('TYPE')
+          .setLabel('ประเภทรางวัล')
           .setPlaceholder('SCUM_ITEM / SCUM_MONEY / FAME_POINT / DISCORD_ROLE')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
@@ -25,7 +25,7 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('reward_name')
-          .setLabel('ชื่อ')
+          .setLabel('ชื่อรางวัล')
           .setPlaceholder('ชื่อไอเทม / เงิน / Fame / ชื่อยศ')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
@@ -35,7 +35,7 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('reward_amount')
-          .setLabel('จำนวน')
+          .setLabel('จำนวนหรือมูลค่า')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(20)
@@ -44,7 +44,7 @@ function buildQuestRewardModal({ questId, reward = null, mode = 'edit' }) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('reward_display_text')
-          .setLabel('แสดงผล')
+          .setLabel('ข้อความแสดงผล')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(1000)
