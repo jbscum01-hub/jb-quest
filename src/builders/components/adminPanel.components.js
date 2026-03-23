@@ -157,8 +157,8 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_description', questId)).setLabel('แก้คำอธิบาย').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_requirements', questId)).setLabel('แก้ของที่ต้องส่ง').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_rewards', questId)).setLabel('แก้รางวัล').setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_requirements_bulk', questId)).setLabel('แก้ของที่ต้องส่ง').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_rewards_bulk', questId)).setLabel('แก้รางวัล').setStyle(ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_dependency', questId)).setLabel('แก้เควสก่อนหน้า').setStyle(ButtonStyle.Secondary),
@@ -171,12 +171,11 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'refresh_quest_panel', questId)).setLabel('Refresh Panel').setStyle(ButtonStyle.Primary).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code))
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_requirement', questId)).setLabel('เพิ่มของที่ต้องส่ง').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_reward', questId)).setLabel('เพิ่มรางวัล').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'view_player_quest', questId)).setLabel('ดูเควส').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'toggle_active', questId)).setLabel('เปลี่ยนสถานะเควส').setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'toggle_active', questId)).setLabel('เปลี่ยนสถานะเควส').setStyle(ButtonStyle.Secondary),
       backButton,
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'home_master')).setLabel('กลับหน้าหลัก').setStyle(ButtonStyle.Danger)
     )
