@@ -18,7 +18,7 @@ function buildQuestRequirementBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_requirement_lines')
-          .setLabel('รูปแบบ: ชื่อไอเทม|จำนวน|ข้อความแสดงผล(ไม่บังคับ)')
+          .setLabel('ชื่อไอเทม|จำนวน|แสดงผล')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
