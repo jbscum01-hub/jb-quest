@@ -6,9 +6,14 @@ function rewardLine(item) {
       .filter((v, idx) => idx < 3 || v)
       .join('|');
   }
-  if (item.reward_type === 'SCUM_MONEY' || item.reward_type === 'FAME_POINT') {
-    return [item.reward_type, item.reward_value_number || '', item.reward_display_text || '']
-      .filter((v, idx) => idx < 2 || v)
+  if (item.reward_type === 'SCUM_MONEY') {
+    return ['SCUM_MONEY', 'เงิน', item.reward_value_number || '', item.reward_display_text || '']
+      .filter((v, idx) => idx < 3 || v)
+      .join('|');
+  }
+  if (item.reward_type === 'FAME_POINT') {
+    return ['FAME_POINT', 'FP', item.reward_value_number || '', item.reward_display_text || '']
+      .filter((v, idx) => idx < 3 || v)
       .join('|');
   }
   if (item.reward_type === 'DISCORD_ROLE') {
@@ -30,11 +35,18 @@ function buildQuestRewardBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_reward_lines')
-          .setLabel('ดูตัวอย่างด้านล่าง แยกตาม TYPE')
+          .setLabel('รูปแบบ: TYPE|ชื่อ|จำนวน|คำสั่ง(ไม่บังคับ)|ข้อความแสดงผล(ไม่บังคับ)')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder('SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2\nSCUM_MONEY|30000|เงิน 30,000\nFAME_POINT|900|FP 900')
+          .setPlaceholder([
+            'ตัวอย่าง:',
+            'SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2',
+            'SCUM_ITEM|Painkiller|5',
+            'SCUM_MONEY|เงิน|30000|เงิน 30,000',
+            'FAME_POINT|FP|900|FP 900',
+            'DISCORD_ROLE|ROLE_ID|พยาบาลสนาม'
+          ].join('\n'))
           .setValue(lines.slice(0, 4000))
       )
     );

@@ -6,9 +6,8 @@ function buildQuestRequirementBulkModal(bundle) {
     .map((item) => {
       const name = item.item_name || item.input_label || '';
       const qty = item.required_quantity || '';
-      const spawn = item.item_spawn_command_template || '';
       const display = item.display_text || '';
-      return [name, qty, spawn, display].filter((v, idx) => idx < 2 || v).join('|');
+      return [name, qty, display].filter((v, idx) => idx < 2 || v).join('|');
     })
     .join('\n');
 
@@ -19,11 +18,17 @@ function buildQuestRequirementBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_requirement_lines')
-          .setLabel('1 บรรทัด = ชื่อ|จำนวน|ข้อความ(ไม่บังคับ)')
+          .setLabel('รูปแบบ: ชื่อไอเทม|จำนวน|ข้อความแสดงผล(ไม่บังคับ)')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder('Rag|60\nMedkit|2|Medkit x2')
+          .setPlaceholder([
+            'ตัวอย่าง:',
+            'Rag|60',
+            'Vitamin Pills|10',
+            'Painkiller|5',
+            'Medkit|2|Medkit x2'
+          ].join('\n'))
           .setValue(lines.slice(0, 4000))
       )
     );
