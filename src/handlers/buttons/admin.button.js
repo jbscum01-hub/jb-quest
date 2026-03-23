@@ -21,8 +21,6 @@ const {
   removeQuestImageAndRender,
   showCreateQuestModal,
   showCreateGlobalQuestModal,
-  showQuestFameModal,
-  previewQuestForAdmin,
   showQuestScheduleModal,
   deployQuestPanelAndRender,
   renderDependencyEditor,
@@ -146,8 +144,6 @@ async function handleAdminButtons(interaction) {
   if (action === 'create_timed_quest') return showCreateGlobalQuestModal(interaction, 'TIMED');
   if (action === 'create_legendary_quest') return showCreateGlobalQuestModal(interaction, 'LEGENDARY');
   if (action === 'toggle_active') return toggleQuestActiveAndRender(interaction, extra);
-  if (action === 'edit_fame') return showQuestFameModal(interaction, extra);
-  if (action === 'preview_quest') return previewQuestForAdmin(interaction, extra);
   if (action === 'edit_schedule') return showQuestScheduleModal(interaction, extra);
   if (action === 'deploy_quest_panel' || action === 'refresh_quest_panel') return deployQuestPanelAndRender(interaction, extra);
 

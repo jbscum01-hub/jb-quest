@@ -7,7 +7,7 @@ const { getLegendaryClaimDetail, claimLegendaryReward, formatThaiDateTime } = re
 const { grantQuestRewards } = require('../../services/reward.service');
 
 const VIEW_CURRENT_KEEP_MS = 10 * 60 * 1000;
-const VIEW_CURRENT_COOLDOWN_MS = VIEW_CURRENT_KEEP_MS;
+const VIEW_CURRENT_COOLDOWN_MS = 30 * 1000;
 const lastViewQuestAt = new Map();
 const activeViewQuestRequests = new Set();
 const pendingDeleteTimers = new Map();
@@ -73,7 +73,7 @@ async function handlePanelButton(interaction, parsedCustomId) {
 
     if (isViewQuestCoolingDown(interaction.user.id, professionCode)) {
       await interaction.reply({
-        content: '📌 คุณเปิดรายละเอียดเควสนี้อยู่แล้ว กรุณารอให้ข้อความเดิมปิดอัตโนมัติภายใน 10 นาที',
+        content: '📌 คุณเพิ่งเปิดรายละเอียดเควสนี้ไป กรุณารอ 30 วินาทีก่อนกดใหม่',
         flags: 64
       }).catch(() => null);
       return;
