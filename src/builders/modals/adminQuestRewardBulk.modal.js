@@ -41,11 +41,7 @@ function buildQuestRewardBulkModal(bundle) {
           .setMaxLength(4000)
           .setPlaceholder([
             'ตัวอย่าง:',
-            'SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2',
-            'SCUM_ITEM|Painkiller|5',
-            'SCUM_MONEY|เงิน|30000|เงิน 30,000',
-            'FAME_POINT|FP|900|FP 900',
-            'DISCORD_ROLE|ROLE_ID|พยาบาลสนาม'
+            'SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2'
           ].join('\n'))
           .setValue(lines.slice(0, 4000))
       )
