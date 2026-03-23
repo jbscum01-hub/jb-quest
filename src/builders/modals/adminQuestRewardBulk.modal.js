@@ -35,7 +35,7 @@ function buildQuestRewardBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_reward_lines')
-          .setLabel('รูปแบบ: TYPE|ชื่อ|จำนวน|คำสั่ง(ไม่บังคับ)|ข้อความแสดงผล(ไม่บังคับ)')
+          .setLabel('TYPE|ชื่อ|จำนวน|คำสั่ง|แสดงผล')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
