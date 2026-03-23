@@ -459,6 +459,44 @@ async function updateQuestDescription(questId, payload, updatedBy, client) {
 }
 
 
+async function updateQuestFameRequirement(questId, payload, updatedBy, client) {
+  const db = getDb(client);
+  const columns = await getQuestMasterColumnSet(client);
+  const assignments = [];
+  const values = [questId];
+
+  const bind = (fragment, value) => {
+    values.push(value);
+    assignments.push(fragment.replaceAll('$VALUE', `$${values.length}`));
+  };
+
+  const fameRequiredDisplay = parseNullableInteger(payload.fameRequiredDisplay);
+  const fameNote = payload.fameNote === undefined ? undefined : (payload.fameNote || null);
+
+  if (columns.has('fame_required_display')) {
+    bind('fame_required_display = COALESCE($VALUE::integer, 0)', fameRequiredDisplay);
+  }
+  if (columns.has('fame_note') && fameNote !== undefined) {
+    bind("fame_note = NULLIF($VALUE, '')", fameNote);
+  }
+
+  values.push(updatedBy);
+  assignments.push(`updated_by = $${values.length}`);
+  assignments.push('updated_at = NOW()');
+
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_master
+    SET ${assignments.join(',\n        ')}
+    WHERE quest_id = $1
+    RETURNING *
+    `,
+    values
+  );
+  return result.rows[0] || null;
+}
+
+
 async function updateQuestScheduleAndLimits(questId, payload, updatedBy, client) {
   const db = getDb(client);
   const columns = await getQuestMasterColumnSet(client);
@@ -1076,6 +1114,7 @@ module.exports = {
   getStepDetailBundle,
   updateQuestActive,
   updateQuestDescription,
+  updateQuestFameRequirement,
   updateQuestScheduleAndLimits,
   updateQuestRequirement,
   addQuestRequirement,
