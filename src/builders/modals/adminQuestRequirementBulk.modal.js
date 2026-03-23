@@ -24,9 +24,6 @@ function buildQuestRequirementBulkModal(bundle) {
           .setMaxLength(4000)
           .setPlaceholder([
             'ตัวอย่าง:',
-            'Rag|60',
-            'Vitamin Pills|10',
-            'Painkiller|5',
             'Medkit|2|Medkit x2'
           ].join('\n'))
           .setValue(lines.slice(0, 4000))
