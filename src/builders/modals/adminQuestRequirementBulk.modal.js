@@ -19,11 +19,11 @@ function buildQuestRequirementBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_requirement_lines')
-          .setLabel('รูปแบบ: ชื่อ|จำนวน|คำสั่ง|ข้อความแสดงผล')
+          .setLabel('1 บรรทัด = ชื่อ|จำนวน|ข้อความ(ไม่บังคับ)')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder('Rag|60|#spawnitem Rag 60|Rag x60\nVitamin Pills|10')
+          .setPlaceholder('Rag|60\nMedkit|2|Medkit x2')
           .setValue(lines.slice(0, 4000))
       )
     );

@@ -144,10 +144,19 @@ function parseRequirementBulkInput(raw) {
     if (values.length < 2) {
       throw new Error(`ของที่ต้องส่งบรรทัด ${index + 1} ต้องมีอย่างน้อย ชื่อ|จำนวน`);
     }
+
     const itemName = values[0] || '';
     const requiredQuantity = parsePositiveInteger(values[1], `จำนวนของที่ต้องส่งบรรทัด ${index + 1}`);
-    const itemSpawnCommandTemplate = values[2] || (requirementType === 'SCUM_ITEM' ? `#spawnitem ${itemName} ${requiredQuantity}` : null);
-    const displayText = values[3] || `${itemName} x${requiredQuantity}`;
+    let displayText = values[2] || `${itemName} x${requiredQuantity}`;
+
+    if (hasType && values[3]) {
+      displayText = values[3];
+    }
+
+    const itemSpawnCommandTemplate = requirementType === 'SCUM_ITEM'
+      ? `#spawnitem ${itemName} ${requiredQuantity}`
+      : null;
+
     return {
       requirementType,
       itemName,

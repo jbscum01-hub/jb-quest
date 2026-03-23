@@ -30,11 +30,11 @@ function buildQuestRewardBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_reward_lines')
-          .setLabel('รูปแบบหลายแบบ: ITEM/MONEY/FAME/ROLE')
+          .setLabel('ดูตัวอย่างด้านล่าง แยกตาม TYPE')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder('SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2\nSCUM_MONEY|5000|เงิน 5,000')
+          .setPlaceholder('SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2\nSCUM_MONEY|30000|เงิน 30,000\nFAME_POINT|900|FP 900')
           .setValue(lines.slice(0, 4000))
       )
     );
