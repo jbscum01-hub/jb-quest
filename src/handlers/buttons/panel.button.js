@@ -5,22 +5,14 @@ const { openStepQuestTicket } = require('../../services/stepTicket.service');
 const { findQuestById } = require('../../db/queries/questMaster.repo');
 const { getLegendaryClaimDetail, claimLegendaryReward, formatThaiDateTime } = require('../../services/legendary.service');
 const { grantQuestRewards } = require('../../services/reward.service');
+const { createViewSession, getLatestViewSession } = require('../../db/queries/viewSession.repo');
 
 const VIEW_CURRENT_KEEP_MS = 10 * 60 * 1000;
 const VIEW_CURRENT_COOLDOWN_MS = 30 * 1000;
-const lastViewQuestAt = new Map();
 const activeViewQuestRequests = new Set();
-const pendingDeleteTimers = new Map();
 
 function getViewQuestKey(userId, professionCode) {
   return `${userId}:${professionCode}`;
-}
-
-function isViewQuestCoolingDown(userId, professionCode) {
-  const key = getViewQuestKey(userId, professionCode);
-  const now = Date.now();
-  const lastAt = lastViewQuestAt.get(key) || 0;
-  return (now - lastAt) < VIEW_CURRENT_COOLDOWN_MS;
 }
 
 function clearViewQuestLock(userId, professionCode) {
@@ -28,32 +20,31 @@ function clearViewQuestLock(userId, professionCode) {
   activeViewQuestRequests.delete(key);
 }
 
-function markViewQuestOpened(userId, professionCode) {
-  const key = getViewQuestKey(userId, professionCode);
-  lastViewQuestAt.set(key, Date.now());
-  activeViewQuestRequests.delete(key);
-}
+async function isViewQuestCoolingDown(userId, professionCode) {
+  const latest = await getLatestViewSession(userId, professionCode);
 
-function scheduleViewQuestAutoDelete(interaction, userId, professionCode) {
-  const key = getViewQuestKey(userId, professionCode);
-
-  const oldTimer = pendingDeleteTimers.get(key);
-  if (oldTimer) {
-    clearTimeout(oldTimer);
+  if (!latest || !latest.created_at) {
+    return false;
   }
 
-  const timer = setTimeout(async () => {
-    try {
-      await interaction.deleteReply();
-    } catch (_) {
-      // ignore: reply may already be gone or interaction token may be unavailable
-    } finally {
-      pendingDeleteTimers.delete(key);
-      lastViewQuestAt.delete(key);
-    }
-  }, VIEW_CURRENT_KEEP_MS);
+  const createdAt = new Date(latest.created_at).getTime();
+  if (Number.isNaN(createdAt)) {
+    return false;
+  }
 
-  pendingDeleteTimers.set(key, timer);
+  return (Date.now() - createdAt) < VIEW_CURRENT_COOLDOWN_MS;
+}
+
+async function openTrackedQuestView(interaction, professionCode, payload) {
+  await interaction.editReply(payload);
+
+  await createViewSession({
+    discordUserId: interaction.user.id,
+    professionCode,
+    applicationId: interaction.applicationId,
+    interactionToken: interaction.token,
+    expiresAt: new Date(Date.now() + VIEW_CURRENT_KEEP_MS)
+  });
 }
 
 async function handlePanelButton(interaction, parsedCustomId) {
@@ -71,9 +62,9 @@ async function handlePanelButton(interaction, parsedCustomId) {
       return;
     }
 
-    if (isViewQuestCoolingDown(interaction.user.id, professionCode)) {
+    if (await isViewQuestCoolingDown(interaction.user.id, professionCode)) {
       await interaction.reply({
-        content: '📌 คุณเพิ่งเปิดรายละเอียดเควสนี้ไป กรุณารอ 30 วินาทีก่อนกดใหม่',
+        content: '📌 คุณเปิดรายละเอียดเควสนี้อยู่แล้ว คุณเพิ่งเปิดรายละเอียดเควสนี้ไป กรุณารอ 30 วินาทีก่อนกดใหม่',
         flags: 64
       }).catch(() => null);
       return;
@@ -100,12 +91,11 @@ async function handlePanelButton(interaction, parsedCustomId) {
         text: '⏳ ข้อความนี้จะปิดอัตโนมัติใน 10 นาที'
       });
 
-      await interaction.editReply({
+      await openTrackedQuestView(interaction, professionCode, {
         embeds: [embed, ...buildCurrentQuestImageEmbeds(summary.guideMedia, 'รูปตัวอย่างเควส', 8, summary.quest)]
       });
 
-      markViewQuestOpened(interaction.user.id, professionCode);
-      scheduleViewQuestAutoDelete(interaction, interaction.user.id, professionCode);
+      clearViewQuestLock(interaction.user.id, professionCode);
     } catch (error) {
       clearViewQuestLock(interaction.user.id, professionCode);
       throw error;

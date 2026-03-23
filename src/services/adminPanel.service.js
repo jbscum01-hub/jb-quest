@@ -43,9 +43,7 @@ const { buildQuestRewardModal } = require('../builders/modals/adminQuestReward.m
 const { buildQuestImageModal, buildStepImageModal } = require('../builders/modals/adminQuestImage.modal');
 const { buildCreateQuestModal } = require('../builders/modals/adminCreateQuest.modal');
 const { buildQuestScheduleModal } = require('../builders/modals/adminQuestSchedule.modal');
-const { buildQuestFameModal } = require('../builders/modals/adminQuestFame.modal');
 const { buildStepModal } = require('../builders/modals/adminStep.modal');
-const { buildCurrentQuestEmbed, buildCurrentQuestImageEmbeds } = require('../builders/embeds/currentQuest.embed');
 const { DISCORD_CONFIG_KEYS } = require('../constants/discordConfigKeys');
 const { findProfessionConfig } = require('../db/queries/discordConfig.repo');
 const {
@@ -57,7 +55,6 @@ const {
   getQuestDetailBundle,
   updateQuestActive,
   updateQuestDescription,
-  updateQuestFameRequirement,
   updateQuestScheduleAndLimits,
   findQuestRequirementById,
   updateQuestRequirement,
@@ -632,56 +629,6 @@ async function showAddStepImageModal(interaction, stepId) {
 }
 
 
-
-async function showQuestFameModal(interaction, questId) {
-  const bundle = await getQuestDetailBundle(questId);
-  if (!bundle) {
-    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
-    return;
-  }
-  await interaction.showModal(buildQuestFameModal(bundle.quest));
-}
-
-async function saveQuestFameFromModal(interaction, questId) {
-  await updateQuestFameRequirement(questId, {
-    fameRequiredDisplay: interaction.fields.getTextInputValue('fame_required_display').trim(),
-    fameNote: interaction.fields.getTextInputValue('fame_note').trim()
-  }, interaction.user.id);
-
-  const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
-  await interaction.reply({ content: '✅ บันทึก Fame ขั้นต่ำเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
-}
-
-async function previewQuestForAdmin(interaction, questId) {
-  const bundle = await enrichBundle(await getQuestDetailBundle(questId));
-  if (!bundle) {
-    await interaction.reply({ content: 'ไม่พบข้อมูลเควสนี้', ephemeral: true });
-    return;
-  }
-
-  const embed = buildCurrentQuestEmbed({
-    professionCode: bundle.quest.profession_code,
-    profession: bundle.quest.profession_code
-      ? {
-          profession_code: bundle.quest.profession_code,
-          profession_name_th: bundle.quest.profession_name_th,
-          profession_name_en: bundle.quest.profession_name_en,
-          icon_emoji: bundle.quest.icon_emoji
-        }
-      : null,
-    quest: bundle.quest,
-    requirements: bundle.requirements,
-    rewards: bundle.rewards,
-    guideMedia: bundle.images,
-    completedAllMain: false
-  });
-
-  await interaction.reply({
-    embeds: [embed, ...buildCurrentQuestImageEmbeds(bundle.images, 'รูปตัวอย่างเควส', 8, bundle.quest)],
-    ephemeral: true
-  });
-}
-
 async function showQuestScheduleModal(interaction, questId) {
   const bundle = await getQuestDetailBundle(questId);
   if (!bundle) {
@@ -766,9 +713,6 @@ module.exports = {
   showCreateQuestModal,
   showCreateGlobalQuestModal,
   saveCreateQuestFromModal,
-  showQuestFameModal,
-  saveQuestFameFromModal,
-  previewQuestForAdmin,
   showQuestScheduleModal,
   saveQuestScheduleFromModal,
   deployQuestPanelAndRender,
