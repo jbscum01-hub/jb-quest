@@ -2,26 +2,24 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 function rewardLine(item) {
   if (item.reward_type === 'SCUM_ITEM') {
-    return ['SCUM_ITEM', item.reward_item_name || '', item.reward_quantity || '', item.reward_spawn_command_template || '', item.reward_display_text || '']
-      .filter((v, idx) => idx < 3 || v)
-      .join('|');
+    return [
+      'SCUM_ITEM',
+      item.reward_item_name || '',
+      item.reward_quantity || '',
+      item.reward_spawn_command_template || '',
+      item.reward_display_text || ''
+    ].join('|');
   }
   if (item.reward_type === 'SCUM_MONEY') {
-    return ['SCUM_MONEY', 'เงิน', item.reward_value_number || '', item.reward_display_text || '']
-      .filter((v, idx) => idx < 3 || v)
-      .join('|');
+    return ['SCUM_MONEY', 'เงิน', item.reward_value_number || '', '', item.reward_display_text || ''].join('|');
   }
   if (item.reward_type === 'FAME_POINT') {
-    return ['FAME_POINT', 'FP', item.reward_value_number || '', item.reward_display_text || '']
-      .filter((v, idx) => idx < 3 || v)
-      .join('|');
+    return ['FAME_POINT', 'FP', item.reward_value_number || '', '', item.reward_display_text || ''].join('|');
   }
   if (item.reward_type === 'DISCORD_ROLE') {
-    return ['DISCORD_ROLE', item.discord_role_id || '', item.discord_role_name || '', item.reward_display_text || '']
-      .filter((v, idx) => idx < 3 || v)
-      .join('|');
+    return ['DISCORD_ROLE', item.discord_role_id || '', item.discord_role_name || '', '', item.reward_display_text || ''].join('|');
   }
-  return [item.reward_type || '', item.reward_display_text || ''].filter(Boolean).join('|');
+  return [item.reward_type || '', item.reward_display_text || ''].join('|');
 }
 
 function buildQuestRewardBulkModal(bundle) {
@@ -35,14 +33,11 @@ function buildQuestRewardBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_reward_lines')
-          .setLabel('TYPE|ชื่อ|จำนวน|คำสั่ง|แสดงผล')
+          .setLabel('รูปแบบ: TYPE|ชื่อ|จำนวน|คำสั่ง|แสดงผล')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder([
-            'ตัวอย่าง:',
-            'SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2'
-          ].join('\n'))
+          .setPlaceholder('SCUM_ITEM|Medkit|2|#spawnitem Medkit 2|Medkit x2')
           .setValue(lines.slice(0, 4000))
       )
     );

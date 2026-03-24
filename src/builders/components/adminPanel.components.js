@@ -171,9 +171,9 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'refresh_quest_panel', questId)).setLabel('Refresh Panel').setStyle(ButtonStyle.Primary).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code))
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_requirement', questId)).setLabel('เพิ่มของที่ต้องส่ง').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_reward', questId)).setLabel('เพิ่มรางวัล').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_fame', questId)).setLabel('แก้ Fame ขั้นต่ำ').setStyle(ButtonStyle.Success)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'preview_quest', questId)).setLabel('ดูเควส').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_fame', questId)).setLabel('แก้ Fame ขั้นต่ำ').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'toggle_active', questId)).setLabel('เปลี่ยนสถานะเควส').setStyle(ButtonStyle.Secondary),

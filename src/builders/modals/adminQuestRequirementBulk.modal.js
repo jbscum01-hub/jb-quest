@@ -18,14 +18,11 @@ function buildQuestRequirementBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_requirement_lines')
-          .setLabel('ชื่อไอเทม|จำนวน|แสดงผล')
+          .setLabel('รูปแบบ: ชื่อ|จำนวน|แสดงผล')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder([
-            'ตัวอย่าง:',
-            'Medkit|2|Medkit x2'
-          ].join('\n'))
+          .setPlaceholder('Rag|60')
           .setValue(lines.slice(0, 4000))
       )
     );
