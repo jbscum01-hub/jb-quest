@@ -10,6 +10,7 @@ const { handleStepSubmissionModal } = require('./modals/stepSubmission.modal');
 const { handleAdminQuestSearchModal } = require('./modals/adminQuestSearch.modal');
 const { handleAdminQuestImageModal } = require('./modals/adminQuestImage.modal');
 const { handleAdminQuestDescriptionModal } = require('./modals/adminQuestDescription.modal');
+const { handleAdminQuestFameModal } = require('./modals/adminQuestFame.modal');
 const { handleAdminQuestRequirementModal } = require('./modals/adminQuestRequirement.modal');
 const { handleAdminQuestRewardModal } = require('./modals/adminQuestReward.modal');
 const { handleAdminQuestScheduleModal } = require('./modals/adminQuestSchedule.modal');
@@ -77,9 +78,13 @@ function registerInteractionHandler(client) {
           return;
         }
 
+        if (interaction.customId.startsWith('quest:admin_modal:qfame:')) {
+          await handleAdminQuestFameModal(interaction);
+          return;
+        }
+
         if (interaction.customId.startsWith('quest:admin_modal:reqe:')
           || interaction.customId.startsWith('quest:admin_modal:reqa:')
-          || interaction.customId.startsWith('quest:admin_modal:reqbulk:')
           || interaction.customId.startsWith('quest:admin_modal:edit_requirement:')
           || interaction.customId.startsWith('quest:admin_modal:add_requirement:')) {
           await handleAdminQuestRequirementModal(interaction);
@@ -88,7 +93,6 @@ function registerInteractionHandler(client) {
 
         if (interaction.customId.startsWith('quest:admin_modal:rewe:')
           || interaction.customId.startsWith('quest:admin_modal:rewa:')
-          || interaction.customId.startsWith('quest:admin_modal:rewbulk:')
           || interaction.customId.startsWith('quest:admin_modal:edit_reward:')
           || interaction.customId.startsWith('quest:admin_modal:add_reward:')) {
           await handleAdminQuestRewardModal(interaction);

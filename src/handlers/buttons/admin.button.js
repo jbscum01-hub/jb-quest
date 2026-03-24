@@ -14,10 +14,9 @@ const {
   renderPanelStatus,
   renderRequirementEditor,
   renderRewardEditor,
-  showBulkRequirementModal,
-  showBulkRewardModal,
   toggleQuestActiveAndRender,
   showQuestDescriptionModal,
+  showQuestFameModal,
   showAddRequirementModal,
   showAddRewardModal,
   removeQuestImageAndRender,
@@ -33,8 +32,7 @@ const {
   toggleStepActiveAndRender,
   renderStepImageManager,
   removeStepImageAndRender,
-  showAddStepImageModal,
-  showPlayerQuestPreview
+  showAddStepImageModal
 } = require('../../services/adminPanel.service');
 const { deployProfessionPanels } = require('../../services/panelAutoDeploy.service');
 const { deployAllGlobalQuestPanels } = require('../../services/globalPanel.service');
@@ -165,14 +163,12 @@ async function handleAdminButtons(interaction) {
   if (action === 'add_image') return interaction.showModal(buildQuestImageModal(extra));
 
   if (action === 'edit_description') return showQuestDescriptionModal(interaction, extra);
+  if (action === 'edit_fame') return showQuestFameModal(interaction, extra);
   if (action === 'edit_requirements') return renderRequirementEditor(interaction, extra);
   if (action === 'edit_rewards') return renderRewardEditor(interaction, extra);
-  if (action === 'edit_requirements_bulk') return showBulkRequirementModal(interaction, extra);
-  if (action === 'edit_rewards_bulk') return showBulkRewardModal(interaction, extra);
   if (action === 'add_requirement') return showAddRequirementModal(interaction, extra);
   if (action === 'add_reward') return showAddRewardModal(interaction, extra);
   if (action === 'edit_dependency') return renderDependencyEditor(interaction, extra);
-  if (action === 'view_player_quest') return showPlayerQuestPreview(interaction, extra);
   if (action === 'open_quest') return renderQuestDetail(interaction, extra);
 
   if (action === 'manage_steps') return renderStepManager(interaction, extra);

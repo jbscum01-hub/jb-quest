@@ -1,12 +1,5 @@
 const { getPool, withTransaction } = require('../pool');
 
-function buildAutoSpawnCommandTemplate(name, qty) {
-  const safeName = String(name || '').trim();
-  const safeQty = Number(qty || 0);
-  if (!safeName || !Number.isInteger(safeQty) || safeQty <= 0) return null;
-  return `#spawnitem ${safeName} ${safeQty}`;
-}
-
 function getDb(client) {
   return client || getPool();
 }
@@ -465,6 +458,23 @@ async function updateQuestDescription(questId, payload, updatedBy, client) {
   return result.rows[0] || null;
 }
 
+async function updateQuestFame(questId, payload, updatedBy, client) {
+  const db = getDb(client);
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_master
+    SET fame_required_display = NULLIF($2, '')::integer,
+        fame_note = NULLIF($3, ''),
+        updated_by = $4,
+        updated_at = NOW()
+    WHERE quest_id = $1
+    RETURNING *
+    `,
+    [questId, String(payload.fameRequiredDisplay ?? ''), payload.fameNote || '', updatedBy]
+  );
+  return result.rows[0] || null;
+}
+
 
 async function updateQuestScheduleAndLimits(questId, payload, updatedBy, client) {
   const db = getDb(client);
@@ -657,128 +667,6 @@ async function addQuestReward(questId, payload, updatedBy, client) {
     [questId, normalized.rewardType, normalized.rewardName, normalized.rewardAmount, payload.rewardDisplayText, nextOrder]
   );
   return result.rows[0] || null;
-}
-
-
-async function replaceQuestRequirementsBulk(questId, items = [], updatedBy, client) {
-  return withTransaction(async (tx) => {
-    await tx.query(
-      `
-      UPDATE public.tb_quest_master_requirement
-      SET is_active = FALSE,
-          updated_by = $2,
-          updated_at = NOW()
-      WHERE quest_id = $1
-        AND step_id IS NULL
-        AND is_active = TRUE
-      `,
-      [questId, updatedBy]
-    );
-
-    const created = [];
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      const result = await tx.query(
-        `
-        INSERT INTO public.tb_quest_master_requirement
-        (
-          requirement_id, quest_id, step_id, requirement_type,
-          item_name, item_spawn_name, item_spawn_command_template,
-          required_quantity, input_label, display_text, admin_display_text,
-          is_required, sort_order, is_active,
-          created_at, updated_at, created_by, updated_by
-        )
-        VALUES
-        (
-          gen_random_uuid(), $1, NULL, $2,
-          NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''),
-          $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''),
-          TRUE, $10, TRUE,
-          NOW(), NOW(), $11, $11
-        )
-        RETURNING *
-        `,
-        [
-          questId,
-          item.requirementType,
-          item.itemName || null,
-          item.itemSpawnName || item.itemName || null,
-          item.itemSpawnCommandTemplate || null,
-          item.requiredQuantity,
-          item.inputLabel || item.itemName || null,
-          item.displayText || null,
-          item.adminDisplayText || item.displayText || null,
-          index + 1,
-          updatedBy
-        ]
-      );
-      created.push(result.rows[0]);
-    }
-    return created;
-  });
-}
-
-async function replaceQuestRewardsBulk(questId, items = [], updatedBy, client) {
-  return withTransaction(async (tx) => {
-    await tx.query(
-      `
-      UPDATE public.tb_quest_master_reward
-      SET is_active = FALSE,
-          updated_by = $2,
-          updated_at = NOW()
-      WHERE quest_id = $1
-        AND step_id IS NULL
-        AND is_active = TRUE
-      `,
-      [questId, updatedBy]
-    );
-
-    const created = [];
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      const result = await tx.query(
-        `
-        INSERT INTO public.tb_quest_master_reward
-        (
-          reward_id, quest_id, step_id, reward_type,
-          reward_value_text, reward_value_number,
-          reward_item_code, reward_item_name, reward_item_spawn_name, reward_spawn_command_template,
-          reward_quantity, discord_role_id, discord_role_name,
-          reward_cycle_type, reward_display_text, grant_on,
-          sort_order, is_active, created_at, updated_at, created_by, updated_by
-        )
-        VALUES
-        (
-          gen_random_uuid(), $1, NULL, $2,
-          NULLIF($3, ''), $4,
-          NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), NULLIF($8, ''),
-          $9, NULLIF($10, ''), NULLIF($11, ''),
-          'ONE_TIME', NULLIF($12, ''), 'QUEST_COMPLETE',
-          $13, TRUE, NOW(), NOW(), $14, $14
-        )
-        RETURNING *
-        `,
-        [
-          questId,
-          item.rewardType,
-          item.rewardValueText || null,
-          item.rewardValueNumber,
-          item.rewardItemCode || null,
-          item.rewardItemName || null,
-          item.rewardItemSpawnName || item.rewardItemName || null,
-          item.rewardSpawnCommandTemplate || null,
-          item.rewardQuantity,
-          item.discordRoleId || null,
-          item.discordRoleName || null,
-          item.rewardDisplayText || null,
-          index + 1,
-          updatedBy
-        ]
-      );
-      created.push(result.rows[0]);
-    }
-    return created;
-  });
 }
 
 async function addQuestGuideImage(questId, payload, actorId, client) {
@@ -1205,13 +1093,12 @@ module.exports = {
   getStepDetailBundle,
   updateQuestActive,
   updateQuestDescription,
+  updateQuestFame,
   updateQuestScheduleAndLimits,
   updateQuestRequirement,
   addQuestRequirement,
   updateQuestReward,
   addQuestReward,
-  replaceQuestRequirementsBulk,
-  replaceQuestRewardsBulk,
   addQuestGuideImage,
   deactivateQuestGuideImage,
   findAvailableDependencyQuests,
