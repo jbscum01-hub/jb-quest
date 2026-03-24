@@ -1,6 +1,7 @@
 const {
   saveQuestRequirementFromModal,
-  addQuestRequirementFromModal
+  addQuestRequirementFromModal,
+  saveQuestRequirementBulkFromModal
 } = require('../../services/adminPanel.service');
 
 async function handleAdminQuestRequirementModal(interaction) {
@@ -15,6 +16,11 @@ async function handleAdminQuestRequirementModal(interaction) {
 
   if (action === 'reqa') {
     await addQuestRequirementFromModal(interaction, targetId);
+    return;
+  }
+
+  if (action === 'reqbulk') {
+    await saveQuestRequirementBulkFromModal(interaction, targetId);
     return;
   }
 

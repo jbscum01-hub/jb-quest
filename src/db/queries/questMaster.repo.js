@@ -458,23 +458,6 @@ async function updateQuestDescription(questId, payload, updatedBy, client) {
   return result.rows[0] || null;
 }
 
-async function updateQuestFame(questId, payload, updatedBy, client) {
-  const db = getDb(client);
-  const result = await db.query(
-    `
-    UPDATE public.tb_quest_master
-    SET fame_required_display = NULLIF($2, '')::integer,
-        fame_note = NULLIF($3, ''),
-        updated_by = $4,
-        updated_at = NOW()
-    WHERE quest_id = $1
-    RETURNING *
-    `,
-    [questId, String(payload.fameRequiredDisplay ?? ''), payload.fameNote || '', updatedBy]
-  );
-  return result.rows[0] || null;
-}
-
 
 async function updateQuestScheduleAndLimits(questId, payload, updatedBy, client) {
   const db = getDb(client);
@@ -667,6 +650,142 @@ async function addQuestReward(questId, payload, updatedBy, client) {
     [questId, normalized.rewardType, normalized.rewardName, normalized.rewardAmount, payload.rewardDisplayText, nextOrder]
   );
   return result.rows[0] || null;
+}
+
+
+async function updateQuestFameSettings(questId, payload, updatedBy, client) {
+  const db = getDb(client);
+  const fameRequiredDisplay = payload.fameRequiredDisplay === null || payload.fameRequiredDisplay === undefined || payload.fameRequiredDisplay === ''
+    ? null
+    : Number(payload.fameRequiredDisplay);
+
+  const result = await db.query(
+    `
+    UPDATE public.tb_quest_master
+    SET fame_required_display = $2,
+        fame_note = NULLIF($3, ''),
+        updated_by = $4,
+        updated_at = NOW()
+    WHERE quest_id = $1
+    RETURNING *
+    `,
+    [questId, fameRequiredDisplay, payload.fameNote || '', updatedBy]
+  );
+  return result.rows[0] || null;
+}
+
+async function replaceQuestRequirementsBulk(questId, items, updatedBy, client) {
+  return withTransaction(async (tx) => {
+    await tx.query(
+      `
+      UPDATE public.tb_quest_master_requirement
+      SET is_active = FALSE,
+          updated_by = $2,
+          updated_at = NOW()
+      WHERE quest_id = $1
+        AND step_id IS NULL
+        AND is_active = TRUE
+      `,
+      [questId, updatedBy]
+    );
+
+    let sortOrder = 1;
+    for (const item of items) {
+      await tx.query(
+        `
+        INSERT INTO public.tb_quest_master_requirement
+        (
+          requirement_id, quest_id, step_id, requirement_type,
+          item_code, item_name, item_spawn_name, item_spawn_command_template,
+          required_quantity, input_label, display_text, admin_display_text,
+          is_required, sort_order, is_active,
+          created_at, updated_at, created_by, updated_by
+        )
+        VALUES
+        (
+          gen_random_uuid(), $1, NULL, $2,
+          NULL, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''),
+          $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''),
+          TRUE, $10, TRUE,
+          NOW(), NOW(), $11, $11
+        )
+        `,
+        [
+          questId,
+          item.requirementType,
+          item.itemName,
+          item.itemSpawnName || item.itemName,
+          item.itemSpawnCommandTemplate,
+          item.requiredQuantity,
+          item.inputLabel || item.itemName,
+          item.displayText || null,
+          item.adminDisplayText || item.displayText || null,
+          sortOrder,
+          updatedBy
+        ]
+      );
+      sortOrder += 1;
+    }
+  }, client);
+}
+
+async function replaceQuestRewardsBulk(questId, items, updatedBy, client) {
+  return withTransaction(async (tx) => {
+    await tx.query(
+      `
+      UPDATE public.tb_quest_master_reward
+      SET is_active = FALSE,
+          updated_by = $2,
+          updated_at = NOW()
+      WHERE quest_id = $1
+        AND step_id IS NULL
+        AND is_active = TRUE
+      `,
+      [questId, updatedBy]
+    );
+
+    let sortOrder = 1;
+    for (const item of items) {
+      await tx.query(
+        `
+        INSERT INTO public.tb_quest_master_reward
+        (
+          reward_id, quest_id, step_id, reward_type,
+          reward_value_text, reward_value_number,
+          reward_item_code, reward_item_name, reward_item_spawn_name, reward_spawn_command_template,
+          reward_quantity, discord_role_id, discord_role_name,
+          reward_cycle_type, reward_display_text, grant_on,
+          sort_order, is_active, created_at, updated_at, created_by, updated_by
+        )
+        VALUES
+        (
+          gen_random_uuid(), $1, NULL, $2,
+          NULLIF($3, ''), $4,
+          NULL, NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''),
+          $8, NULLIF($9, ''), NULLIF($10, ''),
+          'ONE_TIME', NULLIF($11, ''), 'QUEST_COMPLETE',
+          $12, TRUE, NOW(), NOW(), $13, $13
+        )
+        `,
+        [
+          questId,
+          item.rewardType,
+          item.rewardValueText || null,
+          item.rewardValueNumber || null,
+          item.rewardItemName || null,
+          item.rewardItemSpawnName || item.rewardItemName || null,
+          item.rewardSpawnCommandTemplate || null,
+          item.rewardQuantity || null,
+          item.discordRoleId || null,
+          item.discordRoleName || null,
+          item.rewardDisplayText || null,
+          sortOrder,
+          updatedBy
+        ]
+      );
+      sortOrder += 1;
+    }
+  }, client);
 }
 
 async function addQuestGuideImage(questId, payload, actorId, client) {
@@ -1093,12 +1212,14 @@ module.exports = {
   getStepDetailBundle,
   updateQuestActive,
   updateQuestDescription,
-  updateQuestFame,
   updateQuestScheduleAndLimits,
   updateQuestRequirement,
   addQuestRequirement,
+  replaceQuestRequirementsBulk,
   updateQuestReward,
   addQuestReward,
+  replaceQuestRewardsBulk,
+  updateQuestFameSettings,
   addQuestGuideImage,
   deactivateQuestGuideImage,
   findAvailableDependencyQuests,
