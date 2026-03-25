@@ -1,7 +1,9 @@
 const {
   saveQuestRewardFromModal,
   addQuestRewardFromModal,
-  saveQuestRewardBulkFromModal
+  saveQuestRewardBulkFromModal,
+  saveQuestCommandBulkFromModal,
+  saveQuestRoleRewardFromModal
 } = require('../../services/adminPanel.service');
 
 async function handleAdminQuestRewardModal(interaction) {
@@ -21,6 +23,16 @@ async function handleAdminQuestRewardModal(interaction) {
 
   if (action === 'rewbulk') {
     await saveQuestRewardBulkFromModal(interaction, targetId);
+    return;
+  }
+
+  if (action === 'cmdbulk') {
+    await saveQuestCommandBulkFromModal(interaction, targetId);
+    return;
+  }
+
+  if (action === 'role') {
+    await saveQuestRoleRewardFromModal(interaction, targetId);
     return;
   }
 

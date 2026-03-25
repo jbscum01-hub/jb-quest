@@ -229,22 +229,7 @@ async function findQuestById(questId, client) {
 }
 
 async function findQuestDependencies(questId, client) {
-  const db = getDb(client);
-  const result = await db.query(
-    `
-    SELECT d.*,
-           rq.quest_code AS required_quest_code,
-           rq.quest_name AS required_quest_name
-    FROM public.tb_quest_master_dependency d
-    LEFT JOIN public.tb_quest_master rq
-      ON rq.quest_id = d.required_quest_id
-    WHERE d.quest_id = $1
-      AND d.is_active = TRUE
-    ORDER BY d.sort_order ASC, d.created_at ASC
-    `,
-    [questId]
-  );
-  return result.rows;
+  return [];
 }
 
 async function findQuestRequirements(questId, client) {
@@ -400,15 +385,14 @@ async function getQuestDetailBundle(questId, client) {
   const quest = await findQuestById(questId, client);
   if (!quest) return null;
 
-  const [dependencies, requirements, rewards, images, steps] = await Promise.all([
-    findQuestDependencies(questId, client),
+  const [requirements, rewards, images, steps] = await Promise.all([
     findQuestRequirements(questId, client),
     findQuestRewards(questId, client),
     findQuestGuideImages(questId, client),
     findQuestSteps(questId, client)
   ]);
 
-  return { quest, dependencies, requirements, rewards, images, steps };
+  return { quest, dependencies: [], requirements, rewards, images, steps };
 }
 
 async function getStepDetailBundle(stepId, client) {
@@ -527,20 +511,17 @@ async function updateQuestRequirement(requirementId, payload, updatedBy, client)
   const result = await db.query(
     `
     UPDATE public.tb_quest_master_requirement
-    SET item_name = NULLIF($2, ''),
-        input_label = NULLIF($2, ''),
-        required_quantity = $3,
-        display_text = NULL,
-        admin_display_text = NULL,
-        updated_by = $4,
+    SET display_text = NULLIF($2, ''),
+        updated_by = $3,
         updated_at = NOW()
     WHERE requirement_id = $1
     RETURNING *
     `,
-    [requirementId, payload.itemName, payload.requiredQuantity, updatedBy]
+    [requirementId, payload.displayText, updatedBy]
   );
   return result.rows[0] || null;
 }
+
 
 async function addQuestRequirement(questId, payload, updatedBy, client) {
   const db = getDb(client);
@@ -560,58 +541,45 @@ async function addQuestRequirement(questId, payload, updatedBy, client) {
     INSERT INTO public.tb_quest_master_requirement
     (
       requirement_id, quest_id, step_id, requirement_type,
-      item_name, required_quantity, input_label,
-      is_required, sort_order, is_active,
-      created_at, updated_at
+      display_text, is_required, sort_order, is_active,
+      created_at, updated_at, created_by, updated_by
     )
     VALUES
     (
-      gen_random_uuid(), $1, NULL, 'SCUM_ITEM',
-      NULLIF($2, ''), $3, NULLIF($2, ''),
-      TRUE, $4, TRUE,
-      NOW(), NOW()
+      gen_random_uuid(), $1, NULL, 'CUSTOM_TEXT',
+      NULLIF($2, ''), TRUE, $3, TRUE,
+      NOW(), NOW(), $4, $4
     )
     RETURNING *
     `,
-    [questId, payload.itemName, payload.requiredQuantity, nextOrder]
+    [questId, payload.displayText, nextOrder, updatedBy]
   );
   return result.rows[0] || null;
 }
 
-async function normalizeRewardUpdate(db, rewardType, rewardName, rewardAmount) {
-  return {
-    rewardType,
-    rewardName: rewardName || null,
-    rewardAmount: rewardAmount ? Number(rewardAmount) : null
-  };
-}
 
 async function updateQuestReward(rewardId, payload, updatedBy, client) {
   const db = getDb(client);
-  const normalized = await normalizeRewardUpdate(db, payload.rewardType, payload.rewardName, payload.rewardAmount);
   const result = await db.query(
     `
     UPDATE public.tb_quest_master_reward
     SET reward_type = $2::varchar,
-        reward_item_name = CASE WHEN $2::varchar = 'SCUM_ITEM' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
-        reward_display_text = NULLIF($4::text, ''::text),
-        reward_quantity = CASE WHEN $2::varchar = 'SCUM_ITEM' THEN $5::integer ELSE NULL END,
-        reward_value_number = CASE WHEN $2::varchar IN ('SCUM_MONEY', 'FAME_POINT') THEN $5::integer ELSE NULL END,
-        discord_role_name = CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
-        reward_value_text = CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
+        reward_display_text = NULLIF($3::text, ''),
+        reward_spawn_command_template = CASE WHEN $2::varchar = 'SCUM_ITEM' THEN NULLIF($4::text, '') ELSE NULL END,
+        discord_role_id = CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($5::varchar, '') ELSE NULL END,
         updated_by = $6,
         updated_at = NOW()
     WHERE reward_id = $1
     RETURNING *
     `,
-    [rewardId, normalized.rewardType, normalized.rewardName, payload.rewardDisplayText, normalized.rewardAmount, updatedBy]
+    [rewardId, payload.rewardType, payload.rewardDisplayText, payload.rewardSpawnCommandTemplate || null, payload.discordRoleId || null, updatedBy]
   );
   return result.rows[0] || null;
 }
 
+
 async function addQuestReward(questId, payload, updatedBy, client) {
   const db = getDb(client);
-  const normalized = await normalizeRewardUpdate(db, payload.rewardType, payload.rewardName, payload.rewardAmount);
   const orderResult = await db.query(
     `
     SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
@@ -627,27 +595,21 @@ async function addQuestReward(questId, payload, updatedBy, client) {
     `
     INSERT INTO public.tb_quest_master_reward
     (
-      reward_id, quest_id, step_id, reward_type,
-      reward_value_text, reward_value_number,
-      reward_item_name, reward_quantity,
-      discord_role_name, reward_cycle_type,
-      reward_display_text, grant_on,
-      sort_order, is_active, created_at, updated_at
+      reward_id, quest_id, step_id, reward_type, reward_spawn_command_template,
+      discord_role_id, reward_display_text, grant_on, sort_order, is_active,
+      created_at, updated_at, created_by, updated_by
     )
     VALUES
     (
       gen_random_uuid(), $1, NULL, $2::varchar,
-      CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
-      CASE WHEN $2::varchar IN ('SCUM_MONEY', 'FAME_POINT') THEN $4::integer ELSE NULL END,
-      CASE WHEN $2::varchar = 'SCUM_ITEM' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
-      CASE WHEN $2::varchar = 'SCUM_ITEM' THEN $4::integer ELSE NULL END,
-      CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($3::varchar, ''::varchar) ELSE NULL END,
-      'ONE_TIME', NULLIF($5::text, ''::text), 'QUEST_COMPLETE',
-      $6, TRUE, NOW(), NOW()
+      CASE WHEN $2::varchar = 'SCUM_ITEM' THEN NULLIF($3::text, '') ELSE NULL END,
+      CASE WHEN $2::varchar = 'DISCORD_ROLE' THEN NULLIF($4::varchar, '') ELSE NULL END,
+      NULLIF($5::text, ''), 'QUEST_COMPLETE', $6, TRUE,
+      NOW(), NOW(), $7, $7
     )
     RETURNING *
     `,
-    [questId, normalized.rewardType, normalized.rewardName, normalized.rewardAmount, payload.rewardDisplayText, nextOrder]
+    [questId, payload.rewardType, payload.rewardSpawnCommandTemplate || null, payload.discordRoleId || null, payload.rewardDisplayText, nextOrder, updatedBy]
   );
   return result.rows[0] || null;
 }
@@ -696,33 +658,17 @@ async function replaceQuestRequirementsBulk(questId, items, updatedBy, client) {
         INSERT INTO public.tb_quest_master_requirement
         (
           requirement_id, quest_id, step_id, requirement_type,
-          item_code, item_name, item_spawn_name, item_spawn_command_template,
-          required_quantity, input_label, display_text, admin_display_text,
-          is_required, sort_order, is_active,
+          display_text, is_required, sort_order, is_active,
           created_at, updated_at, created_by, updated_by
         )
         VALUES
         (
-          gen_random_uuid(), $1, NULL, $2,
-          NULL, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''),
-          $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''),
-          TRUE, $10, TRUE,
-          NOW(), NOW(), $11, $11
+          gen_random_uuid(), $1, NULL, 'CUSTOM_TEXT',
+          NULLIF($2, ''), TRUE, $3, TRUE,
+          NOW(), NOW(), $4, $4
         )
         `,
-        [
-          questId,
-          item.requirementType,
-          item.itemName,
-          item.itemSpawnName || item.itemName,
-          item.itemSpawnCommandTemplate,
-          item.requiredQuantity,
-          item.inputLabel || item.itemName,
-          item.displayText || null,
-          item.adminDisplayText || item.displayText || null,
-          sortOrder,
-          updatedBy
-        ]
+        [questId, item.displayText || null, sortOrder, updatedBy]
       );
       sortOrder += 1;
     }
@@ -750,34 +696,22 @@ async function replaceQuestRewardsBulk(questId, items, updatedBy, client) {
         `
         INSERT INTO public.tb_quest_master_reward
         (
-          reward_id, quest_id, step_id, reward_type,
-          reward_value_text, reward_value_number,
-          reward_item_code, reward_item_name, reward_item_spawn_name, reward_spawn_command_template,
-          reward_quantity, discord_role_id, discord_role_name,
-          reward_cycle_type, reward_display_text, grant_on,
-          sort_order, is_active, created_at, updated_at, created_by, updated_by
+          reward_id, quest_id, step_id, reward_type, reward_spawn_command_template,
+          discord_role_id, reward_display_text, grant_on, sort_order, is_active,
+          created_at, updated_at, created_by, updated_by
         )
         VALUES
         (
-          gen_random_uuid(), $1, NULL, $2,
-          NULLIF($3, ''), $4,
-          NULL, NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''),
-          $8, NULLIF($9, ''), NULLIF($10, ''),
-          'ONE_TIME', NULLIF($11, ''), 'QUEST_COMPLETE',
-          $12, TRUE, NOW(), NOW(), $13, $13
+          gen_random_uuid(), $1, NULL, $2, NULLIF($3, ''),
+          NULLIF($4, ''), NULLIF($5, ''), 'QUEST_COMPLETE', $6, TRUE,
+          NOW(), NOW(), $7, $7
         )
         `,
         [
           questId,
           item.rewardType,
-          item.rewardValueText || null,
-          item.rewardValueNumber || null,
-          item.rewardItemName || null,
-          item.rewardItemSpawnName || item.rewardItemName || null,
           item.rewardSpawnCommandTemplate || null,
-          item.rewardQuantity || null,
           item.discordRoleId || null,
-          item.discordRoleName || null,
           item.rewardDisplayText || null,
           sortOrder,
           updatedBy
@@ -839,103 +773,11 @@ async function deactivateQuestGuideImage(mediaId, actorId, client) {
 }
 
 async function findAvailableDependencyQuests(questId, client) {
-  const quest = await findQuestById(questId, client);
-  if (!quest) return [];
-  const db = getDb(client);
-
-  if (quest.profession_id) {
-    const result = await db.query(
-      `
-      SELECT q.quest_id, q.quest_code, q.quest_name, q.quest_level, q.display_order,
-             p.profession_code, p.profession_name_th
-      FROM public.tb_quest_master q
-      JOIN public.tb_quest_master_profession p ON p.profession_id = q.profession_id
-      WHERE q.is_active = TRUE
-        AND q.quest_id <> $1
-        AND q.profession_id = $2
-        AND COALESCE(q.quest_level, 0) <= COALESCE($3, 0)
-      ORDER BY q.quest_level ASC, q.display_order ASC, q.quest_code ASC
-      LIMIT 25
-      `,
-      [questId, quest.profession_id, quest.quest_level]
-    );
-    return result.rows;
-  }
-
-  const result = await db.query(
-    `
-    SELECT q.quest_id, q.quest_code, q.quest_name, q.quest_level, q.display_order,
-           p.profession_code, p.profession_name_th, c.category_code
-    FROM public.tb_quest_master q
-    JOIN public.tb_quest_master_category c ON c.category_id = q.category_id
-    LEFT JOIN public.tb_quest_master_profession p ON p.profession_id = q.profession_id
-    WHERE q.is_active = TRUE
-      AND q.quest_id <> $1
-      AND c.category_code IN ('TIMED', 'LEGENDARY')
-    ORDER BY c.sort_order ASC, COALESCE(q.quest_level, 9999) ASC, q.display_order ASC, q.quest_code ASC
-    LIMIT 25
-    `,
-    [questId]
-  );
-  return result.rows;
+  return [];
 }
 
 async function replaceQuestDependency(questId, selectedQuestId, updatedBy, client) {
-  return withTransaction(async (tx) => {
-    await tx.query(
-      `
-      UPDATE public.tb_quest_master_dependency
-      SET is_active = FALSE,
-          updated_at = NOW()
-      WHERE quest_id = $1
-        AND is_active = TRUE
-      `,
-      [questId]
-    );
-
-    if (!selectedQuestId) {
-      await tx.query(
-        `
-        UPDATE public.tb_quest_master
-        SET unlock_mode = 'NONE',
-            updated_at = NOW(),
-            updated_by = $2
-        WHERE quest_id = $1
-        `,
-        [questId, updatedBy]
-      );
-      return null;
-    }
-
-    await tx.query(
-      `
-      INSERT INTO public.tb_quest_master_dependency
-      (
-        dependency_id, quest_id, dependency_type, required_quest_id,
-        condition_operator, sort_order, is_active, created_at, updated_at
-      )
-      VALUES
-      (
-        gen_random_uuid(), $1, 'PREVIOUS_QUEST', $2,
-        'AND', 1, TRUE, NOW(), NOW()
-      )
-      `,
-      [questId, selectedQuestId]
-    );
-
-    await tx.query(
-      `
-      UPDATE public.tb_quest_master
-      SET unlock_mode = 'PREVIOUS_QUEST',
-          updated_at = NOW(),
-          updated_by = $2
-      WHERE quest_id = $1
-      `,
-      [questId, updatedBy]
-    );
-
-    return selectedQuestId;
-  });
+  return null;
 }
 
 async function createQuest(payload, actorId, client) {
@@ -989,9 +831,9 @@ async function createQuest(payload, actorId, client) {
     'gen_random_uuid()', '$1', '$2', "NULLIF($3, '')",
     '$4', '$5', '$6', '$7',
     '$8', '$9', 'TRUE',
-    '$10', "CASE WHEN $11 THEN 'PREVIOUS_QUEST' ELSE 'NONE' END",
-    "NULLIF($12, '')", "NULLIF($13, '')",
-    "COALESCE(NULLIF($14, ''), 'ส่งเควส')", "NULLIF($15, '')", 'TRUE'
+    '$10', "'NONE'",
+    "NULLIF($11, '')", "NULLIF($12, '')",
+    "COALESCE(NULLIF($13, ''), 'ส่งเควส')", "NULLIF($14, '')", 'TRUE'
   ];
 
   if (columns.has('start_at')) {
@@ -1008,11 +850,11 @@ async function createQuest(payload, actorId, client) {
   }
   if (columns.has('weekly_claim_limit')) {
     insertColumns.push('weekly_claim_limit');
-    placeholders.push("CASE WHEN $17 = 'LEGENDARY' THEN 1 ELSE NULL END");
+    placeholders.push("CASE WHEN $16 = 'LEGENDARY' THEN 1 ELSE NULL END");
   }
 
   insertColumns.push('created_at', 'updated_at', 'created_by', 'updated_by');
-  placeholders.push('NOW()', 'NOW()', '$16', '$16');
+  placeholders.push('NOW()', 'NOW()', '$15', '$15');
 
   const result = await db.query(
     `
@@ -1037,7 +879,6 @@ async function createQuest(payload, actorId, client) {
       !!payload.isStepQuest,
       !!payload.requiresTicket,
       !!payload.isRepeatable,
-      !!payload.dependencyQuestId,
       payload.panelTitle || payload.questName,
       payload.panelDescription || payload.questDescription,
       payload.buttonLabel || 'ส่งเควส',
@@ -1047,9 +888,6 @@ async function createQuest(payload, actorId, client) {
     ]
   );
   const questId = result.rows[0]?.quest_id;
-  if (payload.dependencyQuestId) {
-    await replaceQuestDependency(questId, payload.dependencyQuestId, actorId, client);
-  }
   return questId;
 }
 

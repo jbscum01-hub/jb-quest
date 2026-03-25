@@ -14,6 +14,8 @@ const {
   renderPanelStatus,
   renderRequirementEditor,
   renderRewardEditor,
+  renderCommandEditor,
+  renderRoleRewardEditor,
   renderQuestPreview,
   toggleQuestActiveAndRender,
   showQuestDescriptionModal,
@@ -25,7 +27,6 @@ const {
   showCreateGlobalQuestModal,
   showQuestScheduleModal,
   deployQuestPanelAndRender,
-  renderDependencyEditor,
   renderStepManager,
   renderStepDetail,
   showAddStepModal,
@@ -166,9 +167,10 @@ async function handleAdminButtons(interaction) {
   if (action === 'edit_description') return showQuestDescriptionModal(interaction, extra);
   if (action === 'edit_requirements') return renderRequirementEditor(interaction, extra);
   if (action === 'edit_rewards') return renderRewardEditor(interaction, extra);
+  if (action === 'edit_commands') return renderCommandEditor(interaction, extra);
+  if (action === 'edit_role_reward') return renderRoleRewardEditor(interaction, extra);
   if (action === 'add_requirement') return showAddRequirementModal(interaction, extra);
   if (action === 'add_reward') return showAddRewardModal(interaction, extra);
-  if (action === 'edit_dependency') return renderDependencyEditor(interaction, extra);
   if (action === 'preview_quest') return renderQuestPreview(interaction, extra);
   if (action === 'edit_fame') return showQuestFameModal(interaction, extra);
   if (action === 'open_quest') return renderQuestDetail(interaction, extra);

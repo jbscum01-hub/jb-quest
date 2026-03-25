@@ -6,7 +6,6 @@ const {
   showEditRequirementModal,
   showEditRewardModal,
   showCreateQuestModal,
-  saveDependencySelection,
   renderStepDetail
 } = require('../../services/adminPanel.service');
 
@@ -15,33 +14,12 @@ async function handleAdminSelect(interaction) {
   const action = parts[2];
   const extra = parts.slice(3).join(':') || null;
 
-  if (action === 'profession') {
-    return renderLevelPicker(interaction, interaction.values[0], 'browse');
-  }
+  if (action === 'profession') return renderLevelPicker(interaction, interaction.values[0], 'browse');
+  if (action === 'create_profession') return renderLevelPicker(interaction, interaction.values[0], 'create');
+  if (action === 'level') return renderQuestList(interaction, extra, Number(interaction.values[0]));
+  if (action === 'create_level') return showCreateQuestModal(interaction, extra, Number(interaction.values[0]));
 
-  if (action === 'create_profession') {
-    return renderLevelPicker(interaction, interaction.values[0], 'create');
-  }
-
-  if (action === 'level') {
-    return renderQuestList(interaction, extra, Number(interaction.values[0]));
-  }
-
-  if (action === 'create_level') {
-    return showCreateQuestModal(interaction, extra, Number(interaction.values[0]));
-  }
-
-
-  if (action === 'quest_category') {
-    const questId = interaction.values[0];
-    if (questId === 'NO_QUEST') {
-      await interaction.reply({ content: 'ไม่พบเควสให้เปิดรายละเอียด', ephemeral: true });
-      return;
-    }
-    return renderQuestDetail(interaction, questId);
-  }
-
-  if (action === 'quest') {
+  if (action === 'quest_category' || action === 'quest') {
     const questId = interaction.values[0];
     if (questId === 'NO_QUEST') {
       await interaction.reply({ content: 'ไม่พบเควสให้เปิดรายละเอียด', ephemeral: true });
@@ -68,12 +46,13 @@ async function handleAdminSelect(interaction) {
     return showEditRewardModal(interaction, extra, rewardId);
   }
 
-  if (action === 'dependency') {
-    return saveDependencySelection(interaction, extra, interaction.values[0]);
-  }
-
   if (action === 'step') {
-    return renderStepDetail(interaction, interaction.values[0]);
+    const stepId = interaction.values[0];
+    if (stepId === 'NO_STEP') {
+      await interaction.reply({ content: 'ยังไม่มี Step', ephemeral: true });
+      return;
+    }
+    return renderStepDetail(interaction, stepId);
   }
 }
 

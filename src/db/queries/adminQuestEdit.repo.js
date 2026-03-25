@@ -117,18 +117,9 @@ async function findRewardById(rewardId) {
 }
 
 async function findQuestDependencies(questId) {
-  return query(
-    `
-    SELECT d.*, rq.quest_code AS required_quest_code, rq.quest_name AS required_quest_name
-    FROM public.tb_quest_master_dependency d
-    LEFT JOIN public.tb_quest_master rq ON d.required_quest_id = rq.quest_id
-    WHERE d.quest_id = $1
-      AND d.is_active = TRUE
-    ORDER BY d.sort_order ASC, d.created_at ASC
-    `,
-    [questId]
-  );
+  return [];
 }
+
 
 async function findQuestImages(questId) {
   return query(

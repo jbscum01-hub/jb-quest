@@ -95,6 +95,8 @@ function registerInteractionHandler(client) {
         if (interaction.customId.startsWith('quest:admin_modal:rewe:')
           || interaction.customId.startsWith('quest:admin_modal:rewa:')
           || interaction.customId.startsWith('quest:admin_modal:rewbulk:')
+          || interaction.customId.startsWith('quest:admin_modal:cmdbulk:')
+          || interaction.customId.startsWith('quest:admin_modal:role:')
           || interaction.customId.startsWith('quest:admin_modal:edit_reward:')
           || interaction.customId.startsWith('quest:admin_modal:add_reward:')) {
           await handleAdminQuestRewardModal(interaction);
