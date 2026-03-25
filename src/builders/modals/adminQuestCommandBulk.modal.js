@@ -1,28 +1,28 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
-function buildQuestRewardBulkModal(bundle) {
+function buildQuestCommandBulkModal(bundle) {
   const quest = bundle.quest;
   const lines = (bundle.rewards || [])
     .filter((item) => item.reward_type === 'SCUM_ITEM')
-    .map((item) => item.reward_display_text || '')
+    .map((item) => item.reward_spawn_command_template || '')
     .filter(Boolean)
     .join('\n');
 
   return new ModalBuilder()
-    .setCustomId(`quest:admin_modal:rewbulk:${quest.quest_id}`)
-    .setTitle('แก้รางวัลไอเทม (ยกชุด)')
+    .setCustomId(`quest:admin_modal:cmdbulk:${quest.quest_id}`)
+    .setTitle('แก้คำสั่งไอเทม (ยกชุด)')
     .addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
-          .setCustomId('bulk_reward_lines')
-          .setLabel('ใส่ 1 บรรทัดต่อ 1 รางวัล')
+          .setCustomId('bulk_command_lines')
+          .setLabel('ใส่ 1 บรรทัดต่อ 1 คำสั่ง')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder('Phoenix Tears x3\nEmergency Bandage Pack x10')
+          .setPlaceholder('#spawnitem PhoenixTears 3\n#spawnitem EmergencyBandagePack 10')
           .setValue(lines.slice(0, 4000))
       )
     );
 }
 
-module.exports = { buildQuestRewardBulkModal };
+module.exports = { buildQuestCommandBulkModal };

@@ -3,12 +3,8 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 function buildQuestRequirementBulkModal(bundle) {
   const quest = bundle.quest;
   const lines = (bundle.requirements || [])
-    .map((item) => {
-      const name = item.item_name || item.input_label || '';
-      const qty = item.required_quantity || '';
-      const display = item.display_text || '';
-      return [name, qty, display].filter((v, idx) => idx < 2 || v).join('|');
-    })
+    .map((item) => item.display_text || '')
+    .filter(Boolean)
     .join('\n');
 
   return new ModalBuilder()
@@ -18,11 +14,11 @@ function buildQuestRequirementBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_requirement_lines')
-          .setLabel('รูปแบบ: ชื่อ|จำนวน|แสดงผล')
+          .setLabel('ใส่ 1 บรรทัดต่อ 1 รายการ')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
-          .setPlaceholder('Rag|60')
+          .setPlaceholder('Rags x60\nVitamin Pills x10')
           .setValue(lines.slice(0, 4000))
       )
     );

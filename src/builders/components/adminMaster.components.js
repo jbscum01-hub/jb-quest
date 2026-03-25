@@ -87,7 +87,7 @@ function buildQuestDetailButtons(questId) {
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`quest:admin:edit_dependency:${questId}`)
+.setCustomId(`quest:admin:open_quest:${questId}`)
         .setLabel('แก้เควสก่อนหน้า')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()

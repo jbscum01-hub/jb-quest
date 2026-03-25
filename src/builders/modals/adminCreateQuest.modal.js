@@ -28,7 +28,7 @@ function buildCreateQuestModal({ professionCode = null, level = null, categoryCo
         new TextInputBuilder().setCustomId('flags').setLabel('ตัวเลือกพิเศษ').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100).setPlaceholder(flagPlaceholder)
       ),
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('dependency_code').setLabel('Quest Code ก่อนหน้า (ถ้ามี)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(50)
+        new TextInputBuilder().setCustomId('dependency_code').setLabel('Quest Code ก่อนหน้า (ยังไม่ใช้)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(50)
       )
     );
 }

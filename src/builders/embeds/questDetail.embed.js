@@ -1,33 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
 
 function formatRequirement(req, index) {
-  const main = req.display_text || req.item_name || req.input_label || req.requirement_type;
-  const qty = req.required_quantity ? ` x${req.required_quantity}` : '';
-  const admin = req.admin_display_text ? `\n- หมายเหตุแอดมิน: ${req.admin_display_text}` : '';
-  return `${index + 1}. ${main}${qty}${admin}`;
+  return `${index + 1}. ${req.display_text || '-'}`;
 }
 
 function formatReward(reward, index) {
-  const main = reward.reward_display_text
-    || reward.reward_item_name
-    || reward.reward_value_text
-    || reward.discord_role_name
-    || reward.reward_type;
-  const qty = reward.reward_quantity ? ` x${reward.reward_quantity}` : '';
-  const num = reward.reward_value_number ? ` (${reward.reward_value_number})` : '';
-  return `${index + 1}. ${main}${qty}${num}`;
-}
-
-function formatDependency(dep) {
-  if (!dep) return 'ไม่มี';
-  if (dep.dependency_type === 'PREVIOUS_QUEST') {
-    return dep.required_quest_code
-      ? `${dep.required_quest_code} · ${dep.required_quest_name || '-'}`
-      : 'ตั้งค่า quest ก่อนหน้าไว้ แต่ไม่พบข้อมูลปลายทาง';
-  }
-  if (dep.dependency_type === 'MAIN_LEVEL') return `Main Level อย่างน้อย Lv${dep.required_level || '-'}`;
-  if (dep.dependency_type === 'ROLE') return `Role: ${dep.required_role_name || dep.required_role_id || '-'}`;
-  return dep.dependency_type || 'ไม่มี';
+  const text = reward.reward_display_text || (reward.reward_type === 'DISCORD_ROLE' && reward.discord_role_id ? `Role ID: ${reward.discord_role_id}` : reward.reward_type);
+  return `${index + 1}. ${text}`;
 }
 
 function formatSteps(steps) {
@@ -51,10 +30,7 @@ function formatThaiDateTime(value) {
 }
 
 function formatSubmissionLimit(quest) {
-  if (quest.category_code === 'LEGENDARY') {
-    return `${Number(quest.weekly_claim_limit || 1)} ครั้ง / สัปดาห์`;
-  }
-
+  if (quest.category_code === 'LEGENDARY') return `${Number(quest.weekly_claim_limit || 1)} ครั้ง / สัปดาห์`;
   const limitCount = Number(quest.submission_limit_count || 0);
   const limitPeriodDays = Number(quest.submission_limit_period_days || 0);
   if (!limitCount || !limitPeriodDays) return 'ไม่จำกัดจำนวนครั้งต่อรอบ';
@@ -63,7 +39,6 @@ function formatSubmissionLimit(quest) {
 
 function buildTimedWindowAdminBlock(quest) {
   if (quest.category_code !== 'TIMED') return null;
-
   return [
     `เริ่ม: ${formatThaiDateTime(quest.start_at)}`,
     `ระยะเวลา: ${Number(quest.duration_days || 0) > 0 ? `${quest.duration_days} วัน` : 'ยังไม่ได้ตั้งค่า'}`,
@@ -78,41 +53,31 @@ function resolveQuestType(quest) {
 }
 
 function buildQuestDetailEmbed(bundle) {
-  const { quest, requirements, rewards, dependencies, images, steps, panelMessageId = null } = bundle;
-  const primaryDependency = dependencies[0] || null;
+  const { quest, requirements, rewards, images, steps, panelMessageId = null } = bundle;
   const titleParts = [
     quest.icon_emoji || (quest.category_code === 'LEGENDARY' ? '👑' : quest.category_code === 'TIMED' ? '✨' : '📘'),
     quest.profession_code || (quest.category_code === 'TIMED' ? 'SPECIAL' : quest.category_code === 'LEGENDARY' ? 'LEGENDARY' : 'NO_PROF'),
     `Lv${quest.quest_level || '-'}`,
     quest.quest_code
   ];
-  const descriptionText = quest.quest_description || quest.panel_description || '-';
 
   const infoLines = [
     `สถานะ: ${quest.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`,
     `ประเภท: ${resolveQuestType(quest)}`,
     `ใช้ Ticket: ${quest.requires_ticket ? 'ใช่' : 'ไม่ใช่'}`,
     `อนุมัติโดยแอดมิน: ${quest.requires_admin_approval ? 'ใช่' : 'ไม่ใช่'}`,
-    `เควสก่อนหน้า: ${formatDependency(primaryDependency)}`,
-    `คูลดาวน์: ${quest.repeat_cooldown_days || 0} วัน`,
     `ลิมิตส่งเควส: ${formatSubmissionLimit(quest)}`,
     `Panel Message: ${panelMessageId || 'ยังไม่ deploy'}`,
     `จำนวนรูปตัวอย่าง: ${images.length} รูป`
   ];
 
   const fields = [
-    {
-      name: 'ข้อมูลหลัก',
-      value: infoLines.join('\n')
-    },
-    { name: 'คำอธิบายเควส', value: descriptionText.length > 1024 ? `${descriptionText.slice(0, 1021)}...` : descriptionText }
+    { name: 'ข้อมูลหลัก', value: infoLines.join('\n') },
+    { name: 'คำอธิบายเควส', value: (quest.quest_description || quest.panel_description || '-').slice(0, 1024) }
   ];
 
   if (quest.category_code === 'TIMED') {
-    fields.push({
-      name: '🕒 เวลาเควส',
-      value: buildTimedWindowAdminBlock(quest)
-    });
+    fields.push({ name: '🕒 เวลาเควส', value: buildTimedWindowAdminBlock(quest) });
   }
 
   fields.push(
@@ -122,11 +87,12 @@ function buildQuestDetailEmbed(bundle) {
     {
       name: 'เมนูการจัดการ',
       value: [
-        '• **แก้คำอธิบาย** : แก้ชื่อเควส รายละเอียดหลัก ป้ายพาเนล และบันทึกแอดมิน',
-        '• **แก้เวลา/ลิมิต** : ตั้งจำนวนครั้ง ช่วงเวลา หรือ weekly limit',
-        '• **Deploy Panel / Refresh Panel** : สร้างหรืออัปเดต panel ของเควสนี้',
-        '• **แก้ของที่ต้องส่ง / แก้รางวัล** : ปรับเงื่อนไขและรางวัล',
-        '• **เปลี่ยนสถานะเควส** : ปิดรับโดยให้ panel คงอยู่แต่ซ่อนปุ่มส่งเควส'
+        '• แก้คำอธิบาย : แก้ชื่อเควสและรายละเอียดหลัก',
+        '• แก้ของที่ต้องส่ง : แก้ข้อความเงื่อนไขแบบยกชุด',
+        '• แก้รางวัลไอเทม : แก้ข้อความรางวัล SCUM_ITEM',
+        '• แก้คำสั่งไอเทม : แก้ reward_spawn_command_template แยกต่างหาก',
+        '• ตั้ง Role Reward : ตั้ง role 1 อันต่อ 1 เควส',
+        '• ดูเควส / แก้ Fame / เพิ่มรูปตัวอย่าง : ใช้งานต่อได้เหมือนเดิม'
       ].join('\n').slice(0, 1024)
     }
   );
@@ -153,13 +119,10 @@ function buildImageManagerEmbed(bundle) {
         : 'ยังไม่มีรูปตัวอย่างของเควสนี้'
     }, {
       name: 'เมนูการจัดการ',
-      value: ['• **เพิ่มรูปตัวอย่าง** : เพิ่ม GUIDE_IMAGE ใหม่ให้เควสนี้', '• **ลบรูปตัวอย่าง** : เลือกรูปที่ต้องการปิดการใช้งาน', '• **กลับหน้าเควส** : ย้อนกลับไปดูข้อมูลเควสทั้งหมด'].join('\n')
+      value: ['• เพิ่มรูปตัวอย่าง : เพิ่ม GUIDE_IMAGE ใหม่ให้เควสนี้', '• ลบรูปตัวอย่าง : เลือกรูปที่ต้องการปิดการใช้งาน', '• กลับหน้าเควส : ย้อนกลับไปดูข้อมูลเควสทั้งหมด'].join('\n')
     })
     .setFooter({ text: `Quest ID: ${quest.quest_id}` })
     .setTimestamp();
 }
 
-module.exports = {
-  buildQuestDetailEmbed,
-  buildImageManagerEmbed
-};
+module.exports = { buildQuestDetailEmbed, buildImageManagerEmbed };

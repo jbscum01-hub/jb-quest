@@ -158,17 +158,17 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_description', questId)).setLabel('แก้คำอธิบาย').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_requirements', questId)).setLabel('แก้ของที่ต้องส่ง').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_rewards', questId)).setLabel('แก้รางวัล').setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_rewards', questId)).setLabel('แก้รางวัลไอเทม').setStyle(ButtonStyle.Primary)
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_dependency', questId)).setLabel('แก้เควสก่อนหน้า').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_steps', questId)).setLabel('จัดการ Step').setStyle(ButtonStyle.Secondary).setDisabled(!isStepQuest),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_commands', questId)).setLabel('แก้คำสั่งไอเทม').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_role_reward', questId)).setLabel('ตั้ง Role Reward').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_images', `${questId}|0`)).setLabel('จัดการรูปตัวอย่าง').setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_steps', questId)).setLabel('จัดการ Step').setStyle(ButtonStyle.Secondary).setDisabled(!isStepQuest),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_schedule', questId)).setLabel('แก้เวลา/ลิมิต').setStyle(ButtonStyle.Secondary).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code)),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'deploy_quest_panel', questId)).setLabel('Deploy Panel').setStyle(ButtonStyle.Success).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code)),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'refresh_quest_panel', questId)).setLabel('Refresh Panel').setStyle(ButtonStyle.Primary).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code))
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'deploy_quest_panel', questId)).setLabel('Deploy Panel').setStyle(ButtonStyle.Success).setDisabled(!['TIMED', 'LEGENDARY'].includes(quest.category_code))
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'preview_quest', questId)).setLabel('ดูเควส').setStyle(ButtonStyle.Success),
@@ -183,128 +183,66 @@ function buildQuestDetailButtons(quest, isStepQuest = false) {
   ];
 }
 
-function buildQuestImageManagerButtons(questId, currentIndex = 0, imageCount = 0) {
-  const prevIndex = Math.max(currentIndex - 1, 0);
-  const nextIndex = Math.min(currentIndex + 1, Math.max(imageCount - 1, 0));
+function buildQuestImageManagerButtons(questId, currentIndex = 0, totalImages = 0) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'image_prev', `${questId}|${prevIndex}`)).setLabel('รูปก่อนหน้า').setStyle(ButtonStyle.Secondary).setDisabled(!imageCount || currentIndex <= 0),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'image_next', `${questId}|${nextIndex}`)).setLabel('รูปถัดไป').setStyle(ButtonStyle.Secondary).setDisabled(!imageCount || currentIndex >= imageCount - 1),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'image_remove', `${questId}|${currentIndex}`)).setLabel('ลบรูปนี้').setStyle(ButtonStyle.Danger).setDisabled(!imageCount)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'image_prev', `${questId}|${Math.max(currentIndex - 1, 0)}`)).setLabel('⬅️ ก่อนหน้า').setStyle(ButtonStyle.Secondary).setDisabled(totalImages <= 1 || currentIndex <= 0),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'image_next', `${questId}|${Math.min(currentIndex + 1, Math.max(totalImages - 1, 0))}`)).setLabel('ถัดไป ➡️').setStyle(ButtonStyle.Secondary).setDisabled(totalImages <= 1 || currentIndex >= totalImages - 1),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'image_remove', `${questId}|${currentIndex}`)).setLabel('ลบรูปนี้').setStyle(ButtonStyle.Danger).setDisabled(totalImages <= 0)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_image', questId)).setLabel('เพิ่มรูปตัวอย่าง').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_quest', questId)).setLabel('กลับหน้าเควส').setStyle(ButtonStyle.Secondary)
-    )
-  ];
-}
-
-function buildRequirementEditSelectComponents(questId, requirements = []) {
-  const options = requirements.slice(0, 25).map((item) => ({
-    label: `${item.item_name || item.input_label || 'รายการไม่มีชื่อ'}${item.required_quantity ? ` x${item.required_quantity}` : ''}`.slice(0, 100),
-    value: item.requirement_id,
-    description: `ประเภท ${item.requirement_type || '-'}`.slice(0, 100)
-  }));
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(buildCustomId('admin_select', 'edit_requirement', questId))
-        .setPlaceholder(requirements.length ? 'เลือกรายการที่ต้องการแก้' : 'ไม่พบรายการ')
-        .setDisabled(!requirements.length)
-        .addOptions(options.length ? options : [{ label: 'ไม่พบรายการ', value: 'NO_REQUIREMENT', description: 'ไม่มีข้อมูล' }])
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_quest', questId)).setLabel('กลับหน้าเควส').setStyle(ButtonStyle.Secondary)
-    )
-  ];
-}
-
-function buildRewardEditSelectComponents(questId, rewards = []) {
-  const options = rewards.slice(0, 25).map((item) => ({
-    label: `${item.reward_display_text || item.reward_item_name || item.discord_role_name || item.reward_type || 'รางวัลไม่มีชื่อ'}`.slice(0, 100),
-    value: item.reward_id,
-    description: `${item.reward_type || 'ไม่มีประเภท'}`.slice(0, 100)
-  }));
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(buildCustomId('admin_select', 'edit_reward', questId))
-        .setPlaceholder(rewards.length ? 'เลือกรางวัลที่ต้องการแก้' : 'ไม่พบรายการ')
-        .setDisabled(!rewards.length)
-        .addOptions(options.length ? options : [{ label: 'ไม่พบรายการ', value: 'NO_REWARD', description: 'ไม่มีข้อมูล' }])
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_quest', questId)).setLabel('กลับหน้าเควส').setStyle(ButtonStyle.Secondary)
-    )
-  ];
-}
-
-function buildDependencySelectComponents(questId, options = []) {
-  const menuOptions = [{ label: 'ไม่มี dependency', value: 'NONE', description: 'ลบเงื่อนไขเควสก่อนหน้า' }, ...options].slice(0, 25);
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(buildCustomId('admin_select', 'dependency', questId))
-        .setPlaceholder('เลือกเควสก่อนหน้า')
-        .addOptions(menuOptions)
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_quest', questId)).setLabel('กลับหน้าเควส').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_quest', questId)).setLabel('กลับหน้าเควส').setStyle(ButtonStyle.Primary)
     )
   ];
 }
 
 function buildStepManagerComponents(questId, steps = []) {
-  const rows = [];
-  if (steps.length) {
-    rows.push(
-      new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId(buildCustomId('admin_select', 'step', questId))
-          .setPlaceholder('เลือก Step ที่ต้องการเปิด')
-          .addOptions(steps.slice(0, 25).map((step) => ({
-            label: `Step ${step.step_no} · ${step.step_title}`.slice(0, 100),
-            value: step.step_id,
-            description: `${step.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`
-          })))
-      )
-    );
-  }
-  rows.push(
+  const options = steps.slice(0, 25).map((step) => ({
+    label: `Step ${step.step_no} · ${step.step_title}`.slice(0, 100),
+    value: step.step_id,
+    description: `${step.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`.slice(0, 100)
+  }));
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(buildCustomId('admin_select', 'step', questId))
+        .setPlaceholder(steps.length ? 'เลือก Step ที่ต้องการจัดการ' : 'ยังไม่มี Step')
+        .setDisabled(!steps.length)
+        .addOptions(options.length ? options : [{ label: 'ยังไม่มี Step', value: 'NO_STEP', description: 'กดเพิ่ม Step ใหม่ได้เลย' }])
+    ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_step', questId)).setLabel('เพิ่ม Step').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_quest', questId)).setLabel('กลับหน้าเควส').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_quest', questId)).setLabel('กลับหน้าเควส').setStyle(ButtonStyle.Danger)
     )
-  );
-  return rows;
+  ];
 }
 
 function buildStepDetailButtons(stepId, questId, isActive = true) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'edit_step', stepId)).setLabel('แก้ Step').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'toggle_step', stepId)).setLabel(isActive ? 'ปิดใช้งาน Step' : 'เปิดใช้งาน Step').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'toggle_step', stepId)).setLabel(isActive ? 'ปิด Step' : 'เปิด Step').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_step_images', `${stepId}|0`)).setLabel('จัดการรูป Step').setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_step_image', stepId)).setLabel('เพิ่มรูป Step').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_steps', questId)).setLabel('กลับหน้า Step').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'manage_steps', questId)).setLabel('กลับหน้า Step').setStyle(ButtonStyle.Danger)
     )
   ];
 }
 
-function buildStepImageManagerButtons(stepId, questId, currentIndex = 0, imageCount = 0) {
-  const prevIndex = Math.max(currentIndex - 1, 0);
-  const nextIndex = Math.min(currentIndex + 1, Math.max(imageCount - 1, 0));
+function buildStepImageManagerButtons(stepId, questId, currentIndex = 0, totalImages = 0) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'step_image_prev', `${stepId}|${prevIndex}`)).setLabel('รูปก่อนหน้า').setStyle(ButtonStyle.Secondary).setDisabled(!imageCount || currentIndex <= 0),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'step_image_next', `${stepId}|${nextIndex}`)).setLabel('รูปถัดไป').setStyle(ButtonStyle.Secondary).setDisabled(!imageCount || currentIndex >= imageCount - 1),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'step_image_remove', `${stepId}|${currentIndex}`)).setLabel('ลบรูปนี้').setStyle(ButtonStyle.Danger).setDisabled(!imageCount)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'step_image_prev', `${stepId}|${Math.max(currentIndex - 1, 0)}`)).setLabel('⬅️ ก่อนหน้า').setStyle(ButtonStyle.Secondary).setDisabled(totalImages <= 1 || currentIndex <= 0),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'step_image_next', `${stepId}|${Math.min(currentIndex + 1, Math.max(totalImages - 1, 0))}`)).setLabel('ถัดไป ➡️').setStyle(ButtonStyle.Secondary).setDisabled(totalImages <= 1 || currentIndex >= totalImages - 1),
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'step_image_remove', `${stepId}|${currentIndex}`)).setLabel('ลบรูปนี้').setStyle(ButtonStyle.Danger).setDisabled(totalImages <= 0)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(buildCustomId('admin', 'add_step_image', stepId)).setLabel('เพิ่มรูป Step').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_step', stepId)).setLabel('กลับหน้า Step').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(buildCustomId('admin', 'open_step', stepId)).setLabel('กลับหน้า Step').setStyle(ButtonStyle.Primary)
     )
   ];
 }
@@ -320,9 +258,6 @@ module.exports = {
   buildQuestSearchResultComponents,
   buildQuestDetailButtons,
   buildQuestImageManagerButtons,
-  buildRequirementEditSelectComponents,
-  buildRewardEditSelectComponents,
-  buildDependencySelectComponents,
   buildStepManagerComponents,
   buildStepDetailButtons,
   buildStepImageManagerButtons
