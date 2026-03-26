@@ -266,6 +266,7 @@ async function findQuestRewards(questId, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [questId]
@@ -358,6 +359,7 @@ async function findStepRewards(stepId, client) {
     FROM public.tb_quest_master_reward
     WHERE step_id = $1
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [stepId]

@@ -7,9 +7,10 @@ const { resolveCurrentMainQuestByPlayer } = require('./questProgress.service');
 const { activateLegendaryFromApproval, markLegendaryRevisionRequired } = require('./legendary.service');
 
 function buildRewardSummary(rewards) {
-  if (!rewards.length) return 'ไม่มี reward ในฐานข้อมูล';
-  return rewards.map((row) => {
-    if (row.reward_display_text) return `• ${row.reward_display_text}`;
+  const usableRewards = rewards.filter((row) => ['SCUM_ITEM', 'DISCORD_ROLE'].includes(row.reward_type));
+  if (!usableRewards.length) return 'ไม่มี reward ในฐานข้อมูล';
+  return usableRewards.map((row) => {
+    if (row.reward_display_text) return row.reward_display_text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => `• ${line}`).join('\n');
     if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_id) return `• Role ID: ${row.discord_role_id}`;
     return `• ${row.reward_type}`;
   }).join('\n');
