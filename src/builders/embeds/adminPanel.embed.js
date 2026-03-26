@@ -1,10 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
 
 function formatQuestType(quest = {}) {
-  if (quest.is_step_quest) return 'Step Quest';
-  if (quest.is_repeatable) return 'ทำซ้ำได้';
-  if (quest.category_code) return quest.category_code;
-  return 'ปกติ';
+  if (quest.is_step_quest) return 'STEP';
+  if (quest.category_code === 'LEGENDARY') return 'LEGENDARY';
+  if (quest.category_code === 'TIMED') return 'SPECIAL';
+  return 'MAIN';
 }
 
 function clampText(text, max = 1024) {
@@ -23,6 +23,7 @@ function requirementLine(item) {
 }
 
 function rewardLine(item) {
+  if (!['SCUM_ITEM', 'DISCORD_ROLE'].includes(item.reward_type)) return null;
   let title = item.reward_display_text;
   if (!title) {
     if (item.reward_type === 'DISCORD_ROLE' && item.discord_role_id) title = `Role ID: ${item.discord_role_id}`;
@@ -166,12 +167,10 @@ function buildGlobalQuestListEmbed(categoryCode, quests = []) {
 function buildQuestDetailEmbed(bundle) {
   const { quest, dependencies = [], requirements = [], rewards = [], images = [], steps = [] } = bundle;
   const professionLabel = quest.profession_name_th || quest.profession_code || (quest.category_code === 'TIMED' ? 'เควสพิเศษ' : quest.category_code === 'LEGENDARY' ? 'เควสตำนาน' : 'ไม่ระบุสาย');
-  const dependencyText = dependencies.length
-    ? dependencies.map((dep, index) => `${index + 1}. ${dep.required_quest_code || dep.required_role_name || dep.required_level || dep.dependency_type}${dep.required_quest_name ? ` · ${dep.required_quest_name}` : ''}`).join('\n')
-    : 'ไม่มี';
 
-  const requirementText = requirements.length ? requirements.map(requirementLine).join('\n') : 'ไม่มีรายการ';
-  const rewardText = rewards.length ? rewards.slice(0, 2).map(rewardLine).join('\n') : 'ไม่มีรายการ';
+  const requirementBlock = requirements.find((item) => item.step_id == null && item.display_text);
+  const requirementText = requirementBlock ? requirementLine(requirementBlock) : 'ไม่มีรายการ';
+  const rewardText = rewards.filter((item) => ['SCUM_ITEM', 'DISCORD_ROLE'].includes(item.reward_type)).slice(0, 2).map(rewardLine).filter(Boolean).join('\n') || 'ไม่มีรายการ';
   const stepText = steps.length
     ? steps.map((step) => `${step.step_no}. ${step.step_title}${step.is_active ? '' : ' (ปิดใช้งาน)'}`).join('\n')
     : 'ไม่มีรายการขั้นตอน';
@@ -198,7 +197,8 @@ function buildQuestDetailEmbed(bundle) {
         '• **แก้เวลา/ลิมิต** : ตั้งเวลาเปิด-ปิด และจำนวนครั้งของเควสนี้',
         '• **แก้ของที่ต้องส่ง** : แก้ข้อความของที่ต้องส่งทั้งก้อน 1 เควสต่อ 1 ก้อน',
         '• **แก้รางวัลไอเทม** : แก้ข้อความรางวัล SCUM_ITEM ทั้งก้อน 1 เควสต่อ 1 ก้อน',
-        '• **แก้คำสั่งไอเทม / ตั้ง Role Reward** : แยกแก้แต่ละส่วนให้ชัดเจน',
+        '• **แก้คำสั่งไอเทม** : แก้ข้อความคำสั่ง spawn ของ SCUM_ITEM ทั้งก้อน',
+        '• **ตั้ง Role Reward** : ตั้ง 1 role ต่อ 1 เควส แยกจากรางวัลไอเทม',
         '• **จัดการ Step** : เพิ่ม แก้ เปิด/ปิด Step และจัดการรูปของ Step',
         '• **จัดการรูปตัวอย่าง** : ลบและเพิ่มรูปตัวอย่างระดับเควส',
         '• **ดูเควส / แก้ Fame ขั้นต่ำ / เพิ่มรูปตัวอย่าง** : ดูหน้าแบบผู้เล่น ปรับ Fame และเพิ่มรูปประกอบ'
