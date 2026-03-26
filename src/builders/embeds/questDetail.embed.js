@@ -1,12 +1,20 @@
 const { EmbedBuilder } = require('discord.js');
 
-function formatRequirement(req, index) {
-  return `${index + 1}. ${req.display_text || '-'}`;
+function toBulletBlock(value, fallback = '• -') {
+  const lines = String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length ? lines.map((line) => `• ${line}`).join('\n') : fallback;
 }
 
-function formatReward(reward, index) {
+function formatRequirement(req) {
+  return toBulletBlock(req.display_text || '-');
+}
+
+function formatReward(reward) {
   const text = reward.reward_display_text || (reward.reward_type === 'DISCORD_ROLE' && reward.discord_role_id ? `Role ID: ${reward.discord_role_id}` : reward.reward_type);
-  return `${index + 1}. ${text}`;
+  return toBulletBlock(text || '-');
 }
 
 function formatSteps(steps) {
@@ -81,8 +89,8 @@ function buildQuestDetailEmbed(bundle) {
   }
 
   fields.push(
-    { name: `ของที่ต้องส่ง / เงื่อนไข (${requirements.length})`, value: requirements.length ? requirements.slice(0, 15).map(formatRequirement).join('\n').slice(0, 1024) : 'ไม่มี' },
-    { name: `รางวัล (${rewards.length})`, value: rewards.length ? rewards.slice(0, 15).map(formatReward).join('\n').slice(0, 1024) : 'ไม่มี' },
+    { name: `ของที่ต้องส่ง / เงื่อนไข (${requirements.length})`, value: requirements.length ? requirements.slice(0, 1).map(formatRequirement).join('\n').slice(0, 1024) : 'ไม่มี' },
+    { name: `รางวัล (${rewards.length})`, value: rewards.length ? rewards.slice(0, 2).map(formatReward).join('\n').slice(0, 1024) : 'ไม่มี' },
     { name: `ขั้นตอน (${steps.length})`, value: formatSteps(steps).slice(0, 1024) },
     {
       name: 'เมนูการจัดการ',

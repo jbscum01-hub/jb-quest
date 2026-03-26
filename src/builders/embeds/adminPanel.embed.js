@@ -13,22 +13,22 @@ function clampText(text, max = 1024) {
   return value.length > max ? `${value.slice(0, max - 3)}...` : value;
 }
 
-function requirementLine(item, index) {
-  const title = item.item_name || item.input_label || item.requirement_type || 'ไม่ระบุรายการ';
-  const qty = item.required_quantity ? ` x${item.required_quantity}` : '';
-  return `${index + 1}. ${title}${qty}`;
+function toBulletBlock(value, fallback = '• -') {
+  const lines = String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return lines.length ? lines.map((line) => `• ${line}`).join('\n') : fallback;
 }
 
-function rewardLine(item, index) {
+function requirementLine(item) {
+  return toBulletBlock(item.display_text || 'ไม่ระบุรายการ');
+}
+
+function rewardLine(item) {
   let title = item.reward_display_text;
   if (!title) {
-    if (item.reward_type === 'SCUM_ITEM') title = `${item.reward_item_name || 'ไอเทม'}${item.reward_quantity ? ` x${item.reward_quantity}` : ''}`;
-    else if (item.reward_type === 'SCUM_MONEY') title = `เงิน ${item.reward_value_number || 0}`;
-    else if (item.reward_type === 'FAME_POINT') title = `Fame Point ${item.reward_value_number || 0}`;
-    else if (item.reward_type === 'DISCORD_ROLE') title = `ยศ ${item.discord_role_name || item.reward_value_text || '-'}`;
+    if (item.reward_type === 'DISCORD_ROLE' && item.discord_role_id) title = `Role ID: ${item.discord_role_id}`;
     else title = item.reward_type || 'ไม่ระบุรางวัล';
   }
-  return `${index + 1}. ${title}`;
+  return toBulletBlock(title);
 }
 
 function imageTitle(item, index) {
@@ -171,7 +171,7 @@ function buildQuestDetailEmbed(bundle) {
     : 'ไม่มี';
 
   const requirementText = requirements.length ? requirements.map(requirementLine).join('\n') : 'ไม่มีรายการ';
-  const rewardText = rewards.length ? rewards.map(rewardLine).join('\n') : 'ไม่มีรายการ';
+  const rewardText = rewards.length ? rewards.slice(0, 2).map(rewardLine).join('\n') : 'ไม่มีรายการ';
   const stepText = steps.length
     ? steps.map((step) => `${step.step_no}. ${step.step_title}${step.is_active ? '' : ' (ปิดใช้งาน)'}`).join('\n')
     : 'ไม่มีรายการขั้นตอน';
@@ -188,7 +188,6 @@ function buildQuestDetailEmbed(bundle) {
   }
 
   fields.push(
-    { name: '🔗 เควสที่ต้องผ่านก่อน', value: clampText(dependencyText), inline: false },
     { name: '📦 ของที่ต้องส่ง / เงื่อนไข', value: clampText(requirementText), inline: false },
     { name: '🎁 รางวัล', value: clampText(rewardText), inline: false },
     { name: '🪜 ขั้นตอน', value: clampText(stepText), inline: false },
@@ -197,8 +196,8 @@ function buildQuestDetailEmbed(bundle) {
       value: clampText([
         '• **แก้คำอธิบาย** : แก้ชื่อและรายละเอียดหลักของเควส',
         '• **แก้เวลา/ลิมิต** : ตั้งเวลาเปิด-ปิด และจำนวนครั้งของเควสนี้',
-        '• **แก้ของที่ต้องส่ง** : แก้แบบยกชุดเป็นข้อความล้วน 1 บรรทัดต่อ 1 รายการ',
-        '• **แก้รางวัลไอเทม** : แก้ข้อความรางวัล SCUM_ITEM แบบยกชุด',
+        '• **แก้ของที่ต้องส่ง** : แก้ข้อความของที่ต้องส่งทั้งก้อน 1 เควสต่อ 1 ก้อน',
+        '• **แก้รางวัลไอเทม** : แก้ข้อความรางวัล SCUM_ITEM ทั้งก้อน 1 เควสต่อ 1 ก้อน',
         '• **แก้คำสั่งไอเทม / ตั้ง Role Reward** : แยกแก้แต่ละส่วนให้ชัดเจน',
         '• **จัดการ Step** : เพิ่ม แก้ เปิด/ปิด Step และจัดการรูปของ Step',
         '• **จัดการรูปตัวอย่าง** : ลบและเพิ่มรูปตัวอย่างระดับเควส',

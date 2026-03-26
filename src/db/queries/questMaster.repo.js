@@ -636,7 +636,7 @@ async function updateQuestFameSettings(questId, payload, updatedBy, client) {
   return result.rows[0] || null;
 }
 
-async function replaceQuestRequirementsBulk(questId, items, updatedBy, client) {
+async function replaceQuestRequirementsBulk(questId, displayText, updatedBy, client) {
   return withTransaction(async (tx) => {
     await tx.query(
       `
@@ -651,8 +651,7 @@ async function replaceQuestRequirementsBulk(questId, items, updatedBy, client) {
       [questId, updatedBy]
     );
 
-    let sortOrder = 1;
-    for (const item of items) {
+    if (String(displayText || '').trim()) {
       await tx.query(
         `
         INSERT INTO public.tb_quest_master_requirement
@@ -664,13 +663,12 @@ async function replaceQuestRequirementsBulk(questId, items, updatedBy, client) {
         VALUES
         (
           gen_random_uuid(), $1, NULL, 'CUSTOM_TEXT',
-          NULLIF($2, ''), TRUE, $3, TRUE,
-          NOW(), NOW(), $4, $4
+          NULLIF($2, ''), TRUE, 1, TRUE,
+          NOW(), NOW(), $3, $3
         )
         `,
-        [questId, item.displayText || null, sortOrder, updatedBy]
+        [questId, displayText || null, updatedBy]
       );
-      sortOrder += 1;
     }
   }, client);
 }
@@ -691,7 +689,13 @@ async function replaceQuestRewardsBulk(questId, items, updatedBy, client) {
     );
 
     let sortOrder = 1;
-    for (const item of items) {
+    for (const item of items.slice(0, 2)) {
+      const type = String(item.rewardType || '').trim().toUpperCase();
+      if (!['SCUM_ITEM', 'DISCORD_ROLE'].includes(type)) continue;
+      const displayText = String(item.rewardDisplayText || '').trim();
+      const commandText = type === 'SCUM_ITEM' ? String(item.rewardSpawnCommandTemplate || '').trim() : '';
+      const discordRoleId = type === 'DISCORD_ROLE' ? String(item.discordRoleId || '').trim() : '';
+      if (!displayText && !commandText && !discordRoleId) continue;
       await tx.query(
         `
         INSERT INTO public.tb_quest_master_reward
@@ -709,10 +713,10 @@ async function replaceQuestRewardsBulk(questId, items, updatedBy, client) {
         `,
         [
           questId,
-          item.rewardType,
-          item.rewardSpawnCommandTemplate || null,
-          item.discordRoleId || null,
-          item.rewardDisplayText || null,
+          type,
+          commandText || null,
+          discordRoleId || null,
+          displayText || null,
           sortOrder,
           updatedBy
         ]
