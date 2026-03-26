@@ -44,7 +44,7 @@ function buildLegendaryClaimPanelEmbed({ quest, rewards = [], stateText = '-', i
 
   const limitText = buildLegendaryLimitText(quest);
   if (limitText) {
-    parts.push('', '🕒 การเคลม', limitText);
+    parts.push('', '🕒 การเคลม', limitText , ' ต่อสัปดาห์');
   }
 
   parts.push('', '📌 สถานะเคลม', String(stateText || '-').trim());
