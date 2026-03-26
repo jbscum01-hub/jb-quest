@@ -2,11 +2,15 @@ const { EmbedBuilder } = require('discord.js');
 const { findSubmissionById } = require('../db/queries/submission.repo');
 const { findQuestRequirements, findQuestRewards, findQuestGuideMedia } = require('../db/queries/questMaster.repo');
 
+function splitBlock(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function formatRequirement(row) {
-  if (row.requirement_type === 'IMAGE') return '• ส่งภาพหลักฐาน';
-  if (row.requirement_type === 'INGAME_NAME') return '• ระบุชื่อตัวละคร';
-  if (row.display_text) return ` ${row.display_text}`;
-  return ' -';
+  return splitBlock(row.display_text).join('\n') || '-';
 }
 
 function buildRewardLines(rewards) {
@@ -14,9 +18,9 @@ function buildRewardLines(rewards) {
   const commands = [];
 
   for (const row of rewards) {
-    if (row.reward_display_text) summary.push(` ${row.reward_display_text}`);
-    else if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_id) summary.push(`• Role ID: ${row.discord_role_id}`);
-    else summary.push(` ${row.reward_type}`);
+    if (row.reward_display_text) summary.push(splitBlock(row.reward_display_text).join('\n'));
+    else if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_id) summary.push(`Role ID: ${row.discord_role_id}`);
+    else summary.push(`${row.reward_type}`);
 
     if (row.reward_type === 'SCUM_ITEM' && row.reward_spawn_command_template) {
       commands.push(row.reward_spawn_command_template);

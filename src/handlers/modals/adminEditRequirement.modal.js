@@ -16,10 +16,7 @@ async function handleAdminEditRequirementModal(interaction) {
   const { requirementId } = parseModal(interaction.customId);
 
   const payload = {
-    item_name: interaction.fields.getTextInputValue('item_name')?.trim(),
-    required_quantity: toInt(interaction.fields.getTextInputValue('required_quantity'), 0),
     display_text: interaction.fields.getTextInputValue('display_text')?.trim(),
-    admin_display_text: interaction.fields.getTextInputValue('admin_display_text')?.trim(),
     sort_order: toInt(interaction.fields.getTextInputValue('sort_order'), 1)
   };
 
@@ -45,6 +42,4 @@ async function handleAdminEditRequirementModal(interaction) {
   await interaction.reply({ content: '✅ บันทึกของที่ต้องส่งเรียบร้อยแล้ว', ephemeral: true });
 }
 
-module.exports = {
-  handleAdminEditRequirementModal
-};
+module.exports = { handleAdminEditRequirementModal };

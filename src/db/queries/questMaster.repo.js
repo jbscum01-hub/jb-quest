@@ -540,14 +540,12 @@ async function addQuestRequirement(questId, payload, updatedBy, client) {
     `
     INSERT INTO public.tb_quest_master_requirement
     (
-      requirement_id, quest_id, step_id, requirement_type,
-      display_text, is_required, sort_order, is_active,
+      requirement_id, quest_id, step_id, display_text, sort_order, is_active,
       created_at, updated_at, created_by, updated_by
     )
     VALUES
     (
-      gen_random_uuid(), $1, NULL, 'CUSTOM_TEXT',
-      NULLIF($2, ''), TRUE, $3, TRUE,
+      gen_random_uuid(), $1, NULL, NULLIF($2, ''), $3, TRUE,
       NOW(), NOW(), $4, $4
     )
     RETURNING *
@@ -657,14 +655,12 @@ async function replaceQuestRequirementsBulk(questId, items, updatedBy, client) {
         `
         INSERT INTO public.tb_quest_master_requirement
         (
-          requirement_id, quest_id, step_id, requirement_type,
-          display_text, is_required, sort_order, is_active,
+          requirement_id, quest_id, step_id, display_text, sort_order, is_active,
           created_at, updated_at, created_by, updated_by
         )
         VALUES
         (
-          gen_random_uuid(), $1, NULL, 'CUSTOM_TEXT',
-          NULLIF($2, ''), TRUE, $3, TRUE,
+          gen_random_uuid(), $1, NULL, NULLIF($2, ''), $3, TRUE,
           NOW(), NOW(), $4, $4
         )
         `,
@@ -987,7 +983,6 @@ async function addStepGuideImage(stepId, payload, actorId, client) {
     FROM public.tb_quest_master_media
     WHERE step_id = $1
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     `,
     [stepId]
@@ -1059,6 +1054,11 @@ module.exports = {
   updateQuestReward,
   addQuestReward,
   replaceQuestRewardsBulk,
+  updateRequirement: updateQuestRequirement,
+  addRequirement: addQuestRequirement,
+  updateReward: updateQuestReward,
+  addReward: addQuestReward,
+  addGuideImage: addQuestGuideImage,
   updateQuestFameSettings,
   addQuestGuideImage,
   deactivateQuestGuideImage,

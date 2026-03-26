@@ -3,11 +3,11 @@ const {
   searchQuests,
   createQuest,
   updateQuestDescription,
-  addRequirement,
-  updateRequirement,
-  addReward,
-  updateReward,
-  addGuideImage
+  addQuestRequirement,
+  updateQuestRequirement,
+  addQuestReward,
+  updateQuestReward,
+  addQuestGuideImage
 } = require('../../db/queries/questMaster.repo');
 const { buildQuestDetailView } = require('../../services/adminPanel.service');
 const { insertAuditLog } = require('../../db/queries/audit.repo');
@@ -72,7 +72,6 @@ async function handleAdminModal(interaction) {
       isStepQuest: false,
       requiresTicket: false,
       isRepeatable: false,
-      dependencyQuestId: null,
       panelTitle: null,
       panelDescription: null,
       buttonLabel: 'ส่งเควส',
@@ -102,15 +101,8 @@ async function handleAdminModal(interaction) {
   }
 
   if (action === 'modal_add_requirement' && questId) {
-    await addRequirement(questId, {
-      requirementType: interaction.fields.getTextInputValue('requirement_type').trim().toUpperCase(),
-      itemCode: null,
-      itemName: interaction.fields.getTextInputValue('item_name').trim(),
-      requiredQuantity: toNullableInt(interaction.fields.getTextInputValue('required_quantity'), 1),
-      inputLabel: interaction.fields.getTextInputValue('item_name').trim(),
-      displayText: interaction.fields.getTextInputValue('display_text').trim(),
-      adminDisplayText: null,
-      sortOrder: toNullableInt(interaction.fields.getTextInputValue('sort_order'), 1)
+    await addQuestRequirement(questId, {
+      displayText: interaction.fields.getTextInputValue('display_text').trim()
     }, interaction.user.id);
 
     await insertAuditLog({ guildId: interaction.guildId, actorId: interaction.user.id, actorTag: interaction.user.tag, action: 'QUEST_REQUIREMENT_ADDED', target: questId, meta: {} });
@@ -120,15 +112,8 @@ async function handleAdminModal(interaction) {
   }
 
   if (action === 'modal_edit_requirement' && questId && targetId) {
-    await updateRequirement(targetId, {
-      requirementType: interaction.fields.getTextInputValue('requirement_type').trim().toUpperCase(),
-      itemCode: null,
-      itemName: interaction.fields.getTextInputValue('item_name').trim(),
-      requiredQuantity: toNullableInt(interaction.fields.getTextInputValue('required_quantity'), 1),
-      inputLabel: interaction.fields.getTextInputValue('item_name').trim(),
-      displayText: interaction.fields.getTextInputValue('display_text').trim(),
-      adminDisplayText: null,
-      sortOrder: toNullableInt(interaction.fields.getTextInputValue('sort_order'), 1)
+    await updateQuestRequirement(targetId, {
+      displayText: interaction.fields.getTextInputValue('display_text').trim()
     }, interaction.user.id);
 
     await insertAuditLog({ guildId: interaction.guildId, actorId: interaction.user.id, actorTag: interaction.user.tag, action: 'QUEST_REQUIREMENT_UPDATED', target: questId, meta: { requirementId: targetId } });
@@ -139,18 +124,11 @@ async function handleAdminModal(interaction) {
 
   if (action === 'modal_add_reward' && questId) {
     const rewardType = interaction.fields.getTextInputValue('reward_type').trim().toUpperCase();
-    const valueNumber = toNullableInt(interaction.fields.getTextInputValue('reward_value_number'), 0);
-    await addReward(questId, {
+    await addQuestReward(questId, {
       rewardType,
-      rewardValueText: rewardType === 'DISCORD_ROLE' ? interaction.fields.getTextInputValue('reward_item_name').trim() : null,
-      rewardValueNumber: valueNumber,
-      rewardItemCode: null,
-      rewardItemName: interaction.fields.getTextInputValue('reward_item_name').trim(),
-      rewardQuantity: rewardType === 'SCUM_ITEM' ? valueNumber : null,
-      discordRoleId: null,
-      discordRoleName: rewardType === 'DISCORD_ROLE' ? interaction.fields.getTextInputValue('reward_item_name').trim() : null,
       rewardDisplayText: interaction.fields.getTextInputValue('reward_display_text').trim(),
-      sortOrder: toNullableInt(interaction.fields.getTextInputValue('sort_order'), 1)
+      rewardSpawnCommandTemplate: interaction.fields.fields?.get('reward_spawn_command_template') ? interaction.fields.getTextInputValue('reward_spawn_command_template').trim() : '',
+      discordRoleId: interaction.fields.fields?.get('discord_role_id') ? interaction.fields.getTextInputValue('discord_role_id').trim() : ''
     }, interaction.user.id);
 
     await insertAuditLog({ guildId: interaction.guildId, actorId: interaction.user.id, actorTag: interaction.user.tag, action: 'QUEST_REWARD_ADDED', target: questId, meta: {} });
@@ -161,18 +139,11 @@ async function handleAdminModal(interaction) {
 
   if (action === 'modal_edit_reward' && questId && targetId) {
     const rewardType = interaction.fields.getTextInputValue('reward_type').trim().toUpperCase();
-    const valueNumber = toNullableInt(interaction.fields.getTextInputValue('reward_value_number'), 0);
-    await updateReward(targetId, {
+    await updateQuestReward(targetId, {
       rewardType,
-      rewardValueText: rewardType === 'DISCORD_ROLE' ? interaction.fields.getTextInputValue('reward_item_name').trim() : null,
-      rewardValueNumber: valueNumber,
-      rewardItemCode: null,
-      rewardItemName: interaction.fields.getTextInputValue('reward_item_name').trim(),
-      rewardQuantity: rewardType === 'SCUM_ITEM' ? valueNumber : null,
-      discordRoleId: null,
-      discordRoleName: rewardType === 'DISCORD_ROLE' ? interaction.fields.getTextInputValue('reward_item_name').trim() : null,
       rewardDisplayText: interaction.fields.getTextInputValue('reward_display_text').trim(),
-      sortOrder: toNullableInt(interaction.fields.getTextInputValue('sort_order'), 1)
+      rewardSpawnCommandTemplate: interaction.fields.fields?.get('reward_spawn_command_template') ? interaction.fields.getTextInputValue('reward_spawn_command_template').trim() : '',
+      discordRoleId: interaction.fields.fields?.get('discord_role_id') ? interaction.fields.getTextInputValue('discord_role_id').trim() : ''
     }, interaction.user.id);
 
     await insertAuditLog({ guildId: interaction.guildId, actorId: interaction.user.id, actorTag: interaction.user.tag, action: 'QUEST_REWARD_UPDATED', target: questId, meta: { rewardId: targetId } });
@@ -182,7 +153,7 @@ async function handleAdminModal(interaction) {
   }
 
   if (action === 'modal_add_image' && questId) {
-    await addGuideImage(questId, {
+    await addQuestGuideImage(questId, {
       mediaUrl: interaction.fields.getTextInputValue('media_url').trim(),
       mediaTitle: interaction.fields.getTextInputValue('media_title').trim(),
       mediaDescription: interaction.fields.getTextInputValue('media_description').trim(),

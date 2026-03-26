@@ -16,9 +16,8 @@ async function handleAdminEditRewardModal(interaction) {
   const { rewardId } = parseModal(interaction.customId);
 
   const payload = {
-    reward_item_name: interaction.fields.getTextInputValue('reward_item_name')?.trim(),
-    reward_quantity: toInt(interaction.fields.getTextInputValue('reward_quantity'), 0),
     reward_display_text: interaction.fields.getTextInputValue('reward_display_text')?.trim(),
+    reward_spawn_command_template: interaction.fields.getTextInputValue('reward_spawn_command_template')?.trim(),
     discord_role_id: interaction.fields.getTextInputValue('discord_role_id')?.trim(),
     sort_order: toInt(interaction.fields.getTextInputValue('sort_order'), 1)
   };
@@ -45,6 +44,4 @@ async function handleAdminEditRewardModal(interaction) {
   await interaction.reply({ content: '✅ บันทึกรางวัลเรียบร้อยแล้ว', ephemeral: true });
 }
 
-module.exports = {
-  handleAdminEditRewardModal
-};
+module.exports = { handleAdminEditRewardModal };

@@ -240,192 +240,70 @@ async function createQuest(payload, actorTag) {
 }
 
 async function addRequirement(questId, payload) {
-  const sortRow = await queryOne(
-    `
+  const sortRow = await queryOne(`
     SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order
     FROM public.tb_quest_master_requirement
     WHERE quest_id = $1
-    `,
-    [questId]
-  );
+      AND step_id IS NULL
+      AND is_active = TRUE
+  `, [questId]);
 
-  return queryOne(
-    `
+  return queryOne(`
     INSERT INTO public.tb_quest_master_requirement
-    (
-      quest_id, requirement_type, item_name, required_quantity,
-      display_text, admin_display_text, sort_order,
-      is_required, is_active, created_at, updated_at
-    )
-    VALUES
-    (
-      $1, $2, $3, $4, $5, $6, $7,
-      TRUE, TRUE, now(), now()
-    )
+    (quest_id, step_id, display_text, sort_order, is_active, created_at, updated_at)
+    VALUES ($1, NULL, $2, $3, TRUE, now(), now())
     RETURNING *
-    `,
-    [
-      questId,
-      payload.requirementType,
-      payload.itemName || null,
-      payload.requiredQuantity || null,
-      payload.displayText || null,
-      payload.adminDisplayText || null,
-      Number(sortRow?.next_sort_order || 1)
-    ]
-  );
+  `, [questId, payload.displayText || null, Number(sortRow?.next_sort_order || 1)]);
 }
 
 async function updateRequirement(requirementId, payload) {
   const before = await findRequirementById(requirementId);
-  const after = await queryOne(
-    `
+  const after = await queryOne(`
     UPDATE public.tb_quest_master_requirement
-    SET
-      requirement_type = $2,
-      item_name = $3,
-      required_quantity = $4,
-      display_text = $5,
-      admin_display_text = $6,
-      updated_at = now()
+    SET display_text = $2,
+        sort_order = COALESCE($3, sort_order),
+        updated_at = now()
     WHERE requirement_id = $1
     RETURNING *
-    `,
-    [
-      requirementId,
-      payload.requirementType,
-      payload.itemName || null,
-      payload.requiredQuantity || null,
-      payload.displayText || null,
-      payload.adminDisplayText || null
-    ]
-  );
+  `, [requirementId, payload.displayText || payload.display_text || null, payload.sortOrder || payload.sort_order || null]);
   return { before, after };
 }
 
 async function addReward(questId, payload) {
-  const sortRow = await queryOne(
-    `
+  const sortRow = await queryOne(`
     SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order
     FROM public.tb_quest_master_reward
     WHERE quest_id = $1
-    `,
-    [questId]
-  );
+      AND step_id IS NULL
+      AND is_active = TRUE
+  `, [questId]);
 
-  return queryOne(
-    `
+  return queryOne(`
     INSERT INTO public.tb_quest_master_reward
-    (
-      quest_id, reward_type, reward_display_text, reward_item_name,
-      reward_quantity, reward_value_number, discord_role_name,
-      sort_order, is_active, created_at, updated_at
-    )
-    VALUES
-    (
-      $1, $2, $3, $4, $5, $6, $7,
-      $8, TRUE, now(), now()
-    )
+    (quest_id, step_id, reward_type, reward_display_text, reward_spawn_command_template, discord_role_id, grant_on, sort_order, is_active, created_at, updated_at)
+    VALUES ($1, NULL, $2, $3, $4, $5, 'QUEST_COMPLETE', $6, TRUE, now(), now())
     RETURNING *
-    `,
-    [
-      questId,
-      payload.rewardType,
-      payload.rewardDisplayText || null,
-      payload.rewardItemName || null,
-      payload.rewardQuantity || null,
-      payload.rewardValueNumber || null,
-      payload.discordRoleName || null,
-      Number(sortRow?.next_sort_order || 1)
-    ]
-  );
+  `, [questId, payload.rewardType, payload.rewardDisplayText || null, payload.rewardSpawnCommandTemplate || null, payload.discordRoleId || null, Number(sortRow?.next_sort_order || 1)]);
 }
 
 async function updateReward(rewardId, payload) {
   const before = await findRewardById(rewardId);
-  const after = await queryOne(
-    `
+  const after = await queryOne(`
     UPDATE public.tb_quest_master_reward
-    SET
-      reward_type = $2,
-      reward_display_text = $3,
-      reward_item_name = $4,
-      reward_quantity = $5,
-      reward_value_number = $6,
-      discord_role_name = $7,
-      updated_at = now()
+    SET reward_type = COALESCE($2, reward_type),
+        reward_display_text = $3,
+        reward_spawn_command_template = CASE WHEN COALESCE($2, reward_type) = 'SCUM_ITEM' THEN $4 ELSE NULL END,
+        discord_role_id = CASE WHEN COALESCE($2, reward_type) = 'DISCORD_ROLE' THEN $5 ELSE NULL END,
+        sort_order = COALESCE($6, sort_order),
+        updated_at = now()
     WHERE reward_id = $1
     RETURNING *
-    `,
-    [
-      rewardId,
-      payload.rewardType,
-      payload.rewardDisplayText || null,
-      payload.rewardItemName || null,
-      payload.rewardQuantity || null,
-      payload.rewardValueNumber || null,
-      payload.discordRoleName || null
-    ]
-  );
+  `, [rewardId, payload.rewardType || null, payload.rewardDisplayText || payload.reward_display_text || null, payload.rewardSpawnCommandTemplate || payload.reward_spawn_command_template || null, payload.discordRoleId || payload.discord_role_id || null, payload.sortOrder || payload.sort_order || null]);
   return { before, after };
 }
 
 async function replaceDependency(questId, payload) {
-  const before = await findQuestDependencies(questId);
-
-  await db().query(
-    `
-    UPDATE public.tb_quest_master_dependency
-    SET is_active = FALSE,
-        updated_at = now()
-    WHERE quest_id = $1
-      AND is_active = TRUE
-    `,
-    [questId]
-  );
-
-  let after = [];
-
-  if (payload.dependencyType !== 'NONE') {
-    let requiredQuestId = null;
-    if (payload.dependencyType === 'PREVIOUS_QUEST') {
-      const quest = await queryOne(
-        `SELECT quest_id FROM public.tb_quest_master WHERE quest_code = $1 LIMIT 1`,
-        [payload.requiredQuestCode]
-      );
-      if (!quest) throw new Error('ไม่พบ required quest code');
-      requiredQuestId = quest.quest_id;
-    }
-
-    const row = await queryOne(
-      `
-      INSERT INTO public.tb_quest_master_dependency
-      (
-        quest_id, dependency_type, required_quest_id, required_level,
-        required_role_id, required_role_name, condition_operator,
-        sort_order, is_active, created_at, updated_at
-      )
-      VALUES
-      (
-        $1, $2, $3, $4,
-        $5, $6, 'AND',
-        1, TRUE, now(), now()
-      )
-      RETURNING *
-      `,
-      [
-        questId,
-        payload.dependencyType,
-        requiredQuestId,
-        payload.requiredLevel || null,
-        payload.requiredRoleId || null,
-        payload.requiredRoleName || null
-      ]
-    );
-    after = [row];
-  }
-
-  return { before, after };
+  return { before: [], after: [] };
 }
 
 async function addImage(questId, payload) {
