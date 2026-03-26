@@ -51,8 +51,10 @@ function buildLogEmbedFromSubmission(submission, action, reviewerId, reviewNote 
       '',
       `👤 ผู้เล่น: <@${submission.discord_user_id}>`,
       `🎮 ชื่อในเกม: ${cleanText(submission.player_ingame_name)}`,
-      `🆔 Submission: ${cleanText(submission.submission_id)}`,
-      `👮 ผู้ตรวจ: <@${reviewerId}>`,
+      '',
+      `Submission: ${cleanText(submission.submission_id)}`,
+      `ผู้ตรวจ: <@${reviewerId}>`,
+      '',
       `📌 หมายเหตุ: ${cleanText(reviewNote)}`
     ].join('\n'))
     .setTimestamp();
