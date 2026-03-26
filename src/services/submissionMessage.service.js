@@ -9,6 +9,21 @@ const { getConfig } = require('./config.service');
 const { findSubmissionById, saveSubmissionMessageRefs } = require('../db/queries/submission.repo');
 const { getReviewColor } = require('../utils/questColor.util');
 
+const DIVIDER = '═════════════════════════════════';
+const PROFESSION_ICONS = {
+  MEDIC: '🩺',
+  FARMER: '🌾',
+  SOLDIER: '🪖',
+  FISHER: '🎣',
+  HUNTER: '🦌',
+  EXPLORER: '🧭',
+  CHEF: '👨‍🍳',
+  ENGINEER: '🛠️',
+  AVIATION: '🛩️',
+  LEGENDARY: '👑',
+  SPECIAL: '🌸'
+};
+
 function buildReviewActionRows(submissionId) {
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -39,6 +54,21 @@ function buildClosedRows() {
   return [];
 }
 
+function cleanText(value, fallback = '-') {
+  const text = String(value ?? '').trim();
+  return text || fallback;
+}
+
+function getProfessionIcon(professionCode) {
+  return PROFESSION_ICONS[String(professionCode || '').toUpperCase()] || '📘';
+}
+
+function buildQuestHeadline({ professionCode, questName }) {
+  const safeProfessionCode = cleanText(professionCode, '-');
+  const safeQuestName = cleanText(questName, '-');
+  return `${getProfessionIcon(safeProfessionCode)} ${safeQuestName} (${safeProfessionCode})`;
+}
+
 function buildSubmissionEmbed({
   submissionId,
   discordUserId,
@@ -47,22 +77,25 @@ function buildSubmissionEmbed({
   questName,
   reviewerText = '-',
   reviewNote = '-',
-  title = '📩 Quest Submission',
+  title = '📤 ส่งเควสใหม่',
   color = 0x2b82ff,
   imageUrl = null
 }) {
   const embed = new EmbedBuilder()
-    .setTitle(title)
     .setColor(color)
-    .setDescription(
-`Submission ID: ${submissionId}
-ผู้เล่น: <@${discordUserId}>
-ชื่อในเกม: ${characterName}
-สายอาชีพ: ${professionCode}
-เควส: ${questName}
-ผู้ตรวจ: ${reviewerText}
-หมายเหตุ: ${reviewNote}`
-    )
+    .setDescription([
+      DIVIDER,
+      title,
+      DIVIDER,
+      '',
+      buildQuestHeadline({ professionCode, questName }),
+      '',
+      `👤 ผู้เล่น: <@${discordUserId}>`,
+      `🎮 ชื่อในเกม: ${cleanText(characterName)}`,
+      `🆔 Submission: ${cleanText(submissionId)}`,
+      `👮 ผู้ตรวจ: ${cleanText(reviewerText)}`,
+      `📌 หมายเหตุ: ${cleanText(reviewNote)}`
+    ].join('\n'))
     .setTimestamp();
 
   if (imageUrl && /^https?:\/\//i.test(String(imageUrl))) {
@@ -100,6 +133,8 @@ async function sendSubmissionMirrors({
     characterName,
     professionCode,
     questName,
+    reviewerText: '-',
+    reviewNote: '-',
     imageUrl: submission.submission_text
   });
 
@@ -108,7 +143,9 @@ async function sendSubmissionMirrors({
     discordUserId,
     characterName,
     professionCode,
-    questName
+    questName,
+    reviewerText: '-',
+    reviewNote: '-'
   });
 
   const reviewMessage = await reviewChannel.send({
@@ -147,17 +184,17 @@ async function updateSubmissionMirrors({
     throw new Error('ไม่พบ submission');
   }
 
-  let title = '📩 Quest Submission';
+  let title = '📤 ส่งเควสใหม่';
   let color = 0x2b82ff;
 
   if (action === 'approve') {
-    title = '🛠️ ผลการตรวจเควส: อนุมัติ';
+    title = '✅ อนุมัติเควส';
     color = getReviewColor({ quest: submission, action });
     reviewNote = '-';
   }
 
   if (action === 'revision') {
-    title = '🛠️ ผลการตรวจเควส: ขอแก้ไข';
+    title = '⚠️ ขอแก้ไขเควส';
     color = 0xfee75c;
   }
 

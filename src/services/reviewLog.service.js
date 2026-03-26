@@ -2,38 +2,59 @@ const { EmbedBuilder } = require('discord.js');
 const { getConfig } = require('./config.service');
 const { getReviewColor } = require('../utils/questColor.util');
 
-function replaceLine(description, label, value) {
-  const pattern = new RegExp(`${label}:\\s*.*`);
-  const replacement = `${label}: ${value}`;
+const DIVIDER = '═════════════════════════════════';
+const PROFESSION_ICONS = {
+  MEDIC: '🩺',
+  FARMER: '🌾',
+  SOLDIER: '🪖',
+  FISHER: '🎣',
+  HUNTER: '🦌',
+  EXPLORER: '🧭',
+  CHEF: '👨‍🍳',
+  ENGINEER: '🛠️',
+  AVIATION: '🛩️',
+  LEGENDARY: '👑',
+  SPECIAL: '🌸'
+};
 
-  if (pattern.test(description)) {
-    return description.replace(pattern, replacement);
-  }
+function cleanText(value, fallback = '-') {
+  const text = String(value ?? '').trim();
+  return text || fallback;
+}
 
-  return `${description}\n${replacement}`;
+function getProfessionIcon(professionCode) {
+  return PROFESSION_ICONS[String(professionCode || '').toUpperCase()] || '📘';
+}
+
+function buildQuestHeadline(submission) {
+  const professionCode = cleanText(submission.profession_code, '-');
+  const questName = cleanText(submission.quest_name, '-');
+  return `${getProfessionIcon(professionCode)} ${questName} (${professionCode})`;
 }
 
 function buildLogEmbedFromSubmission(submission, action, reviewerId, reviewNote = '-') {
   const title =
     action === 'approve'
-      ? '🛠️ ผลการตรวจเควส: อนุมัติ'
-      : '🛠️ ผลการตรวจเควส: ขอแก้ไข';
+      ? '✅ อนุมัติเควส'
+      : '⚠️ ขอแก้ไขเควส';
 
   const color = getReviewColor({ quest: submission, action });
 
-  let description =
-`Submission ID: ${submission.submission_id}
-ผู้เล่น: <@${submission.discord_user_id}>
-ชื่อในเกม: ${submission.player_ingame_name || '-'}
-สายอาชีพ: ${submission.profession_code || '-'}
-เควส: ${submission.quest_name || '-'}
-ผู้ตรวจ: <@${reviewerId}>
-หมายเหตุ: ${reviewNote || '-'}`;
-
   const embed = new EmbedBuilder()
-    .setTitle(title)
     .setColor(color)
-    .setDescription(description)
+    .setDescription([
+      DIVIDER,
+      title,
+      DIVIDER,
+      '',
+      buildQuestHeadline(submission),
+      '',
+      `👤 ผู้เล่น: <@${submission.discord_user_id}>`,
+      `🎮 ชื่อในเกม: ${cleanText(submission.player_ingame_name)}`,
+      `🆔 Submission: ${cleanText(submission.submission_id)}`,
+      `👮 ผู้ตรวจ: <@${reviewerId}>`,
+      `📌 หมายเหตุ: ${cleanText(reviewNote)}`
+    ].join('\n'))
     .setTimestamp();
 
   if (submission.submission_text) {
