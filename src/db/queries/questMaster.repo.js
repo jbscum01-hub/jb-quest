@@ -241,7 +241,6 @@ async function findQuestRequirements(questId, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [questId]
@@ -267,7 +266,6 @@ async function findQuestRewards(questId, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [questId]
@@ -293,7 +291,6 @@ async function findQuestGuideImages(questId, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     ORDER BY display_order ASC, created_at ASC
     `,
@@ -346,7 +343,6 @@ async function findStepRequirements(stepId, client) {
     FROM public.tb_quest_master_requirement
     WHERE step_id = $1
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [stepId]
@@ -362,7 +358,6 @@ async function findStepRewards(stepId, client) {
     FROM public.tb_quest_master_reward
     WHERE step_id = $1
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [stepId]
@@ -378,7 +373,6 @@ async function findStepGuideImages(stepId, client) {
     FROM public.tb_quest_master_media
     WHERE step_id = $1
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     ORDER BY display_order ASC, created_at ASC
     `,
@@ -538,7 +532,6 @@ async function addQuestRequirement(questId, payload, updatedBy, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     `,
     [questId]
   );
@@ -594,7 +587,6 @@ async function addQuestReward(questId, payload, updatedBy, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
-      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     `,
     [questId]
   );
