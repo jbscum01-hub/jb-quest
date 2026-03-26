@@ -17,7 +17,7 @@ function normalizeMultiline(value) {
 
 function bulletifyMultiline(value, fallback = '• ไม่มี') {
   const lines = normalizeMultiline(value);
-  return lines.length ? lines.map((line) => `• ${line}`) : [fallback];
+  return lines.length ? lines.map((line) => ` ${line}`) : [fallback];
 }
 
 function truncate(text, max = 4096) {
