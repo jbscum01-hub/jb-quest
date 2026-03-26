@@ -92,8 +92,10 @@ function buildSubmissionEmbed({
       '',
       `👤 ผู้เล่น: <@${discordUserId}>`,
       `🎮 ชื่อในเกม: ${cleanText(characterName)}`,
-      `🆔 Submission: ${cleanText(submissionId)}`,
-      `👮 ผู้ตรวจ: ${cleanText(reviewerText)}`,
+      '',
+      `Submission: ${cleanText(submissionId)}`,
+      `ผู้ตรวจ: ${cleanText(reviewerText)}`,
+      '',
       `📌 หมายเหตุ: ${cleanText(reviewNote)}`
     ].join('\n'))
     .setTimestamp();
