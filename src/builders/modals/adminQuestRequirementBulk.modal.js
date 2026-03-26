@@ -2,10 +2,8 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 function buildQuestRequirementBulkModal(bundle) {
   const quest = bundle.quest;
-  const lines = (bundle.requirements || [])
-    .map((item) => item.display_text || '')
-    .filter(Boolean)
-    .join('\n');
+  const requirementBlock = (bundle.requirements || []).find((item) => item.step_id == null && item.is_active !== false) || null;
+  const lines = requirementBlock?.display_text || '';
 
   return new ModalBuilder()
     .setCustomId(`quest:admin_modal:reqbulk:${quest.quest_id}`)
@@ -14,7 +12,7 @@ function buildQuestRequirementBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_requirement_lines')
-          .setLabel('ใส่ 1 บรรทัดต่อ 1 รายการ')
+          .setLabel('วางข้อความของที่ต้องส่งทั้งก้อน')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)

@@ -2,11 +2,8 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 function buildQuestCommandBulkModal(bundle) {
   const quest = bundle.quest;
-  const lines = (bundle.rewards || [])
-    .filter((item) => item.reward_type === 'SCUM_ITEM')
-    .map((item) => item.reward_spawn_command_template || '')
-    .filter(Boolean)
-    .join('\n');
+  const itemReward = (bundle.rewards || []).find((item) => item.reward_type === 'SCUM_ITEM') || null;
+  const lines = itemReward?.reward_spawn_command_template || '';
 
   return new ModalBuilder()
     .setCustomId(`quest:admin_modal:cmdbulk:${quest.quest_id}`)
@@ -15,7 +12,7 @@ function buildQuestCommandBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_command_lines')
-          .setLabel('ใส่ 1 บรรทัดต่อ 1 คำสั่ง')
+          .setLabel('วางคำสั่งไอเทมทั้งก้อน')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)

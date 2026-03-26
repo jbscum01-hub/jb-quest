@@ -2,11 +2,8 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 function buildQuestRewardBulkModal(bundle) {
   const quest = bundle.quest;
-  const lines = (bundle.rewards || [])
-    .filter((item) => item.reward_type === 'SCUM_ITEM')
-    .map((item) => item.reward_display_text || '')
-    .filter(Boolean)
-    .join('\n');
+  const itemReward = (bundle.rewards || []).find((item) => item.reward_type === 'SCUM_ITEM') || null;
+  const lines = itemReward?.reward_display_text || '';
 
   return new ModalBuilder()
     .setCustomId(`quest:admin_modal:rewbulk:${quest.quest_id}`)
@@ -15,7 +12,7 @@ function buildQuestRewardBulkModal(bundle) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('bulk_reward_lines')
-          .setLabel('ใส่ 1 บรรทัดต่อ 1 รางวัล')
+          .setLabel('วางข้อความรางวัลไอเทมทั้งก้อน')
           .setStyle(TextInputStyle.Paragraph)
           .setRequired(false)
           .setMaxLength(4000)
