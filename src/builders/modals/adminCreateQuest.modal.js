@@ -9,7 +9,7 @@ function buildCreateQuestModal({ professionCode = null, level = null, categoryCo
   const codePlaceholder = isGlobal
     ? (categoryCode === 'TIMED' ? 'SPECIAL_EVENT_001' : 'LEGENDARY_001')
     : `${professionCode}_LV${level}_001`;
-  const flagPlaceholder = isGlobal ? 'STEP,TICKET' : 'STEP,TICKET,REPEATABLE';
+  const flagPlaceholder = 'STEP,TICKET';
 
   return new ModalBuilder()
     .setCustomId(`quest:admin_modal:cq:${modalKey}`)
@@ -26,9 +26,6 @@ function buildCreateQuestModal({ professionCode = null, level = null, categoryCo
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('flags').setLabel('ตัวเลือกพิเศษ').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100).setPlaceholder(flagPlaceholder)
-      ),
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('dependency_code').setLabel('Quest Code ก่อนหน้า (ยังไม่ใช้)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(50)
       )
     );
 }

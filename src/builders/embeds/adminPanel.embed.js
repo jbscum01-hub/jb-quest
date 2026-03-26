@@ -1,10 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
 
 function formatQuestType(quest = {}) {
-  if (quest.is_step_quest) return 'STEP';
-  if (quest.category_code === 'LEGENDARY') return 'LEGENDARY';
-  if (quest.category_code === 'TIMED') return 'SPECIAL';
-  return 'MAIN';
+  if (quest.is_step_quest) return 'Step Quest';
+  if (quest.is_repeatable) return 'ทำซ้ำได้';
+  if (quest.category_code) return quest.category_code;
+  return 'ปกติ';
 }
 
 function clampText(text, max = 1024) {
@@ -13,23 +13,23 @@ function clampText(text, max = 1024) {
   return value.length > max ? `${value.slice(0, max - 3)}...` : value;
 }
 
-function toBulletBlock(value, fallback = '• -') {
-  const lines = String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  return lines.length ? lines.map((line) => `• ${line}`).join('\n') : fallback;
+function requirementLine(item, index) {
+  const lines = String(item.display_text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const title = lines.length ? lines.join(' / ') : 'ไม่ระบุรายการ';
+  return `${index + 1}. ${title}`;
 }
 
-function requirementLine(item) {
-  return toBulletBlock(item.display_text || 'ไม่ระบุรายการ');
-}
-
-function rewardLine(item) {
+function rewardLine(item, index) {
   if (!['SCUM_ITEM', 'DISCORD_ROLE'].includes(item.reward_type)) return null;
   let title = item.reward_display_text;
   if (!title) {
     if (item.reward_type === 'DISCORD_ROLE' && item.discord_role_id) title = `Role ID: ${item.discord_role_id}`;
     else title = item.reward_type || 'ไม่ระบุรางวัล';
   }
-  return toBulletBlock(title);
+  return `${index + 1}. ${title}`;
 }
 
 function imageTitle(item, index) {
@@ -165,12 +165,11 @@ function buildGlobalQuestListEmbed(categoryCode, quests = []) {
 }
 
 function buildQuestDetailEmbed(bundle) {
-  const { quest, dependencies = [], requirements = [], rewards = [], images = [], steps = [] } = bundle;
+  const { quest, requirements = [], rewards = [], images = [], steps = [] } = bundle;
   const professionLabel = quest.profession_name_th || quest.profession_code || (quest.category_code === 'TIMED' ? 'เควสพิเศษ' : quest.category_code === 'LEGENDARY' ? 'เควสตำนาน' : 'ไม่ระบุสาย');
 
-  const requirementBlock = requirements.find((item) => item.step_id == null && item.display_text);
-  const requirementText = requirementBlock ? requirementLine(requirementBlock) : 'ไม่มีรายการ';
-  const rewardText = rewards.filter((item) => ['SCUM_ITEM', 'DISCORD_ROLE'].includes(item.reward_type)).slice(0, 2).map(rewardLine).filter(Boolean).join('\n') || 'ไม่มีรายการ';
+  const requirementText = requirements.length ? requirements.map(requirementLine).join('\n') : 'ไม่มีรายการ';
+  const rewardText = rewards.map(rewardLine).filter(Boolean).join('\n') || 'ไม่มีรายการ';
   const stepText = steps.length
     ? steps.map((step) => `${step.step_no}. ${step.step_title}${step.is_active ? '' : ' (ปิดใช้งาน)'}`).join('\n')
     : 'ไม่มีรายการขั้นตอน';

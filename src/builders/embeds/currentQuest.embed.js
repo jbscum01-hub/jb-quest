@@ -3,21 +3,15 @@ const { getQuestColor } = require('../../utils/questColor.util');
 
 const DIVIDER = '═════════════════════════════════';
 
-function cleanInlineText(value) {
-  return String(value || '').replace(/[ \t]+/g, ' ').trim();
+function cleanText(value) {
+  return String(value || '').trim();
 }
 
-function normalizeMultiline(value) {
+function splitLines(value) {
   return String(value || '')
-    .replace(/\r/g, '')
-    .split('\n')
-    .map((line) => line.trim())
+    .split(/\r?\n/)
+    .map((line) => cleanText(line))
     .filter(Boolean);
-}
-
-function bulletifyMultiline(value, fallback = '• ไม่มี') {
-  const lines = normalizeMultiline(value);
-  return lines.length ? lines.map((line) => ` ${line}`) : [fallback];
 }
 
 function truncate(text, max = 4096) {
@@ -34,17 +28,19 @@ function getFameDisplayText(quest) {
   return fame.toLocaleString('en-US');
 }
 
+function formatRequirement(row) {
+  return splitLines(row.display_text || '').join('\n') || null;
+}
+
 function formatReward(row) {
-  if (row.reward_type === 'SCUM_ITEM' && row.reward_display_text) return bulletifyMultiline(row.reward_display_text);
-  if (row.reward_type === 'DISCORD_ROLE') {
-    if (row.reward_display_text) return bulletifyMultiline(row.reward_display_text);
-    if (row.discord_role_id) return [`• Role ID: ${row.discord_role_id}`];
-  }
-  return [];
+  if (row.reward_type !== 'SCUM_ITEM' && row.reward_type !== 'DISCORD_ROLE') return null;
+  if (row.reward_display_text) return splitLines(row.reward_display_text).join('\n');
+  if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_id) return `Role ID: ${row.discord_role_id}`;
+  return null;
 }
 
 function buildHeaderBlock(quest, professionCode) {
-  const questName = cleanInlineText(quest?.quest_name || `${professionCode || quest?.profession_code || '-'} Lv.${quest?.quest_level || '-'}`);
+  const questName = cleanText(quest?.quest_name || `${professionCode || quest?.profession_code || '-'} Lv.${quest?.quest_level || '-'}`);
   return [DIVIDER, `🧩 QUEST : ${questName}`, DIVIDER].join('\n');
 }
 
@@ -54,22 +50,18 @@ function buildDescriptionSection(quest) {
   return ['📍 รายละเอียด', desc].join('\n');
 }
 
-
 function buildConditionSection(quest) {
-  return ['✅ เงื่อนไขการส่ง', `• Fame ขั้นต่ำ : ${getFameDisplayText(quest)}`].join('\n');
+  return ['✅ เงื่อนไขการส่ง', `Fame ขั้นต่ำ : ${getFameDisplayText(quest)}`].join('\n');
 }
 
 function buildItemSection(requirements = []) {
-  const requirement = (requirements || []).find((row) => row.step_id == null && row.display_text);
-  const itemLines = requirement ? bulletifyMultiline(requirement.display_text) : ['• ไม่มี'];
-  return ['📦 สิ่งที่ต้องส่ง', ...itemLines].join('\n');
+  const itemLines = requirements.map(formatRequirement).filter(Boolean);
+  return ['📦 สิ่งที่ต้องส่ง', ...(itemLines.length ? itemLines : ['ไม่มี'])].join('\n');
 }
 
 function buildRewardSection(rewards = []) {
-  const rewardLines = (rewards || [])
-    .filter((row) => ['SCUM_ITEM', 'DISCORD_ROLE'].includes(row.reward_type))
-    .flatMap(formatReward);
-  return ['🎁 รางวัล', ...(rewardLines.length ? rewardLines : ['• ไม่มี'])].join('\n');
+  const rewardLines = rewards.map(formatReward).filter(Boolean);
+  return ['🎁 รางวัล', ...(rewardLines.length ? rewardLines : ['ไม่มี'])].join('\n');
 }
 
 function buildCurrentQuestEmbed({ professionCode, profession, quest, requirements = [], rewards = [], completedAllMain = false }) {
