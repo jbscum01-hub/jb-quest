@@ -5,8 +5,8 @@ const { findQuestRequirements, findQuestRewards, findQuestGuideMedia } = require
 function formatRequirement(row) {
   if (row.requirement_type === 'IMAGE') return '• ส่งภาพหลักฐาน';
   if (row.requirement_type === 'INGAME_NAME') return '• ระบุชื่อตัวละคร';
-  if (row.display_text) return `• ${row.display_text}`;
-  return '• -';
+  if (row.display_text) return ` ${row.display_text}`;
+  return ' -';
 }
 
 function buildRewardLines(rewards) {
@@ -14,9 +14,9 @@ function buildRewardLines(rewards) {
   const commands = [];
 
   for (const row of rewards) {
-    if (row.reward_display_text) summary.push(`• ${row.reward_display_text}`);
+    if (row.reward_display_text) summary.push(` ${row.reward_display_text}`);
     else if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_id) summary.push(`• Role ID: ${row.discord_role_id}`);
-    else summary.push(`• ${row.reward_type}`);
+    else summary.push(` ${row.reward_type}`);
 
     if (row.reward_type === 'SCUM_ITEM' && row.reward_spawn_command_template) {
       commands.push(row.reward_spawn_command_template);
