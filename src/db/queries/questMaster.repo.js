@@ -241,6 +241,7 @@ async function findQuestRequirements(questId, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [questId]
@@ -292,6 +293,7 @@ async function findQuestGuideImages(questId, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     ORDER BY display_order ASC, created_at ASC
     `,
@@ -344,6 +346,7 @@ async function findStepRequirements(stepId, client) {
     FROM public.tb_quest_master_requirement
     WHERE step_id = $1
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
     `,
     [stepId]
@@ -375,6 +378,7 @@ async function findStepGuideImages(stepId, client) {
     FROM public.tb_quest_master_media
     WHERE step_id = $1
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     ORDER BY display_order ASC, created_at ASC
     `,
@@ -534,6 +538,7 @@ async function addQuestRequirement(questId, payload, updatedBy, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     `,
     [questId]
   );
@@ -589,6 +594,7 @@ async function addQuestReward(questId, payload, updatedBy, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     `,
     [questId]
   );
@@ -638,7 +644,7 @@ async function updateQuestFameSettings(questId, payload, updatedBy, client) {
   return result.rows[0] || null;
 }
 
-async function replaceQuestRequirementsBulk(questId, displayText, updatedBy, client) {
+async function replaceQuestRequirementsBulk(questId, items, updatedBy, client) {
   return withTransaction(async (tx) => {
     await tx.query(
       `
@@ -653,7 +659,8 @@ async function replaceQuestRequirementsBulk(questId, displayText, updatedBy, cli
       [questId, updatedBy]
     );
 
-    if (String(displayText || '').trim()) {
+    let sortOrder = 1;
+    for (const item of items) {
       await tx.query(
         `
         INSERT INTO public.tb_quest_master_requirement
@@ -665,12 +672,13 @@ async function replaceQuestRequirementsBulk(questId, displayText, updatedBy, cli
         VALUES
         (
           gen_random_uuid(), $1, NULL, 'CUSTOM_TEXT',
-          NULLIF($2, ''), TRUE, 1, TRUE,
-          NOW(), NOW(), $3, $3
+          NULLIF($2, ''), TRUE, $3, TRUE,
+          NOW(), NOW(), $4, $4
         )
         `,
-        [questId, displayText || null, updatedBy]
+        [questId, item.displayText || null, sortOrder, updatedBy]
       );
+      sortOrder += 1;
     }
   }, client);
 }
@@ -691,13 +699,7 @@ async function replaceQuestRewardsBulk(questId, items, updatedBy, client) {
     );
 
     let sortOrder = 1;
-    for (const item of items.slice(0, 2)) {
-      const type = String(item.rewardType || '').trim().toUpperCase();
-      if (!['SCUM_ITEM', 'DISCORD_ROLE'].includes(type)) continue;
-      const displayText = String(item.rewardDisplayText || '').trim();
-      const commandText = type === 'SCUM_ITEM' ? String(item.rewardSpawnCommandTemplate || '').trim() : '';
-      const discordRoleId = type === 'DISCORD_ROLE' ? String(item.discordRoleId || '').trim() : '';
-      if (!displayText && !commandText && !discordRoleId) continue;
+    for (const item of items) {
       await tx.query(
         `
         INSERT INTO public.tb_quest_master_reward
@@ -715,10 +717,10 @@ async function replaceQuestRewardsBulk(questId, items, updatedBy, client) {
         `,
         [
           questId,
-          type,
-          commandText || null,
-          discordRoleId || null,
-          displayText || null,
+          item.rewardType,
+          item.rewardSpawnCommandTemplate || null,
+          item.discordRoleId || null,
+          item.rewardDisplayText || null,
           sortOrder,
           updatedBy
         ]
@@ -737,6 +739,7 @@ async function addQuestGuideImage(questId, payload, actorId, client) {
     WHERE quest_id = $1
       AND step_id IS NULL
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     `,
     [questId]
@@ -992,6 +995,7 @@ async function addStepGuideImage(stepId, payload, actorId, client) {
     FROM public.tb_quest_master_media
     WHERE step_id = $1
       AND is_active = TRUE
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
       AND media_type IN ('GUIDE_IMAGE', 'IMAGE')
     `,
     [stepId]

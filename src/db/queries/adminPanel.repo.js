@@ -82,6 +82,7 @@ async function findQuestRequirements(questId, client) {
     WHERE quest_id = $1
       AND is_active = TRUE
       AND step_id IS NULL
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
   `, [questId]);
   return result.rows;
@@ -95,6 +96,7 @@ async function findQuestRewards(questId, client) {
     WHERE quest_id = $1
       AND is_active = TRUE
       AND step_id IS NULL
+      AND reward_type IN ('SCUM_ITEM', 'DISCORD_ROLE')
     ORDER BY sort_order ASC, created_at ASC
   `, [questId]);
   return result.rows;

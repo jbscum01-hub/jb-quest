@@ -143,15 +143,17 @@ function parseBulkLines(raw) {
 }
 
 function parseRequirementBulkInput(raw) {
-  return String(raw || '').trim();
+  const lines = parseBulkLines(raw);
+  return lines.map((line) => ({ displayText: line }));
 }
 
 function parseRewardBulkInput(raw) {
-  return String(raw || '').trim();
+  const lines = parseBulkLines(raw);
+  return lines.map((line) => ({ rewardType: 'SCUM_ITEM', rewardDisplayText: line, rewardSpawnCommandTemplate: null, discordRoleId: null }));
 }
 
 function parseCommandBulkInput(raw) {
-  return String(raw || '').trim();
+  return parseBulkLines(raw);
 }
 
 function parseFlagSet(raw) {
@@ -489,57 +491,37 @@ async function addQuestRewardFromModal(interaction, questId) {
 
 
 async function saveQuestRequirementBulkFromModal(interaction, questId) {
-  const displayText = parseRequirementBulkInput(interaction.fields.getTextInputValue('bulk_requirement_lines'));
-  await replaceQuestRequirementsBulk(questId, displayText, interaction.user.id);
+  const items = parseRequirementBulkInput(interaction.fields.getTextInputValue('bulk_requirement_lines'));
+  await replaceQuestRequirementsBulk(questId, items, interaction.user.id);
   const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
-  await interaction.reply({ content: '✅ บันทึกของที่ต้องส่งทั้งก้อนเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
+  await interaction.reply({ content: '✅ บันทึกของที่ต้องส่งแบบยกชุดเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
 async function saveQuestRewardBulkFromModal(interaction, questId) {
-  const rewardDisplayText = parseRewardBulkInput(interaction.fields.getTextInputValue('bulk_reward_lines'));
-  const bundle = await getQuestDetailBundle(questId);
-  if (!bundle) throw new Error('ไม่พบข้อมูลเควสนี้');
-
-  const currentItem = (bundle.rewards || []).find((row) => row.reward_type === 'SCUM_ITEM') || null;
-  const roleReward = (bundle.rewards || []).find((row) => row.reward_type === 'DISCORD_ROLE') || null;
-  const merged = [];
-
-  if (rewardDisplayText || currentItem?.reward_spawn_command_template) {
-    merged.push({
-      rewardType: 'SCUM_ITEM',
-      rewardDisplayText,
-      rewardSpawnCommandTemplate: currentItem?.reward_spawn_command_template || '',
-      discordRoleId: null
-    });
-  }
-
-  if (roleReward?.discord_role_id || roleReward?.reward_display_text) {
-    merged.push({
-      rewardType: 'DISCORD_ROLE',
-      rewardDisplayText: roleReward.reward_display_text || '',
-      rewardSpawnCommandTemplate: null,
-      discordRoleId: roleReward.discord_role_id || null
-    });
-  }
-
-  await replaceQuestRewardsBulk(questId, merged, interaction.user.id);
+  const items = parseRewardBulkInput(interaction.fields.getTextInputValue('bulk_reward_lines'));
+  await replaceQuestRewardsBulk(questId, items, interaction.user.id);
   const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
-  await interaction.reply({ content: '✅ บันทึกรางวัลไอเทมทั้งก้อนเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
+  await interaction.reply({ content: '✅ บันทึกรางวัลแบบยกชุดเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
 async function saveQuestCommandBulkFromModal(interaction, questId) {
-  const commandText = parseCommandBulkInput(interaction.fields.getTextInputValue('bulk_command_lines'));
+  const lines = parseCommandBulkInput(interaction.fields.getTextInputValue('bulk_command_lines'));
   const bundle = await getQuestDetailBundle(questId);
   if (!bundle) throw new Error('ไม่พบข้อมูลเควสนี้');
 
-  const currentItem = (bundle.rewards || []).find((row) => row.reward_type === 'SCUM_ITEM') || null;
+  const itemRewards = (bundle.rewards || []).filter((row) => row.reward_type === 'SCUM_ITEM');
   const roleReward = (bundle.rewards || []).find((row) => row.reward_type === 'DISCORD_ROLE') || null;
+  const maxLen = Math.max(itemRewards.length, lines.length);
   const merged = [];
 
-  if (currentItem?.reward_display_text || commandText) {
+  for (let i = 0; i < maxLen; i += 1) {
+    const current = itemRewards[i] || null;
+    const commandText = lines[i] || '';
+    const displayText = current?.reward_display_text || '';
+    if (!displayText && !commandText) continue;
     merged.push({
       rewardType: 'SCUM_ITEM',
-      rewardDisplayText: currentItem?.reward_display_text || '',
+      rewardDisplayText: displayText,
       rewardSpawnCommandTemplate: commandText,
       discordRoleId: null
     });
@@ -556,7 +538,7 @@ async function saveQuestCommandBulkFromModal(interaction, questId) {
 
   await replaceQuestRewardsBulk(questId, merged, interaction.user.id);
   const refreshed = await enrichBundle(await getQuestDetailBundle(questId));
-  await interaction.reply({ content: '✅ บันทึกคำสั่งไอเทมทั้งก้อนเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
+  await interaction.reply({ content: '✅ บันทึกคำสั่งไอเทมเรียบร้อยแล้ว', ...buildQuestDetailResponse(refreshed), ephemeral: true });
 }
 
 async function saveQuestRoleRewardFromModal(interaction, questId) {
@@ -565,18 +547,14 @@ async function saveQuestRoleRewardFromModal(interaction, questId) {
   const bundle = await getQuestDetailBundle(questId);
   if (!bundle) throw new Error('ไม่พบข้อมูลเควสนี้');
 
-  const currentItem = (bundle.rewards || []).find((row) => row.reward_type === 'SCUM_ITEM') || null;
-  const merged = [];
+  const itemRewards = (bundle.rewards || []).filter((row) => row.reward_type === 'SCUM_ITEM').map((row) => ({
+    rewardType: 'SCUM_ITEM',
+    rewardDisplayText: row.reward_display_text || '',
+    rewardSpawnCommandTemplate: row.reward_spawn_command_template || '',
+    discordRoleId: null
+  }));
 
-  if (currentItem?.reward_display_text || currentItem?.reward_spawn_command_template) {
-    merged.push({
-      rewardType: 'SCUM_ITEM',
-      rewardDisplayText: currentItem.reward_display_text || '',
-      rewardSpawnCommandTemplate: currentItem.reward_spawn_command_template || '',
-      discordRoleId: null
-    });
-  }
-
+  const merged = [...itemRewards];
   if (displayText || discordRoleId) {
     merged.push({
       rewardType: 'DISCORD_ROLE',
