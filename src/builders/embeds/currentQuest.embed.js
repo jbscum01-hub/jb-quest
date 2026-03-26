@@ -54,9 +54,6 @@ function buildDescriptionSection(quest) {
   return ['📍 รายละเอียด', desc].join('\n');
 }
 
-function buildInputSection() {
-  return ['กรุณาใส่ข้อมูล', '• ชื่อในเกม', '• รูปหลักฐาน'].join('\n');
-}
 
 function buildConditionSection(quest) {
   return ['✅ เงื่อนไขการส่ง', `• Fame ขั้นต่ำ : ${getFameDisplayText(quest)}`].join('\n');
@@ -94,8 +91,6 @@ function buildCurrentQuestEmbed({ professionCode, profession, quest, requirement
     buildHeaderBlock(quest, professionCode),
     '',
     buildDescriptionSection(quest) || '',
-    '',
-    buildInputSection(),
     '',
     DIVIDER,
     buildConditionSection(quest),
