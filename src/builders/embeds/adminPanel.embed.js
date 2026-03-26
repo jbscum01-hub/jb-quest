@@ -315,7 +315,7 @@ function buildDependencyPickerEmbed(bundle, options = []) {
       `**Dependency ปัจจุบัน:** ${current ? `${current.required_quest_code} · ${current.required_quest_name || '-'}` : 'ไม่มี'}`,
       `**ตัวเลือกที่ใช้ได้:** ${options.length} เควส`,
       '',
-      'เลือกเควสก่อนหน้าที่ต้องผ่านก่อน หรือเลือก **ไม่มี dependency** เพื่อลบเงื่อนไขเดิม'
+      'ฟีเจอร์ dependency ถูกปิดใช้งานแล้วในระบบปัจจุบัน'
     ].join('\n'))
     .setFooter({ text: 'SCUM Quest System · Dependency Editor' })
     .setTimestamp();

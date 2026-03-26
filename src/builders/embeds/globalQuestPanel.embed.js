@@ -1,15 +1,19 @@
 const { EmbedBuilder } = require('discord.js');
 
+function splitBlock(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function formatRequirement(row) {
-  if (row.requirement_type === 'INGAME_NAME') return '• ระบุชื่อตัวละคร';
-  if (row.requirement_type === 'IMAGE') return '• ส่งภาพหลักฐาน';
-  if (row.display_text) return `• ${row.display_text}`;
-  return null;
+  return splitBlock(row.display_text).join('\n') || null;
 }
 
 function formatReward(row) {
-  if (row.reward_display_text) return `• ${row.reward_display_text}`;
-  if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_id) return `• Role ID: ${row.discord_role_id}`;
+  if (row.reward_display_text) return splitBlock(row.reward_display_text).join('\n') || null;
+  if (row.reward_type === 'DISCORD_ROLE' && row.discord_role_id) return `Role ID: ${row.discord_role_id}`;
   return null;
 }
 

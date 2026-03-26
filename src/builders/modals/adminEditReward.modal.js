@@ -14,26 +14,19 @@ function buildAdminEditRewardModal(reward) {
     .setCustomId(`quest:admin_modal:edit_reward:${reward.reward_id}`)
     .setTitle('แก้รางวัล');
 
-  const rewardItemName = new TextInputBuilder()
-    .setCustomId('reward_item_name')
-    .setLabel('ชื่อรางวัล')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setValue(safeValue(reward.reward_item_name));
-
-  const rewardQty = new TextInputBuilder()
-    .setCustomId('reward_quantity')
-    .setLabel('จำนวนรางวัล')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setValue(safeValue(reward.reward_quantity ?? '0'));
-
   const displayText = new TextInputBuilder()
     .setCustomId('reward_display_text')
     .setLabel('ข้อความแสดงผล')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(false)
     .setValue(safeValue(reward.reward_display_text));
+
+  const commandText = new TextInputBuilder()
+    .setCustomId('reward_spawn_command_template')
+    .setLabel('คำสั่งไอเทม')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setValue(safeValue(reward.reward_spawn_command_template));
 
   const roleId = new TextInputBuilder()
     .setCustomId('discord_role_id')
@@ -50,9 +43,8 @@ function buildAdminEditRewardModal(reward) {
     .setValue(safeValue(reward.sort_order ?? '1'));
 
   modal.addComponents(
-    new ActionRowBuilder().addComponents(rewardItemName),
-    new ActionRowBuilder().addComponents(rewardQty),
     new ActionRowBuilder().addComponents(displayText),
+    new ActionRowBuilder().addComponents(commandText),
     new ActionRowBuilder().addComponents(roleId),
     new ActionRowBuilder().addComponents(sortOrder)
   );
@@ -60,6 +52,4 @@ function buildAdminEditRewardModal(reward) {
   return modal;
 }
 
-module.exports = {
-  buildAdminEditRewardModal
-};
+module.exports = { buildAdminEditRewardModal };
