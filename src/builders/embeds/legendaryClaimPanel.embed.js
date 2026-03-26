@@ -20,7 +20,7 @@ function buildLegendaryLimitText(quest) {
   const weekly = Number(quest?.weekly_claim_limit || 0);
   const cooldownDays = Number(quest?.legendary_claim_cooldown_days || quest?.duration_days || 0);
   if (weekly > 0 && cooldownDays > 0) return `เคลมได้ ${weekly} ครั้ง / ${cooldownDays} วัน`;
-  if (weekly > 0) return `เคลมได้ ${weekly} ครั้ง`;
+  if (weekly > 0) return `เคลมได้ ${weekly} ครั้ง ต่อสัปดาห์`;
   if (cooldownDays > 0) return `เคลมได้ 1 ครั้ง / ${cooldownDays} วัน`;
   return null;
 }
@@ -44,7 +44,7 @@ function buildLegendaryClaimPanelEmbed({ quest, rewards = [], stateText = '-', i
 
   const limitText = buildLegendaryLimitText(quest);
   if (limitText) {
-    parts.push('', '🕒 การเคลม', limitText , ' ต่อสัปดาห์');
+    parts.push('', '🕒 การเคลม', limitText );
   }
 
   parts.push('', '📌 สถานะเคลม', String(stateText || '-').trim());
